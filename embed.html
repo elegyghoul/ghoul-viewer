@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GhoulViewer embed</title>
     <style>
-      /* Native (1×) sizes. Display scale is --gv-scale (integer 1–3, fitted to window width). */
+      /* Native (1×) sizes. Display scale is --gv-scale (up to 3×, fitted to window width). */
       :root {
         --gv-scale: 1;
         --gv-view: 155px;
@@ -463,7 +463,7 @@
           var border = parseFloat(cs.getPropertyValue('--gv-border')) || 1;
           var gap = parseFloat(cs.getPropertyValue('--gv-gap')) || 1;
           var native = (view + border * 2) * 2 + gap;
-          var scale = Math.max(1, Math.min(MAX, Math.floor(window.innerWidth / native)));
+          var scale = Math.min(MAX, window.innerWidth / native);
           document.documentElement.style.setProperty('--gv-scale', String(scale));
         }
         fit();
