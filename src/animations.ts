@@ -60,8 +60,11 @@ export class GhoulAnimator {
     this.current = null;
     this.play(name, 0);
     this.mixer.update(0);
-    normalizeMixamoHipsScale(this.mixer.getRoot());
-    this.mixer.getRoot().updateWorldMatrix(true, true);
+    const root = this.mixer.getRoot();
+    if (root instanceof THREE.Object3D) {
+      normalizeMixamoHipsScale(root);
+      root.updateWorldMatrix(true, true);
+    }
   }
 
   update(dt: number): void {

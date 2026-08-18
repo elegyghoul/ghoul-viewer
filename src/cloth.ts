@@ -41,14 +41,14 @@ function findMagicaClothNode(mesh: THREE.Object3D): THREE.Object3D | null {
   const source = family.replace(/_webgl$/, '');
   let node: THREE.Object3D | null = mesh;
   while (node) {
-    const parent = node.parent;
+    const parent: THREE.Object3D | null = node.parent;
     const pool = parent ? parent.children : [node];
     for (const sib of pool) {
       const n = normalizeName(sib.name);
       if (n.includes('webgl')) continue;
       if (n !== source && !n.startsWith(`${source}_`)) continue;
       let found: THREE.Object3D | null = null;
-      sib.traverse((o) => {
+      sib.traverse((o: THREE.Object3D) => {
         if (found) return;
         if (isMagicaClothName(o.name)) found = o;
       });

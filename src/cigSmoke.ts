@@ -155,11 +155,8 @@ export class CigSmokeManager {
 
     if (tips.length === 0) {
       for (const name of ['Cig1', 'Cig2', 'Stogie']) {
-        let cig: THREE.Object3D | null = null;
-        root.traverse((o) => {
-          if (!cig && o.name === name && tipIsLive(o)) cig = o;
-        });
-        if (!cig) continue;
+        const cig = root.getObjectByName(name);
+        if (!cig || !tipIsLive(cig)) continue;
         const tip = new THREE.Object3D();
         tip.name = 'CigSmokeTip';
         tip.position.set(0, 0, 0.55);

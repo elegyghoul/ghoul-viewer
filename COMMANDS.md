@@ -112,6 +112,44 @@ viewer.setBloom({
 
 Pass only the keys you want to change. `getBloom()` returns the current set. `resetBloom()` restores Objects mode and the default strength / radius / threshold.
 
+### Fog
+
+Distance fog for Trait backgrounds (and ghouls whose Background trait is None). Grid and Ghoulball hide it.
+
+```js
+viewer.setFog({
+  enabled: true,
+  color: 0x240019,  // or '#240019'
+  near: 4.9,        // 0–40, where fog starts
+  far: 32.85,       // 0.1–80, where fog is fully opaque
+});
+```
+
+Pass only the keys you want to change. Setting `near`, `far`, or `color` turns fog on unless you pass `enabled: false`. `getFog()` returns the current set. `resetFog()` restores the saved fog for this background.
+
+### Ghoulball
+
+Used after `setBackground('ghoulball')`. Rotation is degrees; spin is rad/s. Metallic / Roughness / Twirl match the Scene panel sliders.
+
+```js
+viewer.setBackground('ghoulball');
+viewer.setBall({
+  rotation: { x: 0, y: 45, z: 18 },  // degrees, −180–180
+  spin: { x: 0, y: -0.45, z: 0 },    // rad/s, −4.5–4.5
+  metalness: 0,                      // 0–1
+  roughness: 0.75,                   // 0–1
+  swirl: 0,                          // −1–1 (Twirl)
+});
+```
+
+Pass only the keys you want to change. Nested `rotation` / `spin` can also be partial.
+
+| Call | What it does |
+|---|---|
+| `setBall({ ... })` | Rotation, spin, and/or material |
+| `getBall()` | Current rotation, spin, material |
+| `resetBall()` | Default tilt (18°), idle spin, and material |
+
 ### Ready
 
 ```js
@@ -132,6 +170,8 @@ const viewer = mountGhoulViewer(document.getElementById('my-div'), {
   lights: { master: 1 },
   view: { zoom: 3 },
   bloom: { mode: 'screen' },
+  fog: { near: 5, far: 30 },
+  ball: { swirl: 0.4 },
   anim: 'Idle',
   updateUrl: false,      // true = write ?id= into the address bar
 });
@@ -157,6 +197,8 @@ viewer.setBackground('ghoulball');
 viewer.setLights({ key: 8, fill: 2 });
 viewer.setView({ zoom: 4, rotation: { y: 30 } });
 viewer.setBloom({ mode: 'screen', strength: 0.4 });
+viewer.setFog({ near: 5, far: 28 });
+viewer.setBall({ spin: { y: -1 }, metalness: 0.4 });
 ```
 
 Studio editor (all panels) stays at `/`.

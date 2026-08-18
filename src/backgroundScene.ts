@@ -19,6 +19,10 @@ const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Palms: -25,
 };
 
+/** Horizon fill disc: slightly under the ground plane; extra drop when WaterPlane is present. */
+const HORIZON_DISC_Y = -0.04;
+const HORIZON_DISC_OCEAN_DROP = 2;
+
 function skyboxRadius(name: string): number {
   return SKYBOX_RADIUS_BY_KEY[name] ?? SKYBOX_RADIUS;
 }
@@ -249,6 +253,10 @@ export class BackgroundSceneManager {
     return (this.waterByBg.get(key)?.length ?? 0) > 0;
   }
 
+  private horizonDiscY(name: string): number {
+    return HORIZON_DISC_Y - (this.hasWaterPlane(name) ? HORIZON_DISC_OCEAN_DROP : 0);
+  }
+
   setOceanMaterial(key: string, settings: BackgroundOceanMat): void {
     this.oceanMatByKey.set(key, { ...settings });
     this.applyOceanMatToKey(key);
@@ -342,6 +350,7 @@ export class BackgroundSceneManager {
       sky.visible = true;
       shown = true;
       const disc = this.ensureHorizonDisc(name, floor);
+      disc.position.y = this.horizonDiscY(name);
       disc.visible = true;
     } else {
       // No photo skybox — procedural vertical gradient on a sphere.
@@ -648,7 +657,7 @@ export class BackgroundSceneManager {
             if (!mesh.isMesh) return;
             const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             for (const mat of mats) {
-              mat.fog = true;
+              (mat as THREE.MeshStandardMaterial).fog = true;
               mat.needsUpdate = true;
             }
             mesh.castShadow = true;
@@ -691,7 +700,7 @@ export class BackgroundSceneManager {
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = `HorizonDisc_${name}`;
-    mesh.position.y = -0.04;
+    mesh.position.y = this.horizonDiscY(name);
     mesh.renderOrder = -9;
     mesh.frustumCulled = false;
     mesh.visible = false;

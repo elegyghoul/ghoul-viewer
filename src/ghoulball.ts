@@ -107,6 +107,10 @@ export class GhoulballController {
   private dragging = false;
   private lastPtrX = 0;
   private lastPtrY = 0;
+  /** Euler degrees (order XYZ). Kept when the mesh is missing so API calls stick. */
+  private rotX = 0;
+  private rotY = 0;
+  private rotZ = THREE.MathUtils.radToDeg(AXIAL_TILT);
   /** Steady spin around local axes (rad/s). */
   private spinX = 0;
   private spinY = AUTO_SPIN_Y;
@@ -119,23 +123,24 @@ export class GhoulballController {
 
   /** Ball Euler rotation in degrees (order XYZ). */
   getRotation(): { x: number; y: number; z: number } {
-    if (!this.ball) {
-      return { x: 0, y: 0, z: THREE.MathUtils.radToDeg(AXIAL_TILT) };
+    if (this.ball) {
+      this.ball.rotation.reorder('XYZ');
+      this.rotX = THREE.MathUtils.radToDeg(this.ball.rotation.x);
+      this.rotY = THREE.MathUtils.radToDeg(this.ball.rotation.y);
+      this.rotZ = THREE.MathUtils.radToDeg(this.ball.rotation.z);
     }
-    this.ball.rotation.reorder('XYZ');
-    return {
-      x: THREE.MathUtils.radToDeg(this.ball.rotation.x),
-      y: THREE.MathUtils.radToDeg(this.ball.rotation.y),
-      z: THREE.MathUtils.radToDeg(this.ball.rotation.z),
-    };
+    return { x: this.rotX, y: this.rotY, z: this.rotZ };
   }
 
   setRotation(partial: Partial<{ x: number; y: number; z: number }>): void {
+    if (partial.x != null) this.rotX = partial.x;
+    if (partial.y != null) this.rotY = partial.y;
+    if (partial.z != null) this.rotZ = partial.z;
     if (!this.ball) return;
     this.ball.rotation.reorder('XYZ');
-    if (partial.x != null) this.ball.rotation.x = THREE.MathUtils.degToRad(partial.x);
-    if (partial.y != null) this.ball.rotation.y = THREE.MathUtils.degToRad(partial.y);
-    if (partial.z != null) this.ball.rotation.z = THREE.MathUtils.degToRad(partial.z);
+    this.ball.rotation.x = THREE.MathUtils.degToRad(this.rotX);
+    this.ball.rotation.y = THREE.MathUtils.degToRad(this.rotY);
+    this.ball.rotation.z = THREE.MathUtils.degToRad(this.rotZ);
   }
 
   /** Spin speeds in rad/s on local X / Y / Z. */
@@ -158,7 +163,11 @@ export class GhoulballController {
     this.spinX = 0;
     this.spinY = AUTO_SPIN_Y;
     this.spinZ = 0;
+    this.rotX = 0;
+    this.rotY = 0;
+    this.rotZ = THREE.MathUtils.radToDeg(AXIAL_TILT);
     if (this.ball) {
+      this.ball.rotation.reorder('XYZ');
       this.ball.rotation.set(0, 0, AXIAL_TILT);
     }
   }
@@ -334,6 +343,9 @@ export class GhoulballController {
     this.sphereVerts = new Float32Array(0);
     this.phase = 'idle';
     this.elapsed = 0;
+    this.rotX = 0;
+    this.rotY = 0;
+    this.rotZ = THREE.MathUtils.radToDeg(AXIAL_TILT);
     this.spinX = 0;
     this.spinY = AUTO_SPIN_Y;
     this.spinZ = 0;
@@ -428,10 +440,10 @@ export class GhoulballController {
     root.updateWorldMatrix(true, true);
 
     root.traverse((o) => {
+      if ((o as THREE.Points).isPoints) return;
       const src = o as THREE.Mesh;
       if (!src.isMesh || !src.geometry) return;
       if (src.name.startsWith('Magica ')) return;
-      if ((src as THREE.Points).isPoints) return;
       // Only parts that are actually on screen for this ghoul's traits.
       if (!meshCanDraw(src)) return;
 
@@ -745,7 +757,12 @@ export class GhoulballController {
     );
     mesh.name = 'Ghoulball';
     mesh.position.copy(this.centerWorld);
-    mesh.rotation.z = AXIAL_TILT;
+    mesh.rotation.reorder('XYZ');
+    mesh.rotation.set(
+      THREE.MathUtils.degToRad(this.rotX),
+      THREE.MathUtils.degToRad(this.rotY),
+      THREE.MathUtils.degToRad(this.rotZ),
+    );
     mesh.frustumCulled = false;
     mesh.renderOrder = 20;
     scene.add(mesh);

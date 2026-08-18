@@ -381,7 +381,6 @@ function makePoints(count: number, sprite: SpriteId, size: number): {
 export class CudiParticleManager {
   private emitters: Emitter[] = [];
   private hidden = new Set<THREE.Mesh>();
-  private scene: THREE.Object3D | null = null;
   private failed = false;
   private attachedChain: THREE.Object3D | null = null;
   private syncGen = 0;
@@ -391,7 +390,6 @@ export class CudiParticleManager {
     const gen = ++this.syncGen;
     this.dispose();
     this.failed = false;
-    this.scene = scene;
     if (!cudiGroupVisible(root)) return;
 
     // Necklace mesh isn't in ghoul-avatar.glb — spawn the Unity FBX emitter.

@@ -1,8 +1,12 @@
 import {
   mountGhoulViewer,
   type AppMode,
+  type BallLevels,
+  type BallPatch,
   type BgMode,
   type BloomLevels,
+  type FogLevels,
+  type FogPatch,
   type GhoulViewer,
   type GhoulViewerOptions,
   type ViewLevels,
@@ -15,8 +19,12 @@ import fontUrl from './assets/BMAS_Pixel_Console.otf?url';
 export {
   mountGhoulViewer,
   type AppMode,
+  type BallLevels,
+  type BallPatch,
   type BgMode,
   type BloomLevels,
+  type FogLevels,
+  type FogPatch,
   type GhoulViewer,
   type GhoulViewerOptions,
   type ViewLevels,
@@ -56,6 +64,12 @@ export class GhoulViewerElement extends HTMLElement {
     this.setBloom = (levels) => this.api!.setBloom(levels);
     this.getBloom = () => this.api!.getBloom();
     this.resetBloom = () => this.api!.resetBloom();
+    this.setFog = (levels) => this.api!.setFog(levels);
+    this.getFog = () => this.api!.getFog();
+    this.resetFog = () => this.api!.resetFog();
+    this.setBall = (levels) => this.api!.setBall(levels);
+    this.getBall = () => this.api!.getBall();
+    this.resetBall = () => this.api!.resetBall();
     this.setMode = (mode) => this.api!.setMode(mode);
     this.getMode = () => this.api!.getMode();
     this.setCamera = (mode) => this.api!.setCamera(mode);
@@ -82,6 +96,12 @@ export class GhoulViewerElement extends HTMLElement {
   setBloom!: GhoulViewer['setBloom'];
   getBloom!: GhoulViewer['getBloom'];
   resetBloom!: GhoulViewer['resetBloom'];
+  setFog!: GhoulViewer['setFog'];
+  getFog!: GhoulViewer['getFog'];
+  resetFog!: GhoulViewer['resetFog'];
+  setBall!: GhoulViewer['setBall'];
+  getBall!: GhoulViewer['getBall'];
+  resetBall!: GhoulViewer['resetBall'];
   setMode!: GhoulViewer['setMode'];
   getMode!: GhoulViewer['getMode'];
   setCamera!: GhoulViewer['setCamera'];

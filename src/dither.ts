@@ -41,7 +41,6 @@ function appendExtraPaletteColors(colors: THREE.Vector3[]): THREE.Vector3[] {
   if (extras.length === 0) return colors.slice(0, MAX_PALETTE);
   const merged = [...colors, ...extras];
   if (merged.length <= MAX_PALETTE) return merged;
-  const stripLen = colors.length;
   const keepStrip = Math.max(0, MAX_PALETTE - extras.length);
   return [...colors.slice(0, keepStrip), ...extras];
 }

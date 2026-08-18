@@ -83,6 +83,48 @@ export type BloomLevels = {
   threshold: number;
 };
 
+/** Scene distance fog (Trait background, or ghouls with no background). */
+export type FogLevels = {
+  enabled: boolean;
+  /** 0xRRGGBB */
+  color: number;
+  near: number;
+  far: number;
+};
+
+export type FogPatch = {
+  enabled?: boolean;
+  /** Hex number (`0x240019`) or CSS (`'#240019'`). */
+  color?: number | string;
+  near?: number;
+  far?: number;
+};
+
+/** Ghoulball pose + the embed material sliders. Rotation is degrees; spin is rad/s. */
+export type BallLevels = {
+  rotation: Vec3;
+  spin: Vec3;
+  metalness: number;
+  roughness: number;
+  swirl: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
+  envMapIntensity: number;
+  reflectivity: number;
+};
+
+export type BallPatch = {
+  rotation?: Partial<Vec3>;
+  spin?: Partial<Vec3>;
+  metalness?: number;
+  roughness?: number;
+  swirl?: number;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  envMapIntensity?: number;
+  reflectivity?: number;
+};
+
 export type GhoulViewerOptions = {
   id?: number;
   /** Write `?id=` into the page URL. Studio default true; embed default false. */
@@ -93,6 +135,8 @@ export type GhoulViewerOptions = {
   lights?: Partial<LightLevels>;
   view?: ViewPatch;
   bloom?: Partial<BloomLevels>;
+  fog?: FogPatch;
+  ball?: BallPatch;
   anim?: AnimName;
   onLoad?: (id: number) => void;
 };
@@ -110,6 +154,12 @@ export type GhoulViewer = {
   setBloom(levels: Partial<BloomLevels>): void;
   getBloom(): BloomLevels;
   resetBloom(): void;
+  setFog(levels: FogPatch): void;
+  getFog(): FogLevels;
+  resetFog(): void;
+  setBall(levels: BallPatch): void;
+  getBall(): BallLevels;
+  resetBall(): void;
   setMode(mode: AppMode): void;
   getMode(): AppMode;
   setCamera(mode: PlayCameraMode): void;
@@ -2282,6 +2332,7 @@ function doLoad(id?: number): void {
       const refUrl =
         refImage.src || `/Ghouls/${String(n).padStart(4, '0')}.png`;
       ghoulball.start(assembler.root, scene, refUrl, extras);
+      reapplyStoredBall();
     }
   } catch (e) {
     console.error(e);
@@ -2464,6 +2515,7 @@ function setBgMode(next: BgMode): void {
       });
       const refUrl = refImage.src || `/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`;
       ghoulball.start(asm.root, scene, refUrl, extras);
+      reapplyStoredBall();
     }, 50);
   } else if (prev === 'ghoulball' && assembler) {
     ghoulball.stop(assembler.root, true);
@@ -2710,6 +2762,49 @@ if (fogSaveBtn instanceof HTMLButtonElement) {
   fogSaveBtn.addEventListener('click', () => {
     void saveFogForCurrentBg();
   });
+}
+
+function fogColorFromPatch(color: number | string): number {
+  if (typeof color === 'number') return color & 0xffffff;
+  return cssToHex(color);
+}
+
+function getFog(): FogLevels {
+  const key = fogBackgroundKey();
+  if (!key) {
+    return { enabled: false, color: 0x000000, near: 1.5, far: 4 };
+  }
+  const fog = fogForKey(key);
+  return { enabled: fog.enabled, color: fog.color, near: fog.near, far: fog.far };
+}
+
+function setFog(levels: FogPatch): void {
+  const key = fogBackgroundKey();
+  if (!key) return;
+  const prev = fogForKey(key);
+  const next: BackgroundFog = { ...prev };
+  if (levels.enabled != null) next.enabled = levels.enabled;
+  if (levels.color != null) next.color = fogColorFromPatch(levels.color);
+  if (levels.near != null) next.near = levels.near;
+  if (levels.far != null) next.far = levels.far;
+  if (next.far < next.near + 0.05) next.far = next.near + 0.05;
+  if (
+    levels.enabled == null &&
+    (levels.near != null || levels.far != null || levels.color != null)
+  ) {
+    next.enabled = true;
+  }
+  fogLive.set(key, next);
+  applySceneFog();
+  syncFogControls();
+}
+
+function resetFog(): void {
+  const key = fogBackgroundKey();
+  if (!key) return;
+  fogLive.delete(key);
+  applySceneFog();
+  syncFogControls();
 }
 
 function setSunSaveStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {
@@ -3029,6 +3124,77 @@ for (const el of [
   el.addEventListener('change', writeBallFromControls);
 }
 
+let lastBallPatch: BallPatch = {};
+
+function mergeBallPatch(a: BallPatch, b: BallPatch): BallPatch {
+  return {
+    ...a,
+    ...b,
+    rotation: b.rotation ? { ...a.rotation, ...b.rotation } : a.rotation,
+    spin: b.spin ? { ...a.spin, ...b.spin } : a.spin,
+  };
+}
+
+function applyBallPatch(levels: BallPatch): void {
+  if (levels.rotation) ghoulball.setRotation(levels.rotation);
+  if (levels.spin) ghoulball.setSpin(levels.spin);
+  const mat: Partial<GhoulballMaterialParams> = {};
+  if (levels.metalness != null) mat.metalness = levels.metalness;
+  if (levels.roughness != null) mat.roughness = levels.roughness;
+  if (levels.swirl != null) mat.swirl = levels.swirl;
+  if (levels.clearcoat != null) mat.clearcoat = levels.clearcoat;
+  if (levels.clearcoatRoughness != null) mat.clearcoatRoughness = levels.clearcoatRoughness;
+  if (levels.envMapIntensity != null) mat.envMapIntensity = levels.envMapIntensity;
+  if (levels.reflectivity != null) mat.reflectivity = levels.reflectivity;
+  if (Object.keys(mat).length) ghoulball.setMaterialParams(mat);
+  syncBallRotUi();
+  syncBallControlsFromParams();
+}
+
+function reapplyStoredBall(): void {
+  if (
+    lastBallPatch.rotation ||
+    lastBallPatch.spin ||
+    lastBallPatch.metalness != null ||
+    lastBallPatch.roughness != null ||
+    lastBallPatch.swirl != null ||
+    lastBallPatch.clearcoat != null ||
+    lastBallPatch.clearcoatRoughness != null ||
+    lastBallPatch.envMapIntensity != null ||
+    lastBallPatch.reflectivity != null
+  ) {
+    applyBallPatch(lastBallPatch);
+  }
+}
+
+function getBall(): BallLevels {
+  const p = ghoulball.getMaterialParams();
+  return {
+    rotation: ghoulball.getRotation(),
+    spin: ghoulball.getSpin(),
+    metalness: p.metalness,
+    roughness: p.roughness,
+    swirl: p.swirl,
+    clearcoat: p.clearcoat,
+    clearcoatRoughness: p.clearcoatRoughness,
+    envMapIntensity: p.envMapIntensity,
+    reflectivity: p.reflectivity,
+  };
+}
+
+function setBall(levels: BallPatch): void {
+  lastBallPatch = mergeBallPatch(lastBallPatch, levels);
+  applyBallPatch(levels);
+}
+
+function resetBall(): void {
+  lastBallPatch = {};
+  ghoulball.resetRotation();
+  ghoulball.setMaterialParams({ ...DEFAULT_GHOULBALL_MATERIAL });
+  syncBallRotUi();
+  syncBallControlsFromParams();
+}
+
 function writePlayFromControls(): void {
   if (!(playWalkSpeedInput instanceof HTMLInputElement)) return;
   const next = {
@@ -3151,6 +3317,12 @@ function buildApi(): GhoulViewer {
     setBloom,
     getBloom,
     resetBloom,
+    setFog,
+    getFog,
+    resetFog,
+    setBall,
+    getBall,
+    resetBall,
     setMode: setAppMode,
     getMode() {
       return appMode;
@@ -3195,6 +3367,8 @@ export function mountGhoulViewer(
     if (options.lights) setLights(options.lights);
     if (options.view) setView(options.view);
     if (options.bloom) setBloom(options.bloom);
+    if (options.fog) setFog(options.fog);
+    if (options.ball) setBall(options.ball);
     if (options.anim) setAnim(options.anim);
     if (options.mode) setAppMode(options.mode);
     if (options.camera) setCamMode(options.camera);

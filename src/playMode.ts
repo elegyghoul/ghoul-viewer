@@ -239,7 +239,8 @@ export class PlayController {
   private bindPitchDrag(): void {
     if (this.pitchBound || !this.orbit) return;
     const el = this.orbit.domElement;
-    el.addEventListener('pointerdown', this.onPtrDown);
+    if (!el) return;
+    el.addEventListener('pointerdown', this.onPtrDown as EventListener);
     window.addEventListener('pointermove', this.onPtrMove);
     window.addEventListener('pointerup', this.onPtrUp);
     window.addEventListener('pointercancel', this.onPtrUp);
@@ -253,7 +254,7 @@ export class PlayController {
       return;
     }
     const el = this.orbit.domElement;
-    el.removeEventListener('pointerdown', this.onPtrDown);
+    if (el) el.removeEventListener('pointerdown', this.onPtrDown as EventListener);
     window.removeEventListener('pointermove', this.onPtrMove);
     window.removeEventListener('pointerup', this.onPtrUp);
     window.removeEventListener('pointercancel', this.onPtrUp);
@@ -266,7 +267,7 @@ export class PlayController {
     this.pitchDragging = true;
     this.lastPtrY = e.clientY;
     try {
-      this.orbit?.domElement.setPointerCapture(e.pointerId);
+      this.orbit?.domElement?.setPointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
@@ -289,7 +290,7 @@ export class PlayController {
     if (!this.pitchDragging) return;
     this.pitchDragging = false;
     try {
-      this.orbit?.domElement.releasePointerCapture(e.pointerId);
+      this.orbit?.domElement?.releasePointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
