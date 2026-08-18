@@ -1,0 +1,2968 @@
+[
+  {
+    "i": 0,
+    "name": "Based Ghoul  - Teeth TPOSE",
+    "children": [
+      1,
+      470,
+      471,
+      472,
+      473,
+      474,
+      475,
+      476,
+      483
+    ]
+  },
+  {
+    "i": 1,
+    "name": "Based Ghoul Armature",
+    "children": [
+      2
+    ]
+  },
+  {
+    "i": 2,
+    "name": "mixamorig:Hips",
+    "children": [
+      3,
+      13,
+      23,
+      468,
+      469
+    ]
+  },
+  {
+    "i": 3,
+    "name": "mixamorig:LeftUpLeg",
+    "children": [
+      4,
+      11,
+      12
+    ]
+  },
+  {
+    "i": 4,
+    "name": "mixamorig:LeftLeg",
+    "children": [
+      5,
+      8,
+      9,
+      10
+    ]
+  },
+  {
+    "i": 5,
+    "name": "mixamorig:LeftFoot",
+    "children": [
+      6,
+      7
+    ]
+  },
+  {
+    "i": 6,
+    "name": "mixamorig:LeftToeBase"
+  },
+  {
+    "i": 7,
+    "name": "Magica Capsule Collider (mixamorig:LeftFoot)"
+  },
+  {
+    "i": 8,
+    "name": "Magica Capsule Collider (mixamorig:LeftLeg)"
+  },
+  {
+    "i": 9,
+    "name": "Collider - LeftLeg",
+    "mesh": 0
+  },
+  {
+    "i": 10,
+    "name": "Collider - LeftFoot",
+    "mesh": 0
+  },
+  {
+    "i": 11,
+    "name": "Magica Capsule Collider (mixamorig:LeftUpLeg)"
+  },
+  {
+    "i": 12,
+    "name": "Collider - LeftUpLeg",
+    "mesh": 0
+  },
+  {
+    "i": 13,
+    "name": "mixamorig:RightUpLeg",
+    "children": [
+      14,
+      21,
+      22
+    ]
+  },
+  {
+    "i": 14,
+    "name": "mixamorig:RightLeg",
+    "children": [
+      15,
+      19,
+      20
+    ]
+  },
+  {
+    "i": 15,
+    "name": "mixamorig:RightFoot",
+    "children": [
+      16,
+      17,
+      18
+    ]
+  },
+  {
+    "i": 16,
+    "name": "mixamorig:RightToeBase"
+  },
+  {
+    "i": 17,
+    "name": "Magica Capsule Collider (mixamorig:RightFoot)"
+  },
+  {
+    "i": 18,
+    "name": "Collider - RightFoot",
+    "mesh": 0
+  },
+  {
+    "i": 19,
+    "name": "Magica Capsule Collider (mixamorig:RightLeg)"
+  },
+  {
+    "i": 20,
+    "name": "Collider - RightLeg",
+    "mesh": 0
+  },
+  {
+    "i": 21,
+    "name": "Magica Capsule Collider (mixamorig:RightUpLeg)"
+  },
+  {
+    "i": 22,
+    "name": "Collider - RightUpLeg",
+    "mesh": 0
+  },
+  {
+    "i": 23,
+    "name": "mixamorig:Spine",
+    "children": [
+      24
+    ]
+  },
+  {
+    "i": 24,
+    "name": "mixamorig:Spine1",
+    "children": [
+      25,
+      465,
+      466,
+      467
+    ]
+  },
+  {
+    "i": 25,
+    "name": "mixamorig:Spine2",
+    "children": [
+      26,
+      55,
+      436
+    ]
+  },
+  {
+    "i": 26,
+    "name": "mixamorig:LeftArm",
+    "children": [
+      27,
+      53,
+      54
+    ]
+  },
+  {
+    "i": 27,
+    "name": "mixamorig:LeftForeArm",
+    "children": [
+      28,
+      51,
+      52
+    ]
+  },
+  {
+    "i": 28,
+    "name": "mixamorig:LeftHand",
+    "children": [
+      29,
+      33,
+      37,
+      41,
+      45,
+      49,
+      50
+    ]
+  },
+  {
+    "i": 29,
+    "name": "mixamorig:LeftHandIndex1",
+    "children": [
+      30
+    ]
+  },
+  {
+    "i": 30,
+    "name": "mixamorig:LeftHandIndex2",
+    "children": [
+      31
+    ]
+  },
+  {
+    "i": 31,
+    "name": "mixamorig:LeftHandIndex3",
+    "children": [
+      32
+    ]
+  },
+  {
+    "i": 32,
+    "name": "mixamorig:LeftHandIndex4"
+  },
+  {
+    "i": 33,
+    "name": "mixamorig:LeftHandMiddle1",
+    "children": [
+      34
+    ]
+  },
+  {
+    "i": 34,
+    "name": "mixamorig:LeftHandMiddle2",
+    "children": [
+      35
+    ]
+  },
+  {
+    "i": 35,
+    "name": "mixamorig:LeftHandMiddle3",
+    "children": [
+      36
+    ]
+  },
+  {
+    "i": 36,
+    "name": "mixamorig:LeftHandMiddle4"
+  },
+  {
+    "i": 37,
+    "name": "mixamorig:LeftHandPinky1",
+    "children": [
+      38
+    ]
+  },
+  {
+    "i": 38,
+    "name": "mixamorig:LeftHandPinky2",
+    "children": [
+      39
+    ]
+  },
+  {
+    "i": 39,
+    "name": "mixamorig:LeftHandPinky3",
+    "children": [
+      40
+    ]
+  },
+  {
+    "i": 40,
+    "name": "mixamorig:LeftHandPinky4"
+  },
+  {
+    "i": 41,
+    "name": "mixamorig:LeftHandRing1",
+    "children": [
+      42
+    ]
+  },
+  {
+    "i": 42,
+    "name": "mixamorig:LeftHandRing2",
+    "children": [
+      43
+    ]
+  },
+  {
+    "i": 43,
+    "name": "mixamorig:LeftHandRing3",
+    "children": [
+      44
+    ]
+  },
+  {
+    "i": 44,
+    "name": "mixamorig:LeftHandRing4"
+  },
+  {
+    "i": 45,
+    "name": "mixamorig:LeftHandThumb1",
+    "children": [
+      46
+    ]
+  },
+  {
+    "i": 46,
+    "name": "mixamorig:LeftHandThumb2",
+    "children": [
+      47
+    ]
+  },
+  {
+    "i": 47,
+    "name": "mixamorig:LeftHandThumb3",
+    "children": [
+      48
+    ]
+  },
+  {
+    "i": 48,
+    "name": "mixamorig:LeftHandThumb4"
+  },
+  {
+    "i": 49,
+    "name": "Magica Capsule Collider (mixamorig:LeftHand)"
+  },
+  {
+    "i": 50,
+    "name": "Collider - LeftHand",
+    "mesh": 0
+  },
+  {
+    "i": 51,
+    "name": "Magica Capsule Collider (mixamorig:LeftForeArm)"
+  },
+  {
+    "i": 52,
+    "name": "Collider - LeftForearm",
+    "mesh": 0
+  },
+  {
+    "i": 53,
+    "name": "Magica Capsule Collider (mixamorig:LeftArm)"
+  },
+  {
+    "i": 54,
+    "name": "Collider - LeftArm",
+    "mesh": 0
+  },
+  {
+    "i": 55,
+    "name": "mixamorig:Neck",
+    "children": [
+      56
+    ]
+  },
+  {
+    "i": 56,
+    "name": "mixamorig:Head",
+    "children": [
+      57,
+      58,
+      63,
+      64,
+      65,
+      153,
+      268,
+      274,
+      276,
+      307,
+      310,
+      318,
+      329,
+      341,
+      409,
+      412,
+      429
+    ]
+  },
+  {
+    "i": 57,
+    "name": "Head - Fangs",
+    "mesh": 1
+  },
+  {
+    "i": 58,
+    "name": "Head - Teeth",
+    "children": [
+      59,
+      60,
+      61,
+      62
+    ],
+    "mesh": 2
+  },
+  {
+    "i": 59,
+    "name": "Magica Sphere Collider (Head - Teeth)"
+  },
+  {
+    "i": 60,
+    "name": "Collider - Head",
+    "mesh": 3
+  },
+  {
+    "i": 61,
+    "name": "Collider - Head (2)",
+    "mesh": 3
+  },
+  {
+    "i": 62,
+    "name": "Collider - Head (1)",
+    "mesh": 3
+  },
+  {
+    "i": 63,
+    "name": "Head - Flesh",
+    "mesh": 4
+  },
+  {
+    "i": 64,
+    "name": "Based Ghoul Head - Teeth",
+    "mesh": 5
+  },
+  {
+    "i": 65,
+    "name": "eyesGroup",
+    "children": [
+      66,
+      67,
+      68,
+      69,
+      72,
+      75,
+      80,
+      85,
+      90,
+      97,
+      104,
+      107,
+      112,
+      118,
+      123,
+      128,
+      131,
+      134,
+      139,
+      144,
+      149
+    ]
+  },
+  {
+    "i": 66,
+    "name": "Discharge_Tears",
+    "mesh": 6
+  },
+  {
+    "i": 67,
+    "name": "DischargeBlood",
+    "mesh": 7
+  },
+  {
+    "i": 68,
+    "name": "DischargeGunk",
+    "mesh": 8
+  },
+  {
+    "i": 69,
+    "name": "EyeDischarge_Blood",
+    "children": [
+      70,
+      71
+    ]
+  },
+  {
+    "i": 70,
+    "name": "Blood",
+    "mesh": 9
+  },
+  {
+    "i": 71,
+    "name": "Blood.001",
+    "mesh": 10
+  },
+  {
+    "i": 72,
+    "name": "SmallEyes",
+    "children": [
+      73,
+      74
+    ]
+  },
+  {
+    "i": 73,
+    "name": "RightEye",
+    "mesh": 11
+  },
+  {
+    "i": 74,
+    "name": "LeftEye",
+    "mesh": 11
+  },
+  {
+    "i": 75,
+    "name": "RedPeerEyes",
+    "children": [
+      76,
+      78
+    ]
+  },
+  {
+    "i": 76,
+    "name": "RightEye",
+    "children": [
+      77
+    ],
+    "mesh": 12
+  },
+  {
+    "i": 77,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 78,
+    "name": "LeftEye",
+    "children": [
+      79
+    ],
+    "mesh": 12
+  },
+  {
+    "i": 79,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 80,
+    "name": "PeerEyes",
+    "children": [
+      81,
+      83
+    ]
+  },
+  {
+    "i": 81,
+    "name": "RightEye",
+    "children": [
+      82
+    ],
+    "mesh": 14
+  },
+  {
+    "i": 82,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 83,
+    "name": "LeftEye",
+    "children": [
+      84
+    ],
+    "mesh": 14
+  },
+  {
+    "i": 84,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 85,
+    "name": "BeadyEyes",
+    "children": [
+      86,
+      88
+    ]
+  },
+  {
+    "i": 86,
+    "name": "RightEye",
+    "children": [
+      87
+    ],
+    "mesh": 13
+  },
+  {
+    "i": 87,
+    "name": "Pupil",
+    "mesh": 15
+  },
+  {
+    "i": 88,
+    "name": "LeftEye",
+    "children": [
+      89
+    ],
+    "mesh": 13
+  },
+  {
+    "i": 89,
+    "name": "Pupil",
+    "mesh": 15
+  },
+  {
+    "i": 90,
+    "name": "WhiteEyes",
+    "children": [
+      91,
+      94
+    ]
+  },
+  {
+    "i": 91,
+    "name": "RightEye",
+    "children": [
+      92,
+      93
+    ],
+    "mesh": 13
+  },
+  {
+    "i": 92,
+    "name": "Pupil",
+    "mesh": 15
+  },
+  {
+    "i": 93,
+    "name": "Pupil (1)",
+    "mesh": 15
+  },
+  {
+    "i": 94,
+    "name": "LeftEye",
+    "children": [
+      95,
+      96
+    ],
+    "mesh": 13
+  },
+  {
+    "i": 95,
+    "name": "Pupil",
+    "mesh": 15
+  },
+  {
+    "i": 96,
+    "name": "Pupil (2)",
+    "mesh": 15
+  },
+  {
+    "i": 97,
+    "name": "BasedEyes",
+    "children": [
+      98,
+      101
+    ]
+  },
+  {
+    "i": 98,
+    "name": "RightEye",
+    "children": [
+      99,
+      100
+    ],
+    "mesh": 13
+  },
+  {
+    "i": 99,
+    "name": "Pupil",
+    "mesh": 16
+  },
+  {
+    "i": 100,
+    "name": "Pupil (1)",
+    "mesh": 17
+  },
+  {
+    "i": 101,
+    "name": "LeftEye",
+    "children": [
+      102,
+      103
+    ],
+    "mesh": 13
+  },
+  {
+    "i": 102,
+    "name": "Pupil",
+    "mesh": 16
+  },
+  {
+    "i": 103,
+    "name": "Pupil (2)",
+    "mesh": 17
+  },
+  {
+    "i": 104,
+    "name": "FullEyes",
+    "children": [
+      105,
+      106
+    ]
+  },
+  {
+    "i": 105,
+    "name": "RightEye",
+    "mesh": 11
+  },
+  {
+    "i": 106,
+    "name": "LeftEye",
+    "mesh": 11
+  },
+  {
+    "i": 107,
+    "name": "DialatedEyes",
+    "children": [
+      108,
+      110
+    ]
+  },
+  {
+    "i": 108,
+    "name": "RightEye",
+    "children": [
+      109
+    ],
+    "mesh": 18
+  },
+  {
+    "i": 109,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 110,
+    "name": "LeftEye",
+    "children": [
+      111
+    ],
+    "mesh": 18
+  },
+  {
+    "i": 111,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 112,
+    "name": "PoppedEyes",
+    "children": [
+      113,
+      115,
+      116
+    ]
+  },
+  {
+    "i": 113,
+    "name": "RightEye",
+    "children": [
+      114
+    ],
+    "mesh": 18
+  },
+  {
+    "i": 114,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 115,
+    "name": "PoppedTube",
+    "mesh": 19
+  },
+  {
+    "i": 116,
+    "name": "LeftEye",
+    "children": [
+      117
+    ],
+    "mesh": 20
+  },
+  {
+    "i": 117,
+    "name": "Pupil",
+    "mesh": 21
+  },
+  {
+    "i": 118,
+    "name": "EvilEyes",
+    "children": [
+      119,
+      121
+    ]
+  },
+  {
+    "i": 119,
+    "name": "RightEye",
+    "children": [
+      120
+    ],
+    "mesh": 22
+  },
+  {
+    "i": 120,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 121,
+    "name": "LeftEye",
+    "children": [
+      122
+    ],
+    "mesh": 22
+  },
+  {
+    "i": 122,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 123,
+    "name": "RolledEyes",
+    "children": [
+      124,
+      126
+    ]
+  },
+  {
+    "i": 124,
+    "name": "RightEye",
+    "children": [
+      125
+    ],
+    "mesh": 23
+  },
+  {
+    "i": 125,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 126,
+    "name": "LeftEye",
+    "children": [
+      127
+    ],
+    "mesh": 23
+  },
+  {
+    "i": 127,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 128,
+    "name": "CyclopsStareEyes",
+    "children": [
+      129
+    ]
+  },
+  {
+    "i": 129,
+    "name": "LeftEye",
+    "children": [
+      130
+    ],
+    "mesh": 24
+  },
+  {
+    "i": 130,
+    "name": "Pupil",
+    "mesh": 25
+  },
+  {
+    "i": 131,
+    "name": "CyclopsEyes",
+    "children": [
+      132
+    ]
+  },
+  {
+    "i": 132,
+    "name": "LeftEye",
+    "children": [
+      133
+    ],
+    "mesh": 24
+  },
+  {
+    "i": 133,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 134,
+    "name": "LookingBackEyes",
+    "children": [
+      135,
+      137
+    ]
+  },
+  {
+    "i": 135,
+    "name": "RightEye",
+    "children": [
+      136
+    ],
+    "mesh": 26
+  },
+  {
+    "i": 136,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 137,
+    "name": "LeftEye",
+    "children": [
+      138
+    ],
+    "mesh": 26
+  },
+  {
+    "i": 138,
+    "name": "Pupil",
+    "mesh": 13
+  },
+  {
+    "i": 139,
+    "name": "uWuEyes",
+    "children": [
+      140,
+      142
+    ]
+  },
+  {
+    "i": 140,
+    "name": "RightEye",
+    "children": [
+      141
+    ],
+    "mesh": 27
+  },
+  {
+    "i": 141,
+    "name": "Pupil",
+    "mesh": 28
+  },
+  {
+    "i": 142,
+    "name": "LeftEye",
+    "children": [
+      143
+    ],
+    "mesh": 27
+  },
+  {
+    "i": 143,
+    "name": "Pupil",
+    "mesh": 28
+  },
+  {
+    "i": 144,
+    "name": "GlareEyes",
+    "children": [
+      145,
+      147
+    ]
+  },
+  {
+    "i": 145,
+    "name": "RightEye",
+    "children": [
+      146
+    ],
+    "mesh": 29
+  },
+  {
+    "i": 146,
+    "name": "Pupil",
+    "mesh": 30
+  },
+  {
+    "i": 147,
+    "name": "LeftEye",
+    "children": [
+      148
+    ],
+    "mesh": 29
+  },
+  {
+    "i": 148,
+    "name": "Pupil",
+    "mesh": 30
+  },
+  {
+    "i": 149,
+    "name": "SudoGems",
+    "children": [
+      150,
+      151,
+      152
+    ]
+  },
+  {
+    "i": 150,
+    "name": "Icosphere Edged",
+    "mesh": 31
+  },
+  {
+    "i": 151,
+    "name": "Icosphere Edged (1)",
+    "mesh": 31
+  },
+  {
+    "i": 152,
+    "name": "sudogreen",
+    "mesh": 32
+  },
+  {
+    "i": 153,
+    "name": "Top Head Acc",
+    "children": [
+      154,
+      156,
+      157,
+      161,
+      162,
+      163,
+      165,
+      167,
+      170,
+      173,
+      174,
+      175,
+      177,
+      178,
+      267
+    ]
+  },
+  {
+    "i": 154,
+    "name": "Halo",
+    "children": [
+      155
+    ],
+    "mesh": 33
+  },
+  {
+    "i": 155,
+    "name": "Halo Light"
+  },
+  {
+    "i": 156,
+    "name": "Mowhawk",
+    "mesh": 34
+  },
+  {
+    "i": 157,
+    "name": "Candle",
+    "children": [
+      158,
+      160
+    ],
+    "mesh": 35
+  },
+  {
+    "i": 158,
+    "name": "VFX_Fire",
+    "children": [
+      159
+    ]
+  },
+  {
+    "i": 159,
+    "name": "VFX_Fire"
+  },
+  {
+    "i": 160,
+    "name": "Point Light"
+  },
+  {
+    "i": 161,
+    "name": "Dirt",
+    "mesh": 36
+  },
+  {
+    "i": 162,
+    "name": "Circlet",
+    "mesh": 37
+  },
+  {
+    "i": 163,
+    "name": "Red Horns",
+    "children": [
+      164
+    ],
+    "mesh": 38
+  },
+  {
+    "i": 164,
+    "name": "Red Horns (1)",
+    "mesh": 38
+  },
+  {
+    "i": 165,
+    "name": "Drall Horns",
+    "children": [
+      166
+    ],
+    "mesh": 39
+  },
+  {
+    "i": 166,
+    "name": "Drall Horns 2",
+    "mesh": 39
+  },
+  {
+    "i": 167,
+    "name": "loldefi ",
+    "children": [
+      168,
+      169
+    ]
+  },
+  {
+    "i": 168,
+    "name": "Based B",
+    "mesh": 40
+  },
+  {
+    "i": 169,
+    "name": "loldefi Hat",
+    "mesh": 41
+  },
+  {
+    "i": 170,
+    "name": "lilB Hat",
+    "children": [
+      171,
+      172
+    ]
+  },
+  {
+    "i": 171,
+    "name": "Based B",
+    "mesh": 42
+  },
+  {
+    "i": 172,
+    "name": "loldefi Hat",
+    "mesh": 43
+  },
+  {
+    "i": 173,
+    "name": "Positronic",
+    "mesh": 44
+  },
+  {
+    "i": 174,
+    "name": "FleshnerPLACEHOLDER"
+  },
+  {
+    "i": 175,
+    "name": "Nightcap New",
+    "children": [
+      176
+    ],
+    "mesh": 45
+  },
+  {
+    "i": 176,
+    "name": "Magica Cloth"
+  },
+  {
+    "i": 177,
+    "name": "Crown",
+    "mesh": 46
+  },
+  {
+    "i": 178,
+    "name": "StrictlyBusinessHair",
+    "children": [
+      179
+    ]
+  },
+  {
+    "i": 179,
+    "name": "sanjay_scalp_v03_489",
+    "children": [
+      180,
+      266
+    ]
+  },
+  {
+    "i": 180,
+    "name": "hip",
+    "children": [
+      181,
+      265
+    ]
+  },
+  {
+    "i": 181,
+    "name": "abdomenLower",
+    "children": [
+      182
+    ]
+  },
+  {
+    "i": 182,
+    "name": "abdomenUpper",
+    "children": [
+      183
+    ]
+  },
+  {
+    "i": 183,
+    "name": "chestLower",
+    "children": [
+      184,
+      263,
+      264
+    ]
+  },
+  {
+    "i": 184,
+    "name": "chestUpper",
+    "children": [
+      185,
+      186,
+      262
+    ]
+  },
+  {
+    "i": 185,
+    "name": "lCollar"
+  },
+  {
+    "i": 186,
+    "name": "neckLower",
+    "children": [
+      187
+    ]
+  },
+  {
+    "i": 187,
+    "name": "neckUpper",
+    "children": [
+      188
+    ]
+  },
+  {
+    "i": 188,
+    "name": "head",
+    "children": [
+      189,
+      190,
+      191,
+      212,
+      213,
+      214,
+      261
+    ]
+  },
+  {
+    "i": 189,
+    "name": "lEar"
+  },
+  {
+    "i": 190,
+    "name": "lEye"
+  },
+  {
+    "i": 191,
+    "name": "lowerJaw",
+    "children": [
+      192,
+      211
+    ]
+  },
+  {
+    "i": 192,
+    "name": "lowerFaceRig",
+    "children": [
+      193,
+      194,
+      195,
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209,
+      210
+    ]
+  },
+  {
+    "i": 193,
+    "name": "BelowJaw"
+  },
+  {
+    "i": 194,
+    "name": "Chin"
+  },
+  {
+    "i": 195,
+    "name": "lCheekLower"
+  },
+  {
+    "i": 196,
+    "name": "LipBelow"
+  },
+  {
+    "i": 197,
+    "name": "LipLowerMiddle"
+  },
+  {
+    "i": 198,
+    "name": "lJawClench"
+  },
+  {
+    "i": 199,
+    "name": "lLipCorner"
+  },
+  {
+    "i": 200,
+    "name": "lLipLowerInner"
+  },
+  {
+    "i": 201,
+    "name": "lLipLowerOuter"
+  },
+  {
+    "i": 202,
+    "name": "lNasolabialLower"
+  },
+  {
+    "i": 203,
+    "name": "lNasolabialMouthCorner"
+  },
+  {
+    "i": 204,
+    "name": "rCheekLower"
+  },
+  {
+    "i": 205,
+    "name": "rJawClench"
+  },
+  {
+    "i": 206,
+    "name": "rLipCorner"
+  },
+  {
+    "i": 207,
+    "name": "rLipLowerInner"
+  },
+  {
+    "i": 208,
+    "name": "rLipLowerOuter"
+  },
+  {
+    "i": 209,
+    "name": "rNasolabialLower"
+  },
+  {
+    "i": 210,
+    "name": "rNasolabialMouthCorner"
+  },
+  {
+    "i": 211,
+    "name": "lowerTeeth"
+  },
+  {
+    "i": 212,
+    "name": "rEar"
+  },
+  {
+    "i": 213,
+    "name": "rEye"
+  },
+  {
+    "i": 214,
+    "name": "upperFaceRig",
+    "children": [
+      215,
+      216,
+      217,
+      218,
+      219,
+      220,
+      221,
+      222,
+      223,
+      224,
+      225,
+      226,
+      227,
+      228,
+      229,
+      230,
+      231,
+      232,
+      233,
+      234,
+      235,
+      236,
+      237,
+      238,
+      239,
+      240,
+      241,
+      242,
+      243,
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250,
+      251,
+      252,
+      253,
+      254,
+      255,
+      256,
+      257,
+      258,
+      259,
+      260
+    ]
+  },
+  {
+    "i": 215,
+    "name": "CenterBrow"
+  },
+  {
+    "i": 216,
+    "name": "lBrowInner"
+  },
+  {
+    "i": 217,
+    "name": "lBrowMid"
+  },
+  {
+    "i": 218,
+    "name": "lBrowOuter"
+  },
+  {
+    "i": 219,
+    "name": "lCheekUpper"
+  },
+  {
+    "i": 220,
+    "name": "lEyelidInner"
+  },
+  {
+    "i": 221,
+    "name": "lEyelidLower"
+  },
+  {
+    "i": 222,
+    "name": "lEyelidLowerInner"
+  },
+  {
+    "i": 223,
+    "name": "lEyelidLowerOuter"
+  },
+  {
+    "i": 224,
+    "name": "lEyelidOuter"
+  },
+  {
+    "i": 225,
+    "name": "lEyelidUpper"
+  },
+  {
+    "i": 226,
+    "name": "lEyelidUpperInner"
+  },
+  {
+    "i": 227,
+    "name": "lEyelidUpperOuter"
+  },
+  {
+    "i": 228,
+    "name": "LipUpperMiddle"
+  },
+  {
+    "i": 229,
+    "name": "lLipBelowNose"
+  },
+  {
+    "i": 230,
+    "name": "lLipNasolabialCrease"
+  },
+  {
+    "i": 231,
+    "name": "lLipUpperInner"
+  },
+  {
+    "i": 232,
+    "name": "lLipUpperOuter"
+  },
+  {
+    "i": 233,
+    "name": "lNasolabialMiddle"
+  },
+  {
+    "i": 234,
+    "name": "lNasolabialUpper"
+  },
+  {
+    "i": 235,
+    "name": "lNostril"
+  },
+  {
+    "i": 236,
+    "name": "lSquintInner"
+  },
+  {
+    "i": 237,
+    "name": "lSquintOuter"
+  },
+  {
+    "i": 238,
+    "name": "MidNoseBridge"
+  },
+  {
+    "i": 239,
+    "name": "Nose"
+  },
+  {
+    "i": 240,
+    "name": "rBrowInner"
+  },
+  {
+    "i": 241,
+    "name": "rBrowMid"
+  },
+  {
+    "i": 242,
+    "name": "rBrowOuter"
+  },
+  {
+    "i": 243,
+    "name": "rCheekUpper"
+  },
+  {
+    "i": 244,
+    "name": "rEyelidInner"
+  },
+  {
+    "i": 245,
+    "name": "rEyelidLower"
+  },
+  {
+    "i": 246,
+    "name": "rEyelidLowerInner"
+  },
+  {
+    "i": 247,
+    "name": "rEyelidLowerOuter"
+  },
+  {
+    "i": 248,
+    "name": "rEyelidOuter"
+  },
+  {
+    "i": 249,
+    "name": "rEyelidUpper"
+  },
+  {
+    "i": 250,
+    "name": "rEyelidUpperInner"
+  },
+  {
+    "i": 251,
+    "name": "rEyelidUpperOuter"
+  },
+  {
+    "i": 252,
+    "name": "rLipBelowNose"
+  },
+  {
+    "i": 253,
+    "name": "rLipNasolabialCrease"
+  },
+  {
+    "i": 254,
+    "name": "rLipUpperInner"
+  },
+  {
+    "i": 255,
+    "name": "rLipUpperOuter"
+  },
+  {
+    "i": 256,
+    "name": "rNasolabialMiddle"
+  },
+  {
+    "i": 257,
+    "name": "rNasolabialUpper"
+  },
+  {
+    "i": 258,
+    "name": "rNostril"
+  },
+  {
+    "i": 259,
+    "name": "rSquintInner"
+  },
+  {
+    "i": 260,
+    "name": "rSquintOuter"
+  },
+  {
+    "i": 261,
+    "name": "upperTeeth"
+  },
+  {
+    "i": 262,
+    "name": "rCollar"
+  },
+  {
+    "i": 263,
+    "name": "lPectoral"
+  },
+  {
+    "i": 264,
+    "name": "rPectoral"
+  },
+  {
+    "i": 265,
+    "name": "pelvis"
+  },
+  {
+    "i": 266,
+    "name": "sanjay_scalp_v03_489.Shape",
+    "mesh": 47,
+    "skin": 0
+  },
+  {
+    "i": 267,
+    "name": "SantaHat",
+    "mesh": 48
+  },
+  {
+    "i": 268,
+    "name": "LowerEyeAcc",
+    "children": [
+      269,
+      270,
+      272,
+      273
+    ]
+  },
+  {
+    "i": 269,
+    "name": "eyepatch",
+    "mesh": 49
+  },
+  {
+    "i": 270,
+    "name": "Bandage",
+    "children": [
+      271
+    ],
+    "mesh": 50
+  },
+  {
+    "i": 271,
+    "name": "Bandage",
+    "mesh": 51
+  },
+  {
+    "i": 272,
+    "name": "PLACEHOLDER_Patch"
+  },
+  {
+    "i": 273,
+    "name": "Magica Capsule Collider Eyes"
+  },
+  {
+    "i": 274,
+    "name": "IDK",
+    "children": [
+      275
+    ]
+  },
+  {
+    "i": 275,
+    "name": "IDK Group"
+  },
+  {
+    "i": 276,
+    "name": "MouthAcc",
+    "children": [
+      277,
+      278,
+      288,
+      289,
+      290,
+      292,
+      294,
+      296,
+      298,
+      299,
+      301,
+      303,
+      304,
+      305,
+      306
+    ]
+  },
+  {
+    "i": 277,
+    "name": "Cross",
+    "mesh": 52
+  },
+  {
+    "i": 278,
+    "name": "Torch",
+    "children": [
+      279,
+      281,
+      283,
+      286,
+      287
+    ],
+    "mesh": 53
+  },
+  {
+    "i": 279,
+    "name": "Fire",
+    "children": [
+      280
+    ],
+    "mesh": 54
+  },
+  {
+    "i": 280,
+    "name": "Point Light"
+  },
+  {
+    "i": 281,
+    "name": "VFX_Fire 1",
+    "children": [
+      282
+    ]
+  },
+  {
+    "i": 282,
+    "name": "VFX_Fire 1"
+  },
+  {
+    "i": 283,
+    "name": "VFX_TorchLight",
+    "children": [
+      284,
+      285
+    ]
+  },
+  {
+    "i": 284,
+    "name": "VFX_BlackSmoke"
+  },
+  {
+    "i": 285,
+    "name": "VFX_BlackSmoke (1)"
+  },
+  {
+    "i": 286,
+    "name": "Point Light"
+  },
+  {
+    "i": 287,
+    "name": "Point Light (1)"
+  },
+  {
+    "i": 288,
+    "name": "Key",
+    "mesh": 55
+  },
+  {
+    "i": 289,
+    "name": "Rose",
+    "mesh": 56
+  },
+  {
+    "i": 290,
+    "name": "Arrow",
+    "children": [
+      291
+    ],
+    "mesh": 57
+  },
+  {
+    "i": 291,
+    "name": "ArrowTop",
+    "mesh": 58
+  },
+  {
+    "i": 292,
+    "name": "Cig2",
+    "children": [
+      293
+    ],
+    "mesh": 59
+  },
+  {
+    "i": 293,
+    "name": "Thick Smoke - Black (2)"
+  },
+  {
+    "i": 294,
+    "name": "Cig1",
+    "children": [
+      295
+    ],
+    "mesh": 59
+  },
+  {
+    "i": 295,
+    "name": "Thick Smoke - Black (1)"
+  },
+  {
+    "i": 296,
+    "name": "Stogie",
+    "children": [
+      297
+    ],
+    "mesh": 60
+  },
+  {
+    "i": 297,
+    "name": "Thick Smoke - Black"
+  },
+  {
+    "i": 298,
+    "name": "Magica Capsule Collider (MouthAcc)"
+  },
+  {
+    "i": 299,
+    "name": "Blood Mouth",
+    "children": [
+      300
+    ],
+    "mesh": 61
+  },
+  {
+    "i": 300,
+    "name": "Particle System"
+  },
+  {
+    "i": 301,
+    "name": "Sludge Mouth",
+    "children": [
+      302
+    ],
+    "mesh": 62
+  },
+  {
+    "i": 302,
+    "name": "Particle System"
+  },
+  {
+    "i": 303,
+    "name": "Knife",
+    "mesh": 63
+  },
+  {
+    "i": 304,
+    "name": "Crayon",
+    "mesh": 64
+  },
+  {
+    "i": 305,
+    "name": "CandyCane",
+    "mesh": 65
+  },
+  {
+    "i": 306,
+    "name": "tomahawk",
+    "mesh": 66
+  },
+  {
+    "i": 307,
+    "name": "LowerHeadAcc",
+    "children": [
+      308,
+      309
+    ]
+  },
+  {
+    "i": 308,
+    "name": "ToxicHead",
+    "mesh": 67
+  },
+  {
+    "i": 309,
+    "name": "Rag",
+    "mesh": 68
+  },
+  {
+    "i": 310,
+    "name": "MidHeadAcc",
+    "children": [
+      311,
+      313,
+      314,
+      316,
+      317
+    ]
+  },
+  {
+    "i": 311,
+    "name": "TatteredCloak",
+    "children": [
+      312
+    ],
+    "mesh": 69
+  },
+  {
+    "i": 312,
+    "name": "Magica Cloth"
+  },
+  {
+    "i": 313,
+    "name": "TatteredCloak webgl",
+    "mesh": 70
+  },
+  {
+    "i": 314,
+    "name": "InnerCloak",
+    "children": [
+      315
+    ],
+    "mesh": 71
+  },
+  {
+    "i": 315,
+    "name": "Magica Cloth"
+  },
+  {
+    "i": 316,
+    "name": "InnerCloak webgl",
+    "mesh": 72
+  },
+  {
+    "i": 317,
+    "name": "BullHorns",
+    "mesh": 73
+  },
+  {
+    "i": 318,
+    "name": "MidEyeAcc",
+    "children": [
+      319,
+      320,
+      321,
+      322,
+      323,
+      324,
+      325,
+      328
+    ]
+  },
+  {
+    "i": 319,
+    "name": "Glasses - RiffRaff",
+    "mesh": 74
+  },
+  {
+    "i": 320,
+    "name": "Glasses - BlueViper",
+    "mesh": 75
+  },
+  {
+    "i": 321,
+    "name": "nc69r",
+    "mesh": 76
+  },
+  {
+    "i": 322,
+    "name": "Glasses",
+    "mesh": 77
+  },
+  {
+    "i": 323,
+    "name": "xeKF420",
+    "mesh": 78
+  },
+  {
+    "i": 324,
+    "name": "MelonGlasses",
+    "mesh": 79
+  },
+  {
+    "i": 325,
+    "name": "LilB Glasses",
+    "children": [
+      326,
+      327
+    ],
+    "mesh": 80
+  },
+  {
+    "i": 326,
+    "name": "Cube",
+    "mesh": 81
+  },
+  {
+    "i": 327,
+    "name": "Cube (1)",
+    "mesh": 81
+  },
+  {
+    "i": 328,
+    "name": "lilB Glasses",
+    "mesh": 82
+  },
+  {
+    "i": 329,
+    "name": "Special",
+    "children": [
+      330,
+      331,
+      332,
+      333,
+      334,
+      336,
+      339
+    ]
+  },
+  {
+    "i": 330,
+    "name": "Idol",
+    "mesh": 83
+  },
+  {
+    "i": 331,
+    "name": "InfernalFlamePLACEHOLDER"
+  },
+  {
+    "i": 332,
+    "name": "VaporwaveTeaPLACEHOLDER"
+  },
+  {
+    "i": 333,
+    "name": "DoodlePLACEHOLDER"
+  },
+  {
+    "i": 334,
+    "name": "Infernal Flame",
+    "children": [
+      335
+    ]
+  },
+  {
+    "i": 335,
+    "name": "VFX_Fire 1"
+  },
+  {
+    "i": 336,
+    "name": "Infernal Flame",
+    "children": [
+      337,
+      338
+    ],
+    "mesh": 84
+  },
+  {
+    "i": 337,
+    "name": "Point Light"
+  },
+  {
+    "i": 338,
+    "name": "Infernal Flame (1)",
+    "mesh": 85
+  },
+  {
+    "i": 339,
+    "name": "tea",
+    "children": [
+      340
+    ],
+    "mesh": 86
+  },
+  {
+    "i": 340,
+    "name": "Cylinder (1)",
+    "mesh": 87
+  },
+  {
+    "i": 341,
+    "name": "1/1",
+    "children": [
+      342,
+      374,
+      377,
+      382,
+      394
+    ]
+  },
+  {
+    "i": 342,
+    "name": "RayHead",
+    "children": [
+      343,
+      369,
+      370,
+      371,
+      372,
+      373
+    ],
+    "mesh": 88
+  },
+  {
+    "i": 343,
+    "name": "hip",
+    "children": [
+      344,
+      368
+    ]
+  },
+  {
+    "i": 344,
+    "name": "abdomenLower",
+    "children": [
+      345
+    ]
+  },
+  {
+    "i": 345,
+    "name": "abdomenUpper",
+    "children": [
+      346
+    ]
+  },
+  {
+    "i": 346,
+    "name": "chestLower",
+    "children": [
+      347,
+      366,
+      367
+    ]
+  },
+  {
+    "i": 347,
+    "name": "chestUpper",
+    "children": [
+      348,
+      349,
+      365
+    ]
+  },
+  {
+    "i": 348,
+    "name": "lCollar"
+  },
+  {
+    "i": 349,
+    "name": "neckLower",
+    "children": [
+      350
+    ]
+  },
+  {
+    "i": 350,
+    "name": "neckUpper",
+    "children": [
+      351
+    ]
+  },
+  {
+    "i": 351,
+    "name": "head",
+    "children": [
+      352,
+      353,
+      354,
+      355
+    ]
+  },
+  {
+    "i": 352,
+    "name": "lEar"
+  },
+  {
+    "i": 353,
+    "name": "lowerJaw"
+  },
+  {
+    "i": 354,
+    "name": "rEar"
+  },
+  {
+    "i": 355,
+    "name": "upperFaceRig",
+    "children": [
+      356,
+      357,
+      358,
+      359,
+      360,
+      361,
+      362,
+      363,
+      364
+    ]
+  },
+  {
+    "i": 356,
+    "name": "CenterBrow"
+  },
+  {
+    "i": 357,
+    "name": "lBrowInner"
+  },
+  {
+    "i": 358,
+    "name": "lBrowMid"
+  },
+  {
+    "i": 359,
+    "name": "lBrowOuter"
+  },
+  {
+    "i": 360,
+    "name": "lCheekUpper"
+  },
+  {
+    "i": 361,
+    "name": "rBrowInner"
+  },
+  {
+    "i": 362,
+    "name": "rBrowMid"
+  },
+  {
+    "i": 363,
+    "name": "rBrowOuter"
+  },
+  {
+    "i": 364,
+    "name": "rCheekUpper"
+  },
+  {
+    "i": 365,
+    "name": "rCollar"
+  },
+  {
+    "i": 366,
+    "name": "lPectoral"
+  },
+  {
+    "i": 367,
+    "name": "rPectoral"
+  },
+  {
+    "i": 368,
+    "name": "pelvis"
+  },
+  {
+    "i": 369,
+    "name": "RayGlasses",
+    "mesh": 89
+  },
+  {
+    "i": 370,
+    "name": "RayEar",
+    "mesh": 90
+  },
+  {
+    "i": 371,
+    "name": "RayEar (1)",
+    "mesh": 90
+  },
+  {
+    "i": 372,
+    "name": "Ray"
+  },
+  {
+    "i": 373,
+    "name": "rayhair",
+    "mesh": 91
+  },
+  {
+    "i": 374,
+    "name": "JayHair",
+    "children": [
+      375,
+      376
+    ],
+    "mesh": 92
+  },
+  {
+    "i": 375,
+    "name": "Mole",
+    "mesh": 93
+  },
+  {
+    "i": 376,
+    "name": "JayMouth",
+    "mesh": 94
+  },
+  {
+    "i": 377,
+    "name": "OldOne",
+    "children": [
+      378,
+      379,
+      380,
+      381
+    ],
+    "mesh": 95
+  },
+  {
+    "i": 378,
+    "name": "OldOneEye",
+    "mesh": 96
+  },
+  {
+    "i": 379,
+    "name": "OldOneEye (1)",
+    "mesh": 96
+  },
+  {
+    "i": 380,
+    "name": "X",
+    "mesh": 97
+  },
+  {
+    "i": 381,
+    "name": "X",
+    "mesh": 97
+  },
+  {
+    "i": 382,
+    "name": "Dreamer",
+    "children": [
+      383,
+      385,
+      386,
+      387,
+      388,
+      389,
+      390,
+      391,
+      392
+    ]
+  },
+  {
+    "i": 383,
+    "name": "DreamerSuit",
+    "children": [
+      384
+    ],
+    "mesh": 98
+  },
+  {
+    "i": 384,
+    "name": "Magica Cloth"
+  },
+  {
+    "i": 385,
+    "name": "FullEyes (1)"
+  },
+  {
+    "i": 386,
+    "name": "RightEye",
+    "mesh": 99
+  },
+  {
+    "i": 387,
+    "name": "RightEye (1)",
+    "mesh": 100
+  },
+  {
+    "i": 388,
+    "name": "LeftEye",
+    "mesh": 99
+  },
+  {
+    "i": 389,
+    "name": "RightEye (2)",
+    "mesh": 100
+  },
+  {
+    "i": 390,
+    "name": "DreamerBall",
+    "mesh": 101
+  },
+  {
+    "i": 391,
+    "name": "DreamerEars",
+    "mesh": 102
+  },
+  {
+    "i": 392,
+    "name": "DreamerHelm",
+    "children": [
+      393
+    ],
+    "mesh": 103
+  },
+  {
+    "i": 393,
+    "name": "DreamerHelm.001",
+    "mesh": 104
+  },
+  {
+    "i": 394,
+    "name": "Cudi",
+    "children": [
+      395
+    ]
+  },
+  {
+    "i": 395,
+    "name": "GameObject",
+    "children": [
+      396
+    ]
+  },
+  {
+    "i": 396,
+    "name": "Cudi Group",
+    "children": [
+      397,
+      398,
+      399,
+      400,
+      401,
+      402,
+      403,
+      404,
+      405,
+      406,
+      407,
+      408
+    ]
+  },
+  {
+    "i": 397,
+    "name": "Cudi - Basketball - Head"
+  },
+  {
+    "i": 398,
+    "name": "Cudi - Skull - Rag"
+  },
+  {
+    "i": 399,
+    "name": "Cudi - Basketball - Body"
+  },
+  {
+    "i": 400,
+    "name": "Cudi - X - Top"
+  },
+  {
+    "i": 401,
+    "name": "Cudi X Bottom"
+  },
+  {
+    "i": 402,
+    "name": "Cudi Banana Teeth"
+  },
+  {
+    "i": 403,
+    "name": "Cudi Banana Eye 1"
+  },
+  {
+    "i": 404,
+    "name": "Cudi Banana Eye 2"
+  },
+  {
+    "i": 405,
+    "name": "Cudi Banana Chain"
+  },
+  {
+    "i": 406,
+    "name": "CudiTeeth",
+    "mesh": 105
+  },
+  {
+    "i": 407,
+    "name": "CudiEye",
+    "mesh": 106
+  },
+  {
+    "i": 408,
+    "name": "CudiEye (1)",
+    "mesh": 106
+  },
+  {
+    "i": 409,
+    "name": "TopEyeAcc",
+    "children": [
+      410,
+      411
+    ]
+  },
+  {
+    "i": 410,
+    "name": "JayPegs",
+    "mesh": 107
+  },
+  {
+    "i": 411,
+    "name": "RedactedBar",
+    "mesh": 81
+  },
+  {
+    "i": 412,
+    "name": "Powerful",
+    "children": [
+      413,
+      418,
+      419,
+      420,
+      421,
+      422,
+      423
+    ]
+  },
+  {
+    "i": 413,
+    "name": "Flames",
+    "children": [
+      414,
+      416
+    ]
+  },
+  {
+    "i": 414,
+    "name": "VFX_Fire",
+    "children": [
+      415
+    ]
+  },
+  {
+    "i": 415,
+    "name": "VFX_Fire"
+  },
+  {
+    "i": 416,
+    "name": "VFX_Fire (1)",
+    "children": [
+      417
+    ]
+  },
+  {
+    "i": 417,
+    "name": "VFX_Fire"
+  },
+  {
+    "i": 418,
+    "name": "BeamsPLACEHOLDER"
+  },
+  {
+    "i": 419,
+    "name": "BeamsNOSE"
+  },
+  {
+    "i": 420,
+    "name": "BeamsBallLeft (1)"
+  },
+  {
+    "i": 421,
+    "name": "BeamsBallRight"
+  },
+  {
+    "i": 422,
+    "name": "BeamsBallRight (1)"
+  },
+  {
+    "i": 423,
+    "name": "Beam",
+    "children": [
+      424,
+      426,
+      427
+    ]
+  },
+  {
+    "i": 424,
+    "name": "BeamBallLeft",
+    "children": [
+      425
+    ],
+    "mesh": 108
+  },
+  {
+    "i": 425,
+    "name": "Beam Left",
+    "mesh": 109
+  },
+  {
+    "i": 426,
+    "name": "BeamNose",
+    "mesh": 108
+  },
+  {
+    "i": 427,
+    "name": "BeamBallRight",
+    "children": [
+      428
+    ],
+    "mesh": 108
+  },
+  {
+    "i": 428,
+    "name": "Beam Right",
+    "mesh": 109
+  },
+  {
+    "i": 429,
+    "name": "Cranium",
+    "children": [
+      430,
+      433,
+      434
+    ]
+  },
+  {
+    "i": 430,
+    "name": "Perforated",
+    "children": [
+      431,
+      432
+    ],
+    "mesh": 110
+  },
+  {
+    "i": 431,
+    "name": "Perforated (1)",
+    "mesh": 110
+  },
+  {
+    "i": 432,
+    "name": "Perforated (2)",
+    "mesh": 110
+  },
+  {
+    "i": 433,
+    "name": "Eye Socket",
+    "mesh": 111
+  },
+  {
+    "i": 434,
+    "name": "Punctured",
+    "children": [
+      435
+    ],
+    "mesh": 111
+  },
+  {
+    "i": 435,
+    "name": "Punctured (1)",
+    "mesh": 111
+  },
+  {
+    "i": 436,
+    "name": "mixamorig:RightArm",
+    "children": [
+      437,
+      463,
+      464
+    ]
+  },
+  {
+    "i": 437,
+    "name": "mixamorig:RightForeArm",
+    "children": [
+      438,
+      461,
+      462
+    ]
+  },
+  {
+    "i": 438,
+    "name": "mixamorig:RightHand",
+    "children": [
+      439,
+      443,
+      447,
+      451,
+      455,
+      459,
+      460
+    ]
+  },
+  {
+    "i": 439,
+    "name": "mixamorig:RightHandIndex1",
+    "children": [
+      440
+    ]
+  },
+  {
+    "i": 440,
+    "name": "mixamorig:RightHandIndex2",
+    "children": [
+      441
+    ]
+  },
+  {
+    "i": 441,
+    "name": "mixamorig:RightHandIndex3",
+    "children": [
+      442
+    ]
+  },
+  {
+    "i": 442,
+    "name": "mixamorig:RightHandIndex4"
+  },
+  {
+    "i": 443,
+    "name": "mixamorig:RightHandMiddle1",
+    "children": [
+      444
+    ]
+  },
+  {
+    "i": 444,
+    "name": "mixamorig:RightHandMiddle2",
+    "children": [
+      445
+    ]
+  },
+  {
+    "i": 445,
+    "name": "mixamorig:RightHandMiddle3",
+    "children": [
+      446
+    ]
+  },
+  {
+    "i": 446,
+    "name": "mixamorig:RightHandMiddle4"
+  },
+  {
+    "i": 447,
+    "name": "mixamorig:RightHandPinky1",
+    "children": [
+      448
+    ]
+  },
+  {
+    "i": 448,
+    "name": "mixamorig:RightHandPinky2",
+    "children": [
+      449
+    ]
+  },
+  {
+    "i": 449,
+    "name": "mixamorig:RightHandPinky3",
+    "children": [
+      450
+    ]
+  },
+  {
+    "i": 450,
+    "name": "mixamorig:RightHandPinky4"
+  },
+  {
+    "i": 451,
+    "name": "mixamorig:RightHandRing1",
+    "children": [
+      452
+    ]
+  },
+  {
+    "i": 452,
+    "name": "mixamorig:RightHandRing2",
+    "children": [
+      453
+    ]
+  },
+  {
+    "i": 453,
+    "name": "mixamorig:RightHandRing3",
+    "children": [
+      454
+    ]
+  },
+  {
+    "i": 454,
+    "name": "mixamorig:RightHandRing4"
+  },
+  {
+    "i": 455,
+    "name": "mixamorig:RightHandThumb1",
+    "children": [
+      456
+    ]
+  },
+  {
+    "i": 456,
+    "name": "mixamorig:RightHandThumb2",
+    "children": [
+      457
+    ]
+  },
+  {
+    "i": 457,
+    "name": "mixamorig:RightHandThumb3",
+    "children": [
+      458
+    ]
+  },
+  {
+    "i": 458,
+    "name": "mixamorig:RightHandThumb4"
+  },
+  {
+    "i": 459,
+    "name": "Magica Capsule Collider (mixamorig:RightHand)"
+  },
+  {
+    "i": 460,
+    "name": "Collider - RightHand",
+    "mesh": 0
+  },
+  {
+    "i": 461,
+    "name": "Magica Capsule Collider (mixamorig:RightForeArm)"
+  },
+  {
+    "i": 462,
+    "name": "Collider - RightForearm",
+    "mesh": 0
+  },
+  {
+    "i": 463,
+    "name": "Magica Capsule Collider (mixamorig:RightArm)"
+  },
+  {
+    "i": 464,
+    "name": "Collider - RightArm",
+    "mesh": 0
+  },
+  {
+    "i": 465,
+    "name": "Magica Capsule Collider (mixamorig:Spine1)"
+  },
+  {
+    "i": 466,
+    "name": "Collider - Spine1",
+    "mesh": 0
+  },
+  {
+    "i": 467,
+    "name": "Collider - Spine1 (1)",
+    "mesh": 0
+  },
+  {
+    "i": 468,
+    "name": "Magica Capsule Collider (mixamorig:Hips)"
+  },
+  {
+    "i": 469,
+    "name": "Collider - Spine1 (1)",
+    "mesh": 0
+  },
+  {
+    "i": 470,
+    "name": "Based Ghoul Body - Teeth",
+    "mesh": 112,
+    "skin": 1
+  },
+  {
+    "i": 471,
+    "name": "Camera for 3D Portrait"
+  },
+  {
+    "i": 472,
+    "name": "cat",
+    "mesh": 113
+  },
+  {
+    "i": 473,
+    "name": "FakeFloor",
+    "mesh": 0
+  },
+  {
+    "i": 474,
+    "name": "FakeFloor (1)",
+    "mesh": 0
+  },
+  {
+    "i": 475,
+    "name": "FakeFloor (2)",
+    "mesh": 0
+  },
+  {
+    "i": 476,
+    "name": "Camera Pivot",
+    "children": [
+      477,
+      482
+    ]
+  },
+  {
+    "i": 477,
+    "name": "Main Camera",
+    "children": [
+      478
+    ]
+  },
+  {
+    "i": 478,
+    "name": "Main Camera-flipped",
+    "children": [
+      479
+    ]
+  },
+  {
+    "i": 479,
+    "name": "DitherVolume",
+    "children": [
+      480,
+      481
+    ]
+  },
+  {
+    "i": 480,
+    "name": "Point Light"
+  },
+  {
+    "i": 481,
+    "name": "Point Light (1)"
+  },
+  {
+    "i": 482,
+    "name": "CinemachineCamera - VIEWER"
+  },
+  {
+    "i": 483,
+    "name": "Directional Light"
+  }
+]

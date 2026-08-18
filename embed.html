@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhoulViewer embed</title>
+    <style>
+      /* Native (1×) sizes. Display scale is --gv-scale only. */
+      :root {
+        --gv-scale: 3;
+        --gv-view: 155px;
+        --gv-border: 1px;
+        --gv-header: 15px;
+        --gv-icon: 15px;
+        --gv-gap: 1px;
+        --gv-rule-black: 1px;
+        --gv-rule-gold: 2px;
+        --gv-title-top: 1.91875px;
+        --gv-title-left: 5.75625px;
+        --gv-title-height: 15.35px;
+        --gv-title-size: 10.5531px;
+        --gv-banner: 15px;
+        --gv-window-width: calc(var(--gv-view) + var(--gv-border) * 2);
+        --gv-window-height: calc(
+          var(--gv-header) + var(--gv-rule-black) + var(--gv-rule-gold) + var(--gv-view) +
+            var(--gv-border)
+        );
+        --gv-stage-width: calc(var(--gv-window-width) * 2 + var(--gv-gap));
+        --gv-stage-height: calc(
+          var(--gv-icon) + var(--gv-gap) + var(--gv-window-height) + var(--gv-gap) + var(--gv-banner)
+        );
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+      .ghoul-stage-scale,
+      .ghoul-stage-scale * {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
+      }
+      button,
+      input {
+        outline: none;
+      }
+      button:focus,
+      input:focus {
+        outline: none;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ghoul-stage-scale {
+        width: calc(var(--gv-stage-width) * var(--gv-scale));
+        height: calc(var(--gv-stage-height) * var(--gv-scale));
+        display: grid;
+        place-items: center;
+      }
+      .ghoul-stage {
+        width: var(--gv-stage-width);
+        height: var(--gv-stage-height);
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--gv-gap);
+        transform: scale(var(--gv-scale));
+        transform-origin: center center;
+      }
+      .ghoul-stage-row {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-end;
+        gap: var(--gv-gap);
+        width: 100%;
+      }
+      .ghoul-banner {
+        width: 100%;
+        height: var(--gv-banner);
+        box-sizing: border-box;
+        border: 1px solid #cc8329;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: calc(var(--gv-banner) - 2px);
+        padding: 0 var(--gv-title-left);
+        overflow: hidden;
+        white-space: nowrap;
+        text-align: right;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+      }
+      .ghoul-id-picker {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 1px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+      .ghoul-id-picker button {
+        width: 13px;
+        height: 13px;
+        padding: 0;
+        margin: 0;
+        border: 1px solid #cc8329;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 11px;
+        cursor: pointer;
+      }
+      .ghoul-id-picker button:active {
+        background: #cc8329;
+        color: #000;
+      }
+      .ghoul-id-picker label {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        height: 13px;
+        padding: 0 2px 0 3px;
+        border: 1px solid #cc8329;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 11px;
+      }
+      .ghoul-id-picker input {
+        width: 28px;
+        height: 11px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 11px;
+        text-align: right;
+        user-select: text;
+        -webkit-user-select: text;
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+      .ghoul-id-picker input::-webkit-outer-spin-button,
+      .ghoul-id-picker input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .ghoul-id-hint {
+        min-width: 0;
+        overflow: hidden;
+        text-align: right;
+        flex: 1;
+      }
+      .ghoul-window {
+        width: var(--gv-window-width);
+        background: #cc8329;
+        line-height: 0;
+      }
+      .ghoul-window-header {
+        height: var(--gv-header);
+        background: #cc8329;
+        position: relative;
+        overflow: hidden;
+      }
+      .ghoul-window-title {
+        position: absolute;
+        top: var(--gv-title-top);
+        left: var(--gv-title-left);
+        height: var(--gv-title-height);
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: var(--gv-title-height);
+        color: #000;
+        white-space: nowrap;
+      }
+      .ghoul-window-black {
+        height: var(--gv-rule-black);
+        background: #000;
+      }
+      .ghoul-window-gold {
+        height: var(--gv-rule-gold);
+        background: #cc8329;
+      }
+      .ghoul-window-frame {
+        padding: 0 var(--gv-border) var(--gv-border);
+        background: #cc8329;
+      }
+      #ghoul-slot {
+        width: var(--gv-view);
+        height: var(--gv-view);
+      }
+      .ghoul-viewer-host {
+        position: relative;
+        overflow: hidden;
+      }
+      .ghoul-viewer-host canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      .ghoul-side {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--gv-gap);
+      }
+      .ghoul-mode-tabs {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: var(--gv-gap);
+        height: var(--gv-icon);
+      }
+      .ghoul-mode-tabs button {
+        height: var(--gv-icon);
+        padding: 0 4px;
+        border: 1px solid #cc8329;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 13px;
+        cursor: pointer;
+      }
+      .ghoul-mode-tabs button[aria-selected='true'] {
+        background: #cc8329;
+        color: #000;
+        border-color: #cc8329;
+      }
+      .ghoul-tool-tabs {
+        display: flex;
+        flex-direction: row;
+        gap: var(--gv-gap);
+        height: var(--gv-icon);
+      }
+      .ghoul-tool-tab {
+        width: var(--gv-icon);
+        height: var(--gv-icon);
+        padding: 0;
+        margin: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        line-height: 0;
+      }
+      .ghoul-tool-tab img {
+        display: block;
+        width: var(--gv-icon);
+        height: var(--gv-icon);
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        pointer-events: none;
+      }
+      .ghoul-tool-tab[aria-selected='true'] {
+        outline: 1px solid #cc8329;
+        outline-offset: -1px;
+      }
+      .ghoul-controls {
+        width: var(--gv-view);
+        height: var(--gv-view);
+        overflow: hidden;
+        background: #000;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        color: #cc8329;
+        line-height: 1;
+      }
+      .fx-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 3px 3px 2px;
+      }
+      .fx-pane[hidden] {
+        display: none;
+      }
+      .fx-pane label {
+        display: grid;
+        grid-template-columns: 42px 1fr 28px;
+        gap: 2px;
+        align-items: center;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        color: #cc8329;
+      }
+      #brightnessControls label {
+        grid-template-columns: 50px 1fr 28px;
+      }
+      .fx-group-title {
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        color: #cc8329;
+        opacity: 0.7;
+        margin: 0;
+        padding: 0;
+        line-height: 1;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      #brightnessControls {
+        gap: 1px;
+      }
+      #brightnessControls .pane-reset-btn {
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+      #bloomControls label {
+        grid-template-columns: 62px 1fr 28px;
+      }
+      #bloomControls {
+        overflow-y: auto;
+        height: 100%;
+      }
+      #bloomControls .fx-group-title:not(:first-child) {
+        margin-top: 2px;
+      }
+      .fx-pane input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 7px;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        overflow: hidden;
+      }
+      .fx-pane input[type='range']::-webkit-slider-runnable-track {
+        height: 1px;
+        background: #cc8329;
+        border: none;
+      }
+      .fx-pane input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 2px;
+        height: 7px;
+        margin-top: -3px;
+        background: #cc8329;
+        border: none;
+        border-radius: 0;
+      }
+      .fx-pane input[type='range']::-moz-range-track {
+        height: 1px;
+        background: #cc8329;
+        border: none;
+      }
+      .fx-pane input[type='range']::-moz-range-thumb {
+        width: 2px;
+        height: 7px;
+        background: #cc8329;
+        border: none;
+        border-radius: 0;
+      }
+      .fx-pane span {
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        text-align: right;
+        color: #cc8329;
+      }
+      #cameraControls label {
+        grid-template-columns: 36px 1fr 28px;
+      }
+      #ghoulballRotControls label {
+        grid-template-columns: 68px 1fr 30px;
+        gap: 3px;
+      }
+      #camRotControls {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .pane-toggle {
+        height: 15px;
+        margin-top: 1px;
+        padding: 0 4px;
+        border: 1px solid #cc8329;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 13px;
+        cursor: pointer;
+      }
+      .pane-toggle[aria-pressed='true'] {
+        background: #cc8329;
+        color: #000;
+      }
+      .pane-reset-btn {
+        height: 15px;
+        margin-top: 1px;
+        padding: 0 4px;
+        border: 1px solid #cc8329;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 13px;
+        cursor: pointer;
+      }
+      .pane-reset-btn:active {
+        background: #cc8329;
+        color: #000;
+        border-color: #cc8329;
+      }
+      .bloom-mode-tabs,
+      .camera-mode-tabs {
+        display: flex;
+        flex-direction: row;
+        gap: 1px;
+      }
+      .bloom-mode-tabs[hidden],
+      .camera-mode-tabs[hidden] {
+        display: none;
+      }
+      .bloom-mode-tabs button,
+      .camera-mode-tabs button {
+        flex: 1;
+        height: 15px;
+        padding: 0 2px;
+        border: 1px solid #cc8329;
+        background: #000;
+        color: #cc8329;
+        font-family: 'BMAS Pixel Console', monospace;
+        font-size: var(--gv-title-size);
+        line-height: 13px;
+        cursor: pointer;
+      }
+      .bloom-mode-tabs button[aria-selected='true'],
+      .camera-mode-tabs button[aria-selected='true'] {
+        background: #cc8329;
+        color: #000;
+        border-color: #cc8329;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ghoul-stage-scale">
+      <div class="ghoul-stage">
+        <div class="ghoul-stage-row">
+        <div class="ghoul-side">
+          <div class="ghoul-mode-tabs" role="tablist" aria-label="View or Play">
+            <button type="button" role="tab" id="appModeViewBtn" aria-selected="true" aria-controls="ghoul-slot">
+              View
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="appModePlayBtn"
+              aria-selected="false"
+              aria-controls="ghoul-slot"
+              title="Tank controls: ← → turn, ↑ walk"
+            >
+              Play
+            </button>
+          </div>
+          <div class="ghoul-window">
+          <div class="ghoul-window-header">
+            <span id="ghoul-window-title" class="ghoul-window-title">Ghoul Viewer - #0</span>
+          </div>
+          <div class="ghoul-window-black"></div>
+          <div class="ghoul-window-gold"></div>
+          <div class="ghoul-window-frame">
+            <div id="ghoul-slot"></div>
+          </div>
+          </div>
+        </div>
+        <div class="ghoul-side">
+          <div class="ghoul-tool-tabs" role="tablist" aria-label="Viewer tools">
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabScene"
+              role="tab"
+              aria-selected="true"
+              aria-controls="sceneControls"
+              data-panel="scene"
+              title="Scene"
+            >
+              <img src="/ui/icon_scene.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabCam"
+              role="tab"
+              aria-selected="false"
+              aria-controls="cameraControls"
+              data-panel="camera"
+              title="Camera"
+            >
+              <img src="/ui/icon_cam.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabLight"
+              role="tab"
+              aria-selected="false"
+              aria-controls="brightnessControls"
+              data-panel="lighting"
+              title="Lighting"
+            >
+              <img src="/ui/icon_light.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabBloom"
+              role="tab"
+              aria-selected="false"
+              aria-controls="bloomControls"
+              data-panel="bloom"
+              title="Effects"
+            >
+              <img src="/ui/icon_bloom.png" alt="" width="15" height="15" />
+            </button>
+          </div>
+          <div class="ghoul-window">
+            <div class="ghoul-window-header">
+              <span id="ghoul-tool-title" class="ghoul-window-title">Scene</span>
+            </div>
+            <div class="ghoul-window-black"></div>
+            <div class="ghoul-window-gold"></div>
+            <div class="ghoul-window-frame">
+              <div class="ghoul-controls">
+                <div id="sceneControls" class="fx-pane" role="tabpanel" aria-label="Scene">
+                  <div class="camera-mode-tabs" role="tablist" aria-label="Background">
+                    <button
+                      type="button"
+                      role="tab"
+                      id="bgModeTraitBtn"
+                      aria-selected="true"
+                      aria-pressed="true"
+                      title="Solid color from the Background trait"
+                    >
+                      Trait BG
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="bgModeGridBtn"
+                      aria-selected="false"
+                      aria-pressed="false"
+                      title="Yellow floor grid, black void"
+                    >
+                      Grid BG
+                    </button>
+                  </div>
+                  <button
+                    id="bgModeGhoulballBtn"
+                    class="pane-toggle"
+                    type="button"
+                    aria-pressed="false"
+                    title="Wrap the ghoul into a ball, then show the reference texture sphere"
+                  >
+                    Ghoulball
+                  </button>
+                  <div id="ghoulballRotControls" hidden>
+                    <label title="Ball pitch">
+                      Rot X
+                      <input id="ballRotX" type="range" min="-180" max="180" step="1" value="0" />
+                      <span id="ballRotXVal">0</span>
+                    </label>
+                    <label title="Ball yaw">
+                      Rot Y
+                      <input id="ballRotY" type="range" min="-180" max="180" step="1" value="0" />
+                      <span id="ballRotYVal">0</span>
+                    </label>
+                    <label title="Ball roll / axial tilt">
+                      Rot Z
+                      <input id="ballRotZ" type="range" min="-180" max="180" step="1" value="18" />
+                      <span id="ballRotZVal">18</span>
+                    </label>
+                    <label title="Spin around local X (rad/s)">
+                      Spin X
+                      <input id="ballSpinX" type="range" min="-4.5" max="4.5" step="0.01" value="0" />
+                      <span id="ballSpinXVal">0.00</span>
+                    </label>
+                    <label title="Spin around local Y (rad/s)">
+                      Spin Y
+                      <input id="ballSpinY" type="range" min="-4.5" max="4.5" step="0.01" value="-0.45" />
+                      <span id="ballSpinYVal">-0.45</span>
+                    </label>
+                    <label title="Spin around local Z (rad/s)">
+                      Spin Z
+                      <input id="ballSpinZ" type="range" min="-4.5" max="4.5" step="0.01" value="0" />
+                      <span id="ballSpinZVal">0.00</span>
+                    </label>
+                    <label title="Metallic response">
+                      Metallic
+                      <input id="ballMetalness" type="range" min="0" max="1" step="0.01" value="0" />
+                      <span id="ballMetalnessVal">0.00</span>
+                    </label>
+                    <label title="Surface microsurface — lower is glossier">
+                      Roughness
+                      <input id="ballRoughness" type="range" min="0" max="1" step="0.01" value="0.75" />
+                      <span id="ballRoughnessVal">0.75</span>
+                    </label>
+                    <label title="UV twirl — −1..1, negative reverses">
+                      Twirl
+                      <input id="ballSwirl" type="range" min="-1" max="1" step="0.01" value="0" />
+                      <span id="ballSwirlVal">0.00</span>
+                    </label>
+                    <button id="ballRotResetBtn" class="pane-reset-btn" type="button" title="Reset ball rotation and spin">
+                      Reset
+                    </button>
+                  </div>
+                </div>
+                <div id="cameraControls" class="fx-pane" role="tabpanel" aria-label="Camera" hidden>
+                  <div id="camModeTabs" class="camera-mode-tabs" role="tablist" aria-label="Camera mode" hidden>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="camModeFixedBtn"
+                      aria-selected="true"
+                      title="Camera stays put — drag to look"
+                    >
+                      Fixed
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="camModeFollowBtn"
+                      aria-selected="false"
+                      title="Third-person follow — drag up/down to pitch"
+                    >
+                      Follow
+                    </button>
+                  </div>
+                  <div id="camFixedControls">
+                  <label title="Distance from the look target">
+                    Zoom
+                    <input id="camZoom" type="range" min="1" max="10" step="0.05" value="2.8" />
+                    <span id="camZoomVal">2.80</span>
+                  </label>
+                  <label>
+                    Pos X
+                    <input id="camPosX" type="range" min="-12" max="12" step="0.05" value="0" />
+                    <span id="camPosXVal">0.00</span>
+                  </label>
+                  <label>
+                    Pos Y
+                    <input id="camPosY" type="range" min="-12" max="12" step="0.05" value="1.1" />
+                    <span id="camPosYVal">1.10</span>
+                  </label>
+                  <label>
+                    Pos Z
+                    <input id="camPosZ" type="range" min="-12" max="12" step="0.05" value="2.8" />
+                    <span id="camPosZVal">2.80</span>
+                  </label>
+                  <div id="camRotControls">
+                  <label title="Pitch">
+                    Rot X
+                    <input id="camRotX" type="range" min="-180" max="180" step="1" value="0" />
+                    <span id="camRotXVal">0</span>
+                  </label>
+                  <label title="Yaw">
+                    Rot Y
+                    <input id="camRotY" type="range" min="-180" max="180" step="1" value="0" />
+                    <span id="camRotYVal">0</span>
+                  </label>
+                  <label title="Roll">
+                    Rot Z
+                    <input id="camRotZ" type="range" min="-180" max="180" step="1" value="0" />
+                    <span id="camRotZVal">0</span>
+                  </label>
+                  </div>
+                  <button id="camResetBtn" class="pane-reset-btn" type="button" title="Reset camera to the default framed view">
+                    Reset
+                  </button>
+                  </div>
+                  <div id="camFollowControls" hidden>
+                    <label title="Elevation behind the ghoul — also drag up/down in Play">
+                      Pitch
+                      <input id="camFollowPitch" type="range" min="-7" max="69" step="1" value="24" />
+                      <span id="camFollowPitchVal">24</span>
+                    </label>
+                    <label title="Orbit around the ghoul (0 = behind)">
+                      Yaw
+                      <input id="camFollowYaw" type="range" min="-180" max="180" step="1" value="0" />
+                      <span id="camFollowYawVal">0</span>
+                    </label>
+                    <label title="Distance from the ghoul">
+                      Dist
+                      <input id="camFollowDist" type="range" min="1" max="10" step="0.05" value="4.2" />
+                      <span id="camFollowDistVal">4.20</span>
+                    </label>
+                    <button id="camFollowResetBtn" class="pane-reset-btn" type="button" title="Reset follow camera">
+                      Reset
+                    </button>
+                  </div>
+                </div>
+                <div id="brightnessControls" class="fx-pane" role="tabpanel" hidden>
+                  <div class="fx-group-title">Point Lights</div>
+                  <label title="Scales ambient, hemi, key, and fill">
+                    Master
+                    <input id="lightMaster" type="range" min="0" max="5" step="0.01" value="1" />
+                    <span id="lightMasterVal">1.00</span>
+                  </label>
+                  <label title="Flat fill on every surface">
+                    Ambient
+                    <input id="lightAmbient" type="range" min="0" max="1" step="0.01" value="0" />
+                    <span id="lightAmbientVal">0.00</span>
+                  </label>
+                  <label title="Sky / ground hemisphere light">
+                    Hemi
+                    <input id="lightHemi" type="range" min="0" max="8" step="0.01" value="0.74" />
+                    <span id="lightHemiVal">0.74</span>
+                  </label>
+                  <label title="Main point light in front of the character">
+                    Key
+                    <input id="lightKey" type="range" min="0" max="12" step="0.01" value="10.40" />
+                    <span id="lightKeyVal">10.40</span>
+                  </label>
+                  <label title="Warm fill point light behind / left of the character">
+                    Fill
+                    <input id="lightFill" type="range" min="0" max="10" step="0.01" value="3.82" />
+                    <span id="lightFillVal">3.82</span>
+                  </label>
+                  <div class="fx-group-title">Sun</div>
+                  <label title="Directional sun intensity (not scaled by Master)">
+                    Strength
+                    <input id="lightSun" type="range" min="0" max="20" step="0.05" value="1.35" />
+                    <span id="lightSunVal">1.35</span>
+                  </label>
+                  <label title="Compass heading the sun comes from (0 = +Z, 90 = +X)">
+                    Azimuth
+                    <input id="lightSunAzimuth" type="range" min="0" max="360" step="1" value="35" />
+                    <span id="lightSunAzimuthVal">35</span>
+                  </label>
+                  <label title="Rotation above the horizon (90 = overhead)">
+                    Elevation
+                    <input id="lightSunElevation" type="range" min="5" max="85" step="1" value="48" />
+                    <span id="lightSunElevationVal">48</span>
+                  </label>
+                  <button id="lightResetBtn" class="pane-reset-btn" type="button" title="Reset lights to defaults">
+                    Reset
+                  </button>
+                </div>
+                <div id="bloomControls" class="fx-pane" role="tabpanel" aria-label="Effects" hidden>
+                  <div class="fx-group-title">Bloom</div>
+                  <div class="bloom-mode-tabs" role="tablist" aria-label="Bloom target">
+                    <button
+                      type="button"
+                      role="tab"
+                      id="bloomModeObjectsBtn"
+                      aria-selected="true"
+                      title="Bloom only marked objects (eyes, halos, accents)"
+                    >
+                      Objects
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="bloomModeScreenBtn"
+                      aria-selected="false"
+                      title="Bloom the whole image"
+                    >
+                      Screen
+                    </button>
+                  </div>
+                  <label>
+                    Strength
+                    <input id="bloomStrength" type="range" min="0" max="5" step="0.05" value="0.10" />
+                    <span id="bloomStrengthVal">0.10</span>
+                  </label>
+                  <label>
+                    Radius
+                    <input id="bloomRadius" type="range" min="0" max="1" step="0.01" value="0.11" />
+                    <span id="bloomRadiusVal">0.11</span>
+                  </label>
+                  <label>
+                    Threshold
+                    <input id="bloomThreshold" type="range" min="0" max="1" step="0.01" value="0.08" />
+                    <span id="bloomThresholdVal">0.08</span>
+                  </label>
+                  <button id="bloomResetBtn" class="pane-reset-btn" type="button" title="Reset bloom to defaults">
+                    Reset
+                  </button>
+                  <div class="fx-group-title">Fog</div>
+                  <label title="Distance where fog starts">
+                    Near
+                    <input id="fogNear" type="range" min="0" max="40" step="0.05" value="1.2" />
+                    <span id="fogNearVal">1.20</span>
+                  </label>
+                  <label title="Distance where fog is fully opaque">
+                    Far
+                    <input id="fogFar" type="range" min="0.1" max="80" step="0.05" value="3.8" />
+                    <span id="fogFarVal">3.80</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        <div class="ghoul-banner" aria-label="Ghoul number">
+          <div class="ghoul-id-picker">
+            <button id="ghoulPrev" type="button" aria-label="Previous ghoul" title="Previous">‹</button>
+            <label>
+              #
+              <input id="ghoulId" type="number" min="0" max="6665" step="1" value="0" aria-label="Ghoul number" />
+            </label>
+            <button id="ghoulNext" type="button" aria-label="Next ghoul" title="Next">›</button>
+          </div>
+          <div id="playHintBanner" class="ghoul-id-hint" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/embed.ts"></script>
+  </body>
+</html>

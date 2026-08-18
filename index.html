@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhoulViewer</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <div id="workspace">
+        <div id="ghoulPicker" class="panel" aria-label="Ghoul number">
+          <div class="panel-title">Ghoul</div>
+          <div id="ghoulPickerRow">
+            <button id="ghoulPrev" type="button" aria-label="Previous ghoul">‹</button>
+            <label class="ghoul-id-label">
+              #
+              <input id="ghoulId" type="number" min="0" max="6665" step="1" value="0" />
+            </label>
+            <button id="ghoulNext" type="button" aria-label="Next ghoul">›</button>
+            <button id="ghoulLoad" type="button">Load</button>
+            <button id="resetPoseBtn" type="button" title="Reset ghoul pose and camera to start">
+              Reset
+            </button>
+            <label class="anim-label">
+              Anim
+              <select id="animSelect" aria-label="Animation">
+                <option value="Idle">Idle</option>
+                <option value="Walking">Walking</option>
+                <option value="Running">Running</option>
+                <option value="Praying">Praying</option>
+                <option value="Dancing">Dancing</option>
+              </select>
+            </label>
+            <button id="colliderDebugBtn" type="button" aria-pressed="false" title="Show cloth collider capsules">
+              Colliders
+            </button>
+            <button id="particleDebugBtn" type="button" aria-pressed="false" title="Show cloth particles — click one to copy its id">
+              Particles
+            </button>
+            <span id="particlePickHud" hidden></span>
+            <button id="lightDebugBtn" type="button" aria-pressed="false" title="Show light debug helpers">
+              Lights
+            </button>
+          </div>
+          <div id="traitCoverPickerRow" aria-label="Trait cover ghoul list">
+            <span class="trait-cover-label" title="Shortest list of ghouls that together show every trait value">
+              Trait cover
+            </span>
+            <button id="traitCoverPrev" type="button" aria-label="Previous trait-cover ghoul">‹</button>
+            <label class="ghoul-id-label">
+              #
+              <input id="traitCoverId" type="number" min="0" max="6665" step="1" value="41" />
+            </label>
+            <button id="traitCoverNext" type="button" aria-label="Next trait-cover ghoul">›</button>
+            <button id="traitCoverLoad" type="button">Load</button>
+            <span id="traitCoverMeta" class="trait-cover-meta">1 / 43</span>
+          </div>
+        </div>
+        <div id="mainRow">
+          <div id="leftColumn">
+            <div id="refCard" class="panel" aria-label="Official ghoul reference">
+              <div class="panel-title">Reference</div>
+              <img id="refImage" alt="Ghoul reference" />
+              <span id="refLabel">#0000</span>
+            </div>
+            <aside id="traitsPanel" class="panel" aria-label="Ghoul traits">
+              <div class="panel-title">Traits</div>
+              <dl id="traitsList"></dl>
+            </aside>
+          </div>
+          <div id="centerColumn">
+            <div id="viewerPanel" class="panel">
+              <div class="viewer-toolbar">
+                <div class="panel-mode-tabs" role="tablist" aria-label="View or Play">
+                  <button type="button" role="tab" id="appModeViewBtn" aria-selected="true" aria-controls="c">
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    id="appModePlayBtn"
+                    aria-selected="false"
+                    aria-controls="c"
+                    title="Tank controls: ← → turn, ↑ walk"
+                  >
+                    Play
+                  </button>
+                </div>
+                <div class="panel-mode-tabs camera-mode-tabs" role="tablist" aria-label="Camera mode">
+                  <button
+                    type="button"
+                    role="tab"
+                    id="camModeFixedBtn"
+                    aria-selected="true"
+                    title="Camera stays put — drag to look"
+                  >
+                    Fixed
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    id="camModeFollowBtn"
+                    aria-selected="false"
+                    title="Third-person follow — drag up/down to pitch"
+                  >
+                    Follow
+                  </button>
+                </div>
+              </div>
+              <canvas id="c"></canvas>
+            </div>
+            <div id="bgModeBar" class="panel" role="group" aria-label="Background mode">
+              <button id="bgModeGridBtn" type="button" aria-pressed="false" title="Yellow floor grid, black void">
+                Grid BG
+              </button>
+              <button id="bgModeTraitBtn" type="button" aria-pressed="true" title="Clear colour / gradient from the Background trait">
+                Trait BG
+              </button>
+              <button
+                id="bgModeGhoulballBtn"
+                type="button"
+                aria-pressed="false"
+                title="Wrap the ghoul into a ball, then show the reference texture sphere"
+              >
+                Ghoulball
+              </button>
+            </div>
+            <div id="fxPanel" class="panel" aria-label="Lights Bloom Cloth Fog">
+              <div id="fxTabs" role="tablist" aria-label="Lights Bloom Cloth Fog">
+                <button type="button" role="tab" id="fxTabLights" aria-controls="brightnessControls" aria-selected="true">
+                  Lights
+                </button>
+                <button type="button" role="tab" id="fxTabBloom" aria-controls="bloomControls" aria-selected="false">
+                  Bloom
+                </button>
+                <button type="button" role="tab" id="fxTabCloth" aria-controls="clothControls" aria-selected="false">
+                  Cloth
+                </button>
+                <button type="button" role="tab" id="fxTabFog" aria-controls="fogControls" aria-selected="false">
+                  Fog
+                </button>
+                <button type="button" role="tab" id="fxTabSun" aria-controls="sunControls" aria-selected="false">
+                  Sun
+                </button>
+                <button type="button" role="tab" id="fxTabOcean" aria-controls="oceanControls" aria-selected="false">
+                  Ocean
+                </button>
+                <button type="button" role="tab" id="fxTabBall" aria-controls="ballControls" aria-selected="false">
+                  Ball
+                </button>
+                <button type="button" role="tab" id="fxTabPlay" aria-controls="playControls" aria-selected="false">
+                  Play
+                </button>
+              </div>
+              <div id="brightnessControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabLights">
+                <div class="fx-group-title">Point Lights</div>
+                <label title="Scales ambient, hemi, key, and fill">
+                  Master
+                  <input id="lightMaster" type="range" min="0" max="5" step="0.01" value="1" />
+                  <span id="lightMasterVal">1.00</span>
+                </label>
+                <label title="Flat fill on every surface">
+                  Ambient
+                  <input id="lightAmbient" type="range" min="0" max="1" step="0.01" value="0" />
+                  <span id="lightAmbientVal">0.00</span>
+                </label>
+                <label title="Sky / ground hemisphere light">
+                  Hemi
+                  <input id="lightHemi" type="range" min="0" max="8" step="0.01" value="0.74" />
+                  <span id="lightHemiVal">0.74</span>
+                </label>
+                <label title="Main point light in front of the character">
+                  Key
+                  <input id="lightKey" type="range" min="0" max="12" step="0.01" value="10.40" />
+                  <span id="lightKeyVal">10.40</span>
+                </label>
+                <label title="Warm fill point light behind / left of the character">
+                  Fill
+                  <input id="lightFill" type="range" min="0" max="10" step="0.01" value="3.82" />
+                  <span id="lightFillVal">3.82</span>
+                </label>
+                <div class="fx-group-title">Sun</div>
+                <label title="Directional sun intensity (not scaled by Master)">
+                  Strength
+                  <input id="lightSun" type="range" min="0" max="20" step="0.05" value="1.35" />
+                  <span id="lightSunVal">1.35</span>
+                </label>
+                <label title="Compass heading the sun comes from (0 = +Z, 90 = +X)">
+                  Azimuth
+                  <input id="lightSunAzimuth" type="range" min="0" max="360" step="1" value="35" />
+                  <span id="lightSunAzimuthVal">35</span>
+                </label>
+                <label title="Rotation above the horizon (90 = overhead)">
+                  Elevation
+                  <input id="lightSunElevation" type="range" min="5" max="85" step="1" value="48" />
+                  <span id="lightSunElevationVal">48</span>
+                </label>
+              </div>
+              <div id="bloomControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabBloom" hidden>
+                <label>
+                  Strength
+                  <input id="bloomStrength" type="range" min="0" max="5" step="0.05" value="0.10" />
+                  <span id="bloomStrengthVal">0.10</span>
+                </label>
+                <label>
+                  Radius
+                  <input id="bloomRadius" type="range" min="0" max="1" step="0.01" value="0.11" />
+                  <span id="bloomRadiusVal">0.11</span>
+                </label>
+                <label>
+                  Threshold
+                  <input id="bloomThreshold" type="range" min="0" max="1" step="0.01" value="0.08" />
+                  <span id="bloomThresholdVal">0.08</span>
+                </label>
+              </div>
+              <div id="clothControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabCloth" hidden>
+                <label title="Distance-constraint stiffness near the hood">
+                  Hood tension
+                  <input id="clothStiffnessRoot" type="range" min="0" max="1" step="0.01" value="1" />
+                  <span id="clothStiffnessRootVal">1.00</span>
+                </label>
+                <label title="Distance-constraint stiffness at the hem">
+                  Hem tension
+                  <input id="clothStiffnessTip" type="range" min="0" max="1" step="0.01" value="0.12" />
+                  <span id="clothStiffnessTipVal">0.12</span>
+                </label>
+                <label title="Pull toward the authored rest pose (Magica spring)">
+                  Shape hold
+                  <input id="clothRestBlend" type="range" min="0" max="0.5" step="0.01" value="0" />
+                  <span id="clothRestBlendVal">0.00</span>
+                </label>
+                <label title="World gravity on free cloth particles">
+                  Gravity
+                  <input id="clothGravity" type="range" min="0" max="20" step="0.1" value="5" />
+                  <span id="clothGravityVal">5.0</span>
+                </label>
+                <label title="Velocity damping (higher = less swing)">
+                  Damping
+                  <input id="clothDamping" type="range" min="0" max="0.5" step="0.01" value="0.10" />
+                  <span id="clothDampingVal">0.10</span>
+                </label>
+              </div>
+              <div id="fogControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabFog" hidden>
+                <div id="fogTraitHint" class="fx-hint">Select a Background trait</div>
+                <label class="fx-check" title="Enable distance fog for this Trait BG">
+                  <input id="fogEnabled" type="checkbox" />
+                  Enabled
+                </label>
+                <label title="Fog tint (usually matches the Trait BG clear color)">
+                  Color
+                  <input id="fogColor" type="color" value="#080103" />
+                  <span id="fogColorVal">#080103</span>
+                </label>
+                <label title="Distance where fog starts">
+                  Near
+                  <input id="fogNear" type="range" min="0" max="40" step="0.05" value="1.2" />
+                  <span id="fogNearVal">1.20</span>
+                </label>
+                <label title="Distance where fog is fully opaque">
+                  Far
+                  <input id="fogFar" type="range" min="0.1" max="80" step="0.05" value="3.8" />
+                  <span id="fogFarVal">3.80</span>
+                </label>
+                <div class="fx-actions">
+                  <button id="fogSaveBtn" type="button" disabled>Save fog for BG</button>
+                  <span id="fogSaveStatus"></span>
+                </div>
+              </div>
+              <div id="sunControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabSun" hidden>
+                <div id="sunTraitHint" class="fx-hint">Select a Background trait</div>
+                <label class="fx-check" title="Directional sun for Trait BG">
+                  <input id="sunEnabled" type="checkbox" />
+                  Enabled
+                </label>
+                <label title="Sun tint">
+                  Color
+                  <input id="sunColor" type="color" value="#fff2d0" />
+                  <span id="sunColorVal">#fff2d0</span>
+                </label>
+                <label title="Directional light intensity">
+                  Strength
+                  <input id="sunIntensity" type="range" min="0" max="20" step="0.05" value="2.40" />
+                  <span id="sunIntensityVal">2.40</span>
+                </label>
+                <label title="Compass heading the sun comes from (0 = +Z, 90 = +X)">
+                  Azimuth
+                  <input id="sunAzimuth" type="range" min="0" max="360" step="1" value="35" />
+                  <span id="sunAzimuthVal">35</span>
+                </label>
+                <label title="Height above the horizon (90 = overhead)">
+                  Elevation
+                  <input id="sunElevation" type="range" min="5" max="85" step="1" value="48" />
+                  <span id="sunElevationVal">48</span>
+                </label>
+                <div class="fx-actions">
+                  <button id="sunSaveBtn" type="button" disabled>Save sun for BG</button>
+                  <span id="sunSaveStatus"></span>
+                </div>
+              </div>
+              <div id="oceanControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabOcean" hidden>
+                <div id="oceanTraitHint" class="fx-hint">Select a Background trait</div>
+                <label class="fx-check" title="Displace WaterPlane vertices for this Trait BG">
+                  <input id="oceanEnabled" type="checkbox" />
+                  Enabled
+                </label>
+                <label title="Wave height">
+                  Amplitude
+                  <input id="oceanAmplitude" type="range" min="0" max="2" step="0.01" value="0.045" />
+                  <span id="oceanAmplitudeVal">0.045</span>
+                </label>
+                <label title="Spatial wave frequency">
+                  Frequency
+                  <input id="oceanFrequency" type="range" min="0.1" max="16" step="0.05" value="1.6" />
+                  <span id="oceanFrequencyVal">1.60</span>
+                </label>
+                <label title="How fast the ripples travel">
+                  Speed
+                  <input id="oceanSpeed" type="range" min="0" max="12" step="0.05" value="1.15" />
+                  <span id="oceanSpeedVal">1.15</span>
+                </label>
+                <div class="fx-hint">WaterPlane material</div>
+                <label title="Water tint">
+                  Color
+                  <input id="oceanColor" type="color" value="#2a6a88" />
+                  <span id="oceanColorVal">#2a6a88</span>
+                </label>
+                <label title="Metallic response">
+                  Metalness
+                  <input id="oceanMetalness" type="range" min="0" max="1" step="0.01" value="0.35" />
+                  <span id="oceanMetalnessVal">0.35</span>
+                </label>
+                <label title="Surface gloss — lower is shinier">
+                  Roughness
+                  <input id="oceanRoughness" type="range" min="0" max="1" step="0.01" value="0.22" />
+                  <span id="oceanRoughnessVal">0.22</span>
+                </label>
+                <label title="Water transparency">
+                  Opacity
+                  <input id="oceanOpacity" type="range" min="0" max="1" step="0.01" value="0.92" />
+                  <span id="oceanOpacityVal">0.92</span>
+                </label>
+                <label title="Environment / reflection intensity">
+                  Env
+                  <input id="oceanEnv" type="range" min="0" max="3" step="0.05" value="1.20" />
+                  <span id="oceanEnvVal">1.20</span>
+                </label>
+                <div class="fx-actions">
+                  <button id="oceanSaveBtn" type="button" disabled>Save ocean for BG</button>
+                  <span id="oceanSaveStatus"></span>
+                </div>
+              </div>
+              <div id="ballControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabBall" hidden>
+                <div class="fx-hint">Ghoulball physical material</div>
+                <label title="UV twirl — −1..1, negative reverses">
+                  Swirl
+                  <input id="ballSwirl" type="range" min="-1" max="1" step="0.01" value="0" />
+                  <span id="ballSwirlVal">0.00</span>
+                </label>
+                <label title="Metallic response">
+                  Metalness
+                  <input id="ballMetalness" type="range" min="0" max="1" step="0.01" value="0" />
+                  <span id="ballMetalnessVal">0.00</span>
+                </label>
+                <label title="Surface microsurface — lower is glossier">
+                  Roughness
+                  <input id="ballRoughness" type="range" min="0" max="1" step="0.01" value="0.75" />
+                  <span id="ballRoughnessVal">0.75</span>
+                </label>
+                <label title="Clearcoat layer strength">
+                  Clearcoat
+                  <input id="ballClearcoat" type="range" min="0" max="1" step="0.01" value="1" />
+                  <span id="ballClearcoatVal">1.00</span>
+                </label>
+                <label title="Clearcoat gloss — lower is shinier">
+                  Coat rough
+                  <input id="ballClearcoatRoughness" type="range" min="0" max="1" step="0.01" value="0.10" />
+                  <span id="ballClearcoatRoughnessVal">0.10</span>
+                </label>
+                <label title="Environment / reflection intensity">
+                  Env
+                  <input id="ballEnv" type="range" min="0" max="3" step="0.05" value="1.20" />
+                  <span id="ballEnvVal">1.20</span>
+                </label>
+                <label title="Specular reflectivity">
+                  Reflect
+                  <input id="ballReflectivity" type="range" min="0" max="1" step="0.01" value="1" />
+                  <span id="ballReflectivityVal">1.00</span>
+                </label>
+              </div>
+              <div id="playControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabPlay" hidden>
+                <div class="fx-hint">Tank controls — ← → turn, ↑ walk (WASD too)</div>
+                <label title="Forward walk speed">
+                  Walk
+                  <input id="playWalkSpeed" type="range" min="0.2" max="4" step="0.05" value="1.35" />
+                  <span id="playWalkSpeedVal">1.35</span>
+                </label>
+                <label title="In-place turn rate">
+                  Turn
+                  <input id="playTurnSpeed" type="range" min="0.4" max="6" step="0.05" value="2.20" />
+                  <span id="playTurnSpeedVal">2.20</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div id="materialPanel" class="panel" aria-label="Trait materials">
+            <div class="panel-title">Materials</div>
+            <div id="materialHint">Select a trait</div>
+            <div id="materialList"></div>
+            <div id="materialSaveRow">
+              <button id="materialSave" type="button" disabled>Save to materials.ts</button>
+              <span id="materialSaveStatus"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

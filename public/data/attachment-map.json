@@ -1,0 +1,1163 @@
+{
+  "parentBone": "mixamorig:Head",
+  "notes": "Local TRS relative to mixamorig:Head (Unity GhoulPrefab). Apply as Object3D localTransform after parenting to the bone.",
+  "parts": [
+    {
+      "id": "halo",
+      "model": "parts/halo.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        0.0,
+        0.266,
+        -0.068
+      ],
+      "rotation": [
+        0.5153674,
+        -2.9373098e-11,
+        1.9182848e-11,
+        0.8569694
+      ],
+      "scale": [
+        15.883308,
+        15.883308,
+        15.883308
+      ],
+      "unityName": "Halo"
+    },
+    {
+      "id": "mowhawk",
+      "model": "parts/mowhawk.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        -0.00013,
+        0.27885,
+        0.00383
+      ],
+      "rotation": [
+        -0.73614997,
+        0.0011207819,
+        0.005076479,
+        -0.67679864
+      ],
+      "scale": [
+        3.7364128,
+        4.129484,
+        3.2955163
+      ],
+      "unityName": "Mowhawk"
+    },
+    {
+      "id": "candle",
+      "model": "parts/candle.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        -0.009013701,
+        0.14360829,
+        0.035070773
+      ],
+      "rotation": [
+        -0.7318408,
+        -0.20146993,
+        -0.15368925,
+        0.63261247
+      ],
+      "scale": [
+        44.660885,
+        44.756485,
+        37.252377
+      ],
+      "unityName": "Candle"
+    },
+    {
+      "id": "dirt",
+      "model": "parts/dirt.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        0.0606,
+        -1.61,
+        0.356
+      ],
+      "rotation": [
+        -0.78262883,
+        -0.010756557,
+        0.011862742,
+        0.6222826
+      ],
+      "scale": [
+        42.446636,
+        44.10132,
+        40.17189
+      ],
+      "unityName": "Dirt"
+    },
+    {
+      "id": "nightcap",
+      "model": "parts/nightcap.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        2.4607874e-05,
+        0.2677309,
+        -0.06798122
+      ],
+      "rotation": [
+        -0.3320555,
+        -5.9950703e-12,
+        1.035526e-11,
+        0.9432599
+      ],
+      "scale": [
+        0.021945214,
+        0.021945218,
+        0.021945218
+      ],
+      "unityName": "Nightcap New"
+    },
+    {
+      "id": "circlet",
+      "model": "parts/circlet.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        9.3769e-08,
+        0.21108,
+        0.078775
+      ],
+      "rotation": [
+        -0.7219272,
+        -2.0526606e-11,
+        -2.7496484e-11,
+        0.691969
+      ],
+      "scale": [
+        0.34514737,
+        0.40807077,
+        0.39549404
+      ],
+      "unityName": "Circlet"
+    },
+    {
+      "id": "redHorns",
+      "model": "parts/redHorns.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        0.15793,
+        0.24356,
+        -0.033358
+      ],
+      "rotation": [
+        -0.7071068,
+        0.0,
+        -0.0,
+        0.7071067
+      ],
+      "scale": [
+        33.51644,
+        33.51644,
+        33.51644
+      ],
+      "unityName": "Red Horns"
+    },
+    {
+      "id": "loldefi",
+      "model": "parts/loldefi.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        -0.0,
+        0.055,
+        0.132
+      ],
+      "rotation": [
+        -0.25352004,
+        -1.6333913e-11,
+        -2.9625476e-11,
+        0.96733016
+      ],
+      "scale": [
+        1.0079412,
+        1.0079412,
+        0.98742765
+      ],
+      "unityName": "'loldefi '"
+    },
+    {
+      "id": "positronic",
+      "model": "parts/positronic.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        -0.0,
+        0.2487,
+        0.0203
+      ],
+      "rotation": [
+        1.0,
+        0.0,
+        -0.0,
+        7.54979e-08
+      ],
+      "scale": [
+        17.091715,
+        17.091715,
+        18.215103
+      ],
+      "unityName": "Positronic"
+    },
+    {
+      "id": "crown",
+      "model": "parts/crown.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        2.3740854e-10,
+        0.22706795,
+        0.00072198355
+      ],
+      "rotation": [
+        -0.15475698,
+        -1.0595657e-11,
+        -1.6599005e-11,
+        0.98795265
+      ],
+      "scale": [
+        0.15186699,
+        0.16527723,
+        0.16676694
+      ],
+      "unityName": "Crown"
+    },
+    {
+      "id": "rag",
+      "model": "parts/rag.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "LowerHeadAcc",
+      "position": [
+        0.01,
+        0.246,
+        -0.019
+      ],
+      "rotation": [
+        -0.25230867,
+        -0.24325807,
+        0.0325197,
+        0.93600667
+      ],
+      "scale": [
+        19.242685,
+        22.868599,
+        18.747002
+      ],
+      "unityName": "Rag"
+    },
+    {
+      "id": "toxicHead",
+      "model": "parts/toxicHead.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "LowerHeadAcc",
+      "position": [
+        0.0034115007,
+        0.25350592,
+        -0.010059706
+      ],
+      "rotation": [
+        -0.16357933,
+        -6.040626e-11,
+        -3.201534e-09,
+        0.9865302
+      ],
+      "scale": [
+        18.888147,
+        17.780428,
+        17.780428
+      ],
+      "unityName": "ToxicHead"
+    },
+    {
+      "id": "tatteredCloak",
+      "model": "parts/tatteredCloak.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidHeadAcc",
+      "position": [
+        -0.007,
+        -0.5349997,
+        -0.028000046
+      ],
+      "rotation": [
+        -0.04567537,
+        -1.5331191e-11,
+        -9.071144e-12,
+        0.9989564
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "unityName": "TatteredCloak webgl"
+    },
+    {
+      "id": "innerCircle",
+      "model": "parts/innerCircle.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidHeadAcc",
+      "position": [
+        -0.0,
+        -1.412,
+        -0.102
+      ],
+      "rotation": [
+        -0.7071068,
+        0.0,
+        -0.0,
+        0.7071067
+      ],
+      "scale": [
+        34.33785,
+        34.33785,
+        34.33785
+      ],
+      "unityName": "InnerCloak webgl"
+    },
+    {
+      "id": "bullHorns",
+      "model": "parts/bullHorns.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidHeadAcc",
+      "position": [
+        0.0,
+        -1.5329999,
+        0.322
+      ],
+      "rotation": [
+        -0.78265375,
+        -4.363323e-11,
+        3.826149e-11,
+        0.62245727
+      ],
+      "scale": [
+        36.536137,
+        36.536137,
+        36.536137
+      ],
+      "unityName": "BullHorns"
+    },
+    {
+      "id": "jaysGlasses",
+      "model": "parts/jaysGlasses.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "TopEyeAcc",
+      "position": [
+        0.0,
+        0.15230723,
+        0.20748116
+      ],
+      "rotation": [
+        -0.08116351,
+        1.8171008e-12,
+        1.0051098e-12,
+        0.9967008
+      ],
+      "scale": [
+        -2.9153783,
+        -3.2232974,
+        -4.3636985
+      ],
+      "unityName": "JayPegs"
+    },
+    {
+      "id": "eyeSocket",
+      "model": "parts/eyeSocket.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Cranium",
+      "position": [
+        -9.3585296e-14,
+        0.21960004,
+        0.15490004
+      ],
+      "rotation": [
+        -0.23012184,
+        7.6597765e-12,
+        -2.1075816e-11,
+        0.9731618
+      ],
+      "scale": [
+        1.0,
+        3.3084798,
+        1.0
+      ],
+      "unityName": "Eye Socket"
+    },
+    {
+      "id": "perforated",
+      "model": "parts/perforated.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Cranium",
+      "position": [
+        -0.00074,
+        0.2361,
+        0.1473
+      ],
+      "rotation": [
+        -0.23012184,
+        7.6597765e-12,
+        -2.1075816e-11,
+        0.9731618
+      ],
+      "scale": [
+        1.86502,
+        0.92746615,
+        1.0
+      ],
+      "unityName": "Perforated"
+    },
+    {
+      "id": "melonGlasses",
+      "model": "parts/melonGlasses.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidEyeAcc",
+      "position": [
+        0.0,
+        0.1295,
+        0.1155
+      ],
+      "rotation": [
+        -8.146034e-08,
+        0.0,
+        -0.0,
+        1.0
+      ],
+      "scale": [
+        0.078669615,
+        0.07884345,
+        0.07884345
+      ],
+      "unityName": "MelonGlasses",
+      "cyclopsPosition": [
+        0,
+        0.1342,
+        0.1375
+      ],
+      "defaultPosition": [
+        0,
+        0.1295,
+        0.1155
+      ]
+    },
+    {
+      "id": "blueViper",
+      "model": "parts/blueViper.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidEyeAcc",
+      "position": [
+        0.0,
+        0.1295,
+        0.1155
+      ],
+      "rotation": [
+        -0.0811636,
+        1.6097957e-12,
+        1.1577993e-12,
+        0.9967008
+      ],
+      "scale": [
+        0.076973096,
+        0.08480354,
+        0.0848035
+      ],
+      "unityName": "Glasses - BlueViper",
+      "cyclopsPosition": [
+        0,
+        0.1342,
+        0.1375
+      ],
+      "defaultPosition": [
+        0,
+        0.1295,
+        0.1155
+      ]
+    },
+    {
+      "id": "riffRaff",
+      "model": "parts/riffRaff.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidEyeAcc",
+      "position": [
+        0.0,
+        0.1295,
+        0.1155
+      ],
+      "rotation": [
+        -0.0811636,
+        1.6097957e-12,
+        1.1577993e-12,
+        0.9967008
+      ],
+      "scale": [
+        0.076973096,
+        0.08480354,
+        0.0848035
+      ],
+      "unityName": "Glasses - RiffRaff",
+      "cyclopsPosition": [
+        0,
+        0.1342,
+        0.1375
+      ],
+      "defaultPosition": [
+        0,
+        0.1295,
+        0.1155
+      ]
+    },
+    {
+      "id": "nc69r",
+      "model": "parts/nc69r.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidEyeAcc",
+      "position": [
+        0.0,
+        0.14751,
+        0.11459
+      ],
+      "rotation": [
+        -0.08116351,
+        1.8171008e-12,
+        1.0051098e-12,
+        0.9967008
+      ],
+      "scale": [
+        1.0,
+        -0.035299975,
+        1.0
+      ],
+      "unityName": "nc69r"
+    },
+    {
+      "id": "xeKF420",
+      "model": "parts/xeKF420.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MidEyeAcc",
+      "position": [
+        -0.0,
+        0.12939,
+        0.10224
+      ],
+      "rotation": [
+        -0.75363964,
+        9.184618e-12,
+        6.993052e-12,
+        0.6572878
+      ],
+      "scale": [
+        41.630157,
+        40.84751,
+        41.630157
+      ],
+      "unityName": "xeKF420"
+    },
+    {
+      "id": "bandage",
+      "model": "parts/bandage.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "LowerEyeAcc",
+      "position": [
+        3.591529e-07,
+        0.00037992105,
+        0.00052260235
+      ],
+      "rotation": [
+        -0.029330514,
+        0.0001591709,
+        0.0009705282,
+        0.99956936
+      ],
+      "scale": [
+        44.65317,
+        0.9316065,
+        49.76108
+      ],
+      "unityName": "Bandage"
+    },
+    {
+      "id": "patch",
+      "model": "parts/patch.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "LowerEyeAcc",
+      "position": [
+        0.052533,
+        0.14375,
+        0.20309
+      ],
+      "rotation": [
+        0.6617948,
+        2.3471787e-12,
+        2.1919662e-12,
+        0.7496851
+      ],
+      "scale": [
+        0.03952019,
+        0.03952019,
+        0.03952019
+      ],
+      "unityName": "eyepatch"
+    },
+    {
+      "id": "eyeBlood",
+      "model": "parts/eyeBlood.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "eyesGroup",
+      "position": [
+        0.010981,
+        0.095,
+        0.16945
+      ],
+      "rotation": [
+        0.99993956,
+        0.010854691,
+        -0.001779641,
+        1.2665986e-07
+      ],
+      "scale": [
+        21.141752,
+        21.141752,
+        13.642355
+      ],
+      "unityName": "DischargeBlood"
+    },
+    {
+      "id": "eyeTears",
+      "model": "parts/eyeTears.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "eyesGroup",
+      "position": [
+        0.010981,
+        0.095,
+        0.16945
+      ],
+      "rotation": [
+        0.99993956,
+        0.010854691,
+        -0.001779641,
+        1.2665986e-07
+      ],
+      "scale": [
+        21.141752,
+        21.141752,
+        13.642355
+      ],
+      "unityName": "Discharge_Tears"
+    },
+    {
+      "id": "mouthBlood",
+      "model": "parts/mouthBlood.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        0.04843,
+        0.00954,
+        0.14311
+      ],
+      "rotation": [
+        0.63804597,
+        0.37754926,
+        -0.32022843,
+        0.5897522
+      ],
+      "scale": [
+        1.0,
+        0.08093943,
+        0.011878586
+      ],
+      "unityName": "Blood Mouth"
+    },
+    {
+      "id": "mouthSludge",
+      "model": "parts/mouthSludge.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        0.04843,
+        0.00954,
+        0.14311
+      ],
+      "rotation": [
+        0.63804597,
+        0.37754926,
+        -0.32022843,
+        0.5897522
+      ],
+      "scale": [
+        1.0,
+        0.08093943,
+        0.011878586
+      ],
+      "unityName": "Sludge Mouth"
+    },
+    {
+      "id": "arrow",
+      "model": "parts/arrow.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        0.1038,
+        -0.0117,
+        0.1418
+      ],
+      "rotation": [
+        -0.57873154,
+        -0.46658933,
+        0.17305543,
+        0.6460774
+      ],
+      "scale": [
+        11.138,
+        11.138,
+        11.138
+      ],
+      "unityName": "Arrow"
+    },
+    {
+      "id": "rose",
+      "model": "parts/rose.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.05072266,
+        -1.370142,
+        -0.015184103
+      ],
+      "rotation": [
+        -0.70691216,
+        0.013717155,
+        -0.019097077,
+        0.70691043
+      ],
+      "scale": [
+        30.554436,
+        31.945671,
+        31.945671
+      ],
+      "unityName": "Rose"
+    },
+    {
+      "id": "cig",
+      "model": "parts/cig.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.0786,
+        -0.0031,
+        0.1503
+      ],
+      "rotation": [
+        -0.22335595,
+        -0.7503124,
+        -0.53893363,
+        -0.3109566
+      ],
+      "scale": [
+        72.16457,
+        72.16457,
+        5.677794
+      ],
+      "unityName": "Cig1"
+    },
+    {
+      "id": "cig2",
+      "model": "parts/cig2.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        0.06780001,
+        -0.0030999104,
+        0.15029998
+      ],
+      "rotation": [
+        -0.6532299,
+        -0.27072257,
+        0.27072257,
+        0.65322995
+      ],
+      "scale": [
+        72.16457,
+        72.16457,
+        5.677794
+      ],
+      "unityName": "Cig2"
+    },
+    {
+      "id": "torch",
+      "model": "parts/torch.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        2.236128e-11,
+        0.025518395,
+        0.15291624
+      ],
+      "rotation": [
+        -0.18018275,
+        -0.6971341,
+        -0.6797402,
+        0.13961215
+      ],
+      "scale": [
+        1.3626233,
+        0.28529242,
+        0.28529242
+      ],
+      "unityName": "Torch"
+    },
+    {
+      "id": "blade",
+      "model": "parts/blade.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        0.0552,
+        0.0177,
+        0.1522
+      ],
+      "rotation": [
+        0.0,
+        -0.0,
+        -0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "unityName": "Knife"
+    },
+    {
+      "id": "cross",
+      "model": "parts/cross.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.066237,
+        0.024,
+        0.147
+      ],
+      "rotation": [
+        -0.7071069,
+        -3.5996957e-13,
+        -2.1012107e-12,
+        0.7071067
+      ],
+      "scale": [
+        42.077206,
+        42.077206,
+        42.077206
+      ],
+      "unityName": "Cross"
+    },
+    {
+      "id": "stogie",
+      "model": "parts/stogie.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.06530007,
+        0.008829453,
+        0.15099472
+      ],
+      "rotation": [
+        0.29466948,
+        0.026509456,
+        0.61244845,
+        0.73305804
+      ],
+      "scale": [
+        0.0017631853,
+        0.0017631848,
+        0.001763185
+      ],
+      "unityName": "Stogie"
+    },
+    {
+      "id": "key",
+      "model": "parts/key.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.074126,
+        -2.4778,
+        -1.1682
+      ],
+      "rotation": [
+        -0.7071068,
+        0.0,
+        -0.0,
+        0.7071067
+      ],
+      "scale": [
+        61.56975,
+        90.38185,
+        59.705276
+      ],
+      "unityName": "Key"
+    },
+    {
+      "id": "idol",
+      "model": "parts/idol.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Special",
+      "position": [
+        -0.212,
+        0.1912,
+        -0.0357
+      ],
+      "rotation": [
+        9.942435e-07,
+        0.76744527,
+        0.6411145,
+        1.9615784e-06
+      ],
+      "scale": [
+        0.48171765,
+        0.48171765,
+        0.48171765
+      ],
+      "unityName": "Idol"
+    },
+    {
+      "id": "doodle",
+      "model": "parts/doodle.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "cat",
+      "position": [
+        -0.40900877,
+        0.29680428,
+        0.12926783
+      ],
+      "rotation": [
+        0.005809403,
+        0.7006324,
+        0.7133396,
+        0.015072435
+      ],
+      "scale": [
+        5.8416877,
+        5.841689,
+        5.8416867
+      ],
+      "unityName": "cat"
+    },
+    {
+      "id": "beams",
+      "model": "parts/beams.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Powerful",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "unityName": "Beam"
+    },
+    {
+      "id": "crayon",
+      "model": "parts/crayon.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.029,
+        0.01,
+        0.14
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071067,
+        0.7071068
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "unityName": "Crayon"
+    },
+    {
+      "id": "drallHorns",
+      "model": "parts/drallHorns.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        0.15793,
+        0.24356,
+        -0.033358
+      ],
+      "rotation": [
+        -0.7071068,
+        0.0,
+        -0.0,
+        0.7071067
+      ],
+      "scale": [
+        33.51644,
+        33.51644,
+        33.51644
+      ],
+      "unityName": "Drall Horns"
+    },
+    {
+      "id": "santaHat",
+      "model": "parts/santaHat.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "Top Head Acc",
+      "position": [
+        -0.0061,
+        0.175,
+        0.0253
+      ],
+      "rotation": [
+        -0.83949697,
+        0.21902357,
+        0.112652756,
+        0.48433754
+      ],
+      "scale": [
+        0.13041347,
+        0.1284925,
+        0.1284925
+      ],
+      "unityName": "SantaHat"
+    },
+    {
+      "id": "candyCane",
+      "model": "parts/candyCane.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.0347,
+        -0.003,
+        0.123
+      ],
+      "rotation": [
+        0.50000054,
+        -0.49999908,
+        -0.50000083,
+        0.4999996
+      ],
+      "scale": [
+        4.682543,
+        4.682543,
+        4.682543
+      ],
+      "unityName": "CandyCane"
+    },
+    {
+      "id": "staceyAxe",
+      "model": "parts/staceyAxe.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "MouthAcc",
+      "position": [
+        -0.148,
+        0.0128,
+        0.1353
+      ],
+      "rotation": [
+        0.7071068,
+        0.0,
+        -0.0,
+        0.7071067
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "unityName": "tomahawk"
+    },
+    {
+      "id": "rayGhoul",
+      "model": "parts/rayGhoul.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "1",
+      "position": [
+        -0.0022,
+        0.12010036,
+        0.058699936
+      ],
+      "rotation": [
+        -0.1401452,
+        -1.2618685e-12,
+        -3.18869e-11,
+        0.990131
+      ],
+      "scale": [
+        0.13072555,
+        0.14379603,
+        0.13852285
+      ],
+      "unityName": "RayHead"
+    },
+    {
+      "id": "ghoulPegs",
+      "model": "parts/ghoulPegs.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "1",
+      "position": [
+        -0.001,
+        0.1396,
+        0.0026
+      ],
+      "rotation": [
+        -0.07805935,
+        1.349998e-11,
+        -1.5972538e-11,
+        0.9969487
+      ],
+      "scale": [
+        0.021229936,
+        0.021229936,
+        0.02122994
+      ],
+      "unityName": "JayHair"
+    },
+    {
+      "id": "oldOne",
+      "model": "parts/oldOne.glb",
+      "parentBone": "mixamorig:Head",
+      "socket": "1",
+      "position": [
+        3.9166007e-10,
+        0.041845504,
+        0.09516766
+      ],
+      "rotation": [
+        0.5790528,
+        3.2945088e-11,
+        7.773234e-12,
+        0.81529003
+      ],
+      "scale": [
+        1.0,
+        0.009467798,
+        1.0
+      ],
+      "unityName": "OldOne"
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "style": "Real",
+  "cyclopsGlasses": {
+    "targets": ["blueViper", "riffRaff", "melonGlasses"],
+    "cyclopsOrCyclopsStare": [0, 0.1342, 0.1375],
+    "default": [0, 0.1295, 0.1155]
+  },
+  "headMesh": {
+    "Fangs": "fangs",
+    "Flesh": "flesh",
+    "Teeth": "teeth"
+  },
+  "lowerEyeAcc": {
+    "None": { "show": [], "hide": ["bandage", "patch"] },
+    "Bandage": { "show": ["bandage"], "hide": ["patch"] },
+    "Patch": { "show": ["patch"], "hide": ["bandage"] }
+  },
+  "eyeDischarge": {
+    "None": { "show": [], "hide": ["eyeGunk", "eyeBlood", "eyeTears"] },
+    "Blood": { "show": ["eyeBlood"], "hide": ["eyeGunk", "eyeTears"] },
+    "Tears": { "show": ["eyeTears"], "hide": ["eyeGunk", "eyeBlood"] },
+    "Gunk": { "show": ["eyeGunk"], "hide": ["eyeBlood", "eyeTears"] }
+  },
+  "lowerHeadAcc": {
+    "None": { "show": [], "hide": ["toxicHead", "rag"] },
+    "Toxic": { "show": ["toxicHead"], "hide": ["rag"] },
+    "Green_Rag": { "show": ["rag"], "hide": ["toxicHead"], "materials": [{ "target": "rag", "slot": 0, "name": "RagGreen" }] },
+    "Blue_Rag": { "show": ["rag"], "hide": ["toxicHead"], "materials": [{ "target": "rag", "slot": 0, "name": "RagBlue" }] }
+  },
+  "midHeadAcc": {
+    "None": { "show": [], "hide": ["bullHorns", "tatteredCloak", "innerCircle"] },
+    "Tattered_Cloak": { "show": ["tatteredCloak"], "hide": ["bullHorns", "innerCircle"] },
+    "Inner_Circle": { "show": ["innerCircle"], "hide": ["bullHorns", "tatteredCloak"] },
+    "Bull_Horns": { "show": ["bullHorns"], "hide": ["tatteredCloak", "innerCircle"] }
+  },
+  "mouthAcc": {
+    "None": { "show": [], "hide": ["rose", "cig", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"] },
+    "Blood": { "show": ["mouthBlood"], "hide": ["rose", "cig", "cig2", "key", "torch", "cross", "mouthSludge", "arrow", "blade"] },
+    "Sludge": { "show": ["mouthSludge"], "hide": ["rose", "key", "cig", "cig2", "torch", "cross", "mouthBlood", "arrow", "stogie", "blade"] },
+    "Red_Arrow": { "show": ["arrow"], "hide": ["rose", "cig", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "stogie", "blade"], "materials": [{ "target": "arrow", "slot": 0, "name": "ArrowWood" }, { "target": "arrow", "slot": 1, "name": "ArrowRed" }] },
+    "Red_Rose": { "show": ["rose"], "hide": ["cig", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"], "materials": [{ "target": "rose", "slot": 0, "name": "RoseRed" }, { "target": "rose", "slot": 1, "name": "RoseGreen" }] },
+    "Green_Arrow": { "show": ["arrow"], "hide": ["rose", "cig", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "stogie", "blade"], "materials": [{ "target": "arrow", "slot": 0, "name": "ArrowWood" }, { "target": "arrow", "slot": 1, "name": "ArrowGreen" }] },
+    "White_Rose": { "show": ["rose"], "hide": ["cig", "cig2", "key", "torch", "arrow", "cross", "mouthBlood", "mouthSludge", "stogie", "blade"], "materials": [{ "target": "rose", "slot": 0, "name": "RoseWhite" }, { "target": "rose", "slot": 1, "name": "RoseGreen" }] },
+    "Pink_Rose": { "show": ["rose"], "hide": ["cig", "key", "cig2", "torch", "mouthBlood", "mouthSludge", "arrow", "cross", "stogie", "blade"], "materials": [{ "target": "rose", "slot": 0, "name": "RosePink" }, { "target": "rose", "slot": 1, "name": "RoseGreen" }] },
+    "Dead_Rose": { "show": ["rose"], "hide": ["key", "cig", "cig2", "mouthBlood", "mouthSludge", "arrow", "torch", "cross", "stogie", "blade"], "materials": [{ "target": "rose", "slot": 0, "name": "RoseDead" }, { "target": "rose", "slot": 1, "name": "RoseDeadGreen" }] },
+    "Cig": { "show": ["cig"], "hide": ["rose", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"] },
+    "Torch": { "show": ["torch"], "hide": ["rose", "cig", "cig2", "key", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"] },
+    "Blade": { "show": ["blade"], "hide": ["rose", "cig", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie"] },
+    "Cross": { "show": ["cross"], "hide": ["rose", "cig", "cig2", "key", "torch", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"] },
+    "Cigs": { "show": ["cig", "cig2"], "hide": ["rose", "key", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"] },
+    "Stogie": { "show": ["stogie"], "hide": ["rose", "cig", "cig2", "key", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "blade"] },
+    "Key": { "show": ["key"], "hide": ["rose", "cig", "cig2", "torch", "cross", "mouthBlood", "mouthSludge", "arrow", "stogie", "blade"] }
+  },
+  "midEyeAcc": {
+    "None": { "show": [], "hide": ["nc69r", "riffRaff", "blueViper", "melonGlasses", "xeKF420"] },
+    "Blue_Vipers": { "show": ["blueViper"], "hide": ["nc69r", "riffRaff", "melonGlasses", "xeKF420"], "cyclopsOffset": true },
+    "Riff_Raff": { "show": ["riffRaff"], "hide": ["nc69r", "blueViper", "melonGlasses", "xeKF420"], "cyclopsOffset": true },
+    "Slaughtermelon": { "show": ["melonGlasses"], "hide": ["nc69r", "riffRaff", "blueViper", "xeKF420"], "cyclopsOffset": true },
+    "nc69R": { "show": ["nc69r"], "hide": ["riffRaff", "blueViper", "melonGlasses", "xeKF420"] },
+    "xeKF420": { "show": ["xeKF420"], "hide": ["nc69r", "riffRaff", "blueViper", "melonGlasses"] }
+  },
+  "cranium": {
+    "None": { "show": [], "hide": ["eyeSocket", "perforated", "punctured"] },
+    "Eye_Socket": { "show": ["eyeSocket"], "hide": ["perforated", "punctured"] },
+    "Perforated": { "show": ["perforated"], "hide": ["eyeSocket", "punctured"] },
+    "Punctured": { "show": ["punctured"], "hide": ["eyeSocket", "perforated"] }
+  },
+  "special": {
+    "None": { "show": [], "hide": ["idol", "infernalFlame", "vaporwaveTea", "doodle"] },
+    "Idol": { "show": ["idol"], "hide": ["infernalFlame", "vaporwaveTea", "doodle"] },
+    "Infernal_Flame": { "show": ["infernalFlame"], "hide": ["idol", "vaporwaveTea", "doodle"] },
+    "Vaporwave_Tea": { "show": ["vaporwaveTea"], "hide": ["idol", "infernalFlame", "doodle"] },
+    "Doodle": { "show": ["doodle"], "hide": ["idol", "infernalFlame", "vaporwaveTea"] }
+  },
+  "topHeadAcc": {
+    "None": { "show": [], "hide": ["fleshner", "halo", "candle", "mowhawk", "nightcap", "crown", "circlet", "redHorns", "loldefi", "dirt", "positronic"] },
+    "Fleshner": { "show": ["fleshner"], "hide": ["halo", "candle", "mowhawk", "nightcap", "circlet", "redHorns", "positronic", "crown", "loldefi", "dirt"] },
+    "Red_Halo": { "show": ["halo"], "hide": ["fleshner", "candle", "mowhawk", "nightcap", "crown", "circlet", "redHorns", "positronic", "loldefi", "dirt"], "materials": [{ "target": "halo", "slot": 0, "name": "RedHalo" }] },
+    "White_Halo": { "show": ["halo"], "hide": ["fleshner", "candle", "mowhawk", "circlet", "redHorns", "loldefi", "nightcap", "positronic", "crown", "dirt"], "materials": [{ "target": "halo", "slot": 0, "name": "WhiteHalo" }] },
+    "Based_Money_God": { "show": ["halo"], "hide": ["fleshner", "candle", "mowhawk", "nightcap", "circlet", "redHorns", "loldefi", "positronic", "crown", "dirt"], "materials": [{ "target": "halo", "slot": 0, "name": "BMGHalo" }] },
+    "Blue_Halo": { "show": ["halo"], "hide": ["fleshner", "candle", "mowhawk", "dirt", "nightcap", "circlet", "redHorns", "positronic", "crown", "loldefi"], "materials": [{ "target": "halo", "slot": 0, "name": "BlueHalo" }] },
+    "Gold_Halo": { "show": ["halo"], "hide": ["fleshner", "candle", "mowhawk", "dirt", "nightcap", "circlet", "redHorns", "loldefi", "positronic", "crown"], "materials": [{ "target": "halo", "slot": 0, "name": "GoldHalo" }] },
+    "Red_Mowhawk": { "show": ["mowhawk"], "hide": ["fleshner", "halo", "candle", "nightcap", "circlet", "redHorns", "loldefi", "dirt", "positronic", "crown"], "materials": [{ "target": "mowhawk", "slot": 0, "name": "MowhawkRed" }] },
+    "Teal_Mowhawk": { "show": ["mowhawk"], "hide": ["fleshner", "halo", "candle", "dirt", "nightcap", "circlet", "redHorns", "loldefi", "positronic", "crown"], "materials": [{ "target": "mowhawk", "slot": 0, "name": "MowhawkTeal" }] },
+    "Candle": { "show": ["candle"], "hide": ["fleshner", "halo", "mowhawk", "circlet", "redHorns", "loldefi", "dirt", "nightcap", "positronic", "crown"] },
+    "Dirt": { "show": ["dirt"], "hide": ["fleshner", "halo", "mowhawk", "candle", "nightcap", "circlet", "redHorns", "loldefi", "positronic", "crown"] },
+    "Nightcap": { "show": ["nightcap"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "circlet", "redHorns", "loldefi", "positronic", "crown"] },
+    "Circlet": { "show": ["circlet"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "redHorns", "loldefi", "positronic", "crown"] },
+    "Red_Horns": { "show": ["redHorns"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "loldefi", "positronic", "crown"] },
+    "loldefi": { "show": ["loldefi"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "positronic", "crown"] },
+    "Positronic": { "show": ["positronic"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "loldefi", "crown"] },
+    "Crown": { "show": ["positronic", "crown"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "loldefi"] }
+  },
+  "topEyeAcc": {
+    "None": { "show": [], "hide": ["jaysGlasses", "redacted"] },
+    "Jays_Glasses": { "show": ["jaysGlasses"], "hide": ["redacted"] },
+    "Redacted": { "show": ["redacted"], "hide": ["jaysGlasses"] }
+  },
+  "powerful": {
+    "None": { "show": [], "hide": ["flames", "beams"] },
+    "Flames": { "show": ["flames"], "hide": ["beams"] },
+    "White_Beams": { "show": ["beams"], "hide": ["flames"] },
+    "Pink_Beams": { "show": ["beams"], "hide": ["flames"] },
+    "Gold_Beams": { "show": ["beams"], "hide": ["flames"] },
+    "Green_Beams": { "show": ["beams"], "hide": ["flames"] },
+    "Red_Beams": { "show": ["beams"], "hide": ["flames"] },
+    "Blue_Beams": { "show": ["beams"], "hide": ["flames"] }
+  },
+  "eyes": {
+    "Blue": { "groupChild": "SmallEyes", "material": "BlueEyes" },
+    "Green": { "groupChild": "SmallEyes", "material": "GreenEyes" },
+    "Pink": { "groupChild": "SmallEyes", "material": "PinkEyes" },
+    "Red": { "groupChild": "SmallEyes", "material": "RedEyes" },
+    "White_Peer": { "groupChild": "PeerEyes" },
+    "Glaring": { "groupChild": "GlareEyes" },
+    "Yellow": { "groupChild": "FullEyes", "material": "YellowEyes" },
+    "Full_Green": { "groupChild": "FullEyes", "material": "GreenEyes" },
+    "Full_Red": { "groupChild": "FullEyes", "material": "RedEyes" },
+    "White": { "groupChild": "WhiteEyes" },
+    "Looking_Back": { "groupChild": "LookingBackEyes" },
+    "Beady": { "groupChild": "BeadyEyes" },
+    "Rolled": { "groupChild": "RolledEyes" },
+    "Dialated": { "groupChild": "DialatedEyes" },
+    "Evil": { "groupChild": "EvilEyes" },
+    "Red_Peer": { "groupChild": "RedPeerEyes" },
+    "Cyclops_Stare": { "groupChild": "CyclopsStareEyes" },
+    "Cyclops": { "groupChild": "CyclopsEyes" },
+    "Popped": { "groupChild": "PoppedEyes" },
+    "Uwu": { "groupChild": "uWuEyes" },
+    "Based": { "groupChild": "BasedEyes" }
+  },
+  "unique": {
+    "None": {
+      "hide": ["idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi"]
+    },
+    "BlessedBeBased": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Poolside",
+      "forcedEyes": "BasedEyes",
+      "show": ["loldefi", "halo", "rose"],
+      "materials": [
+        { "target": "halo", "slot": 0, "name": "WhiteHalo" },
+        { "target": "rose", "slot": 0, "name": "RosePink" },
+        { "target": "rose", "slot": 1, "name": "RoseGreen" }
+      ],
+      "hide": ["crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Crayola": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Crayola",
+      "forcedEyes": "uWuEyes",
+      "show": ["crayon"],
+      "hide": ["drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "DRall": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Drall",
+      "forcedEyes": "BasedEyes",
+      "show": ["drallHorns"],
+      "hide": ["crayon", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Lil_B": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Lilb",
+      "show": ["lilBHat", "lilBGlasses"],
+      "hide": ["crayon", "drallHorns", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Ghoulmas": {
+      "forcedHead": "fangs",
+      "forcedSkin": "Bleached",
+      "forcedEyes": "WhiteEyes",
+      "show": ["santaHat", "candyCane"],
+      "hide": ["crayon", "drallHorns", "lilBHat", "lilBGlasses", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Stacey": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Bleached",
+      "forcedEyes": "GlareEyes",
+      "show": ["staceyAxe", "loldefi"],
+      "hide": ["crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Sudoghoul": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Bleached",
+      "show": ["sudoGems"],
+      "hide": ["loldefi", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "IDK": {
+      "show": ["idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"],
+      "hide": ["loldefi", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "ghoulPegs", "oldOne", "dreamer", "cudi"]
+    },
+    "Ray_Ghoul": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Ray",
+      "show": ["rayGhoul"],
+      "hide": ["loldefi", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "ghoulPegs", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Ghoul_Pegs": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Bleached",
+      "show": ["ghoulPegs", "jaysGlasses"],
+      "hide": ["loldefi", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "oldOne", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Old_One": {
+      "forcedHead": "teeth",
+      "forcedSkin": "OldOne",
+      "hideNormalHead": true,
+      "show": ["oldOne", "innerCircle"],
+      "hide": ["loldefi", "jaysGlasses", "ghoulPegs", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "dreamer", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "The_Dreamer": {
+      "forcedHead": "teeth",
+      "forcedSkin": "Bleached",
+      "show": ["dreamer"],
+      "hide": ["loldefi", "jaysGlasses", "ghoulPegs", "oldOne", "innerCircle", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "cudi", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    },
+    "Ghoul_Cudi": {
+      "show": ["cudi", "rag"],
+      "hide": ["loldefi", "jaysGlasses", "ghoulPegs", "oldOne", "innerCircle", "crayon", "drallHorns", "lilBHat", "lilBGlasses", "santaHat", "candyCane", "staceyAxe", "sudoGems", "rayGhoul", "dreamer", "idkCandle", "idkGlasses", "idkGunk", "idkParticleGroup"]
+    }
+  }
+}
