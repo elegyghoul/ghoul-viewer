@@ -1,0 +1,32 @@
+---
+description: Keep embed UI shell CSS drop-in friendly for other projects
+globs: embed.html,ghoul-viewer.css
+alwaysApply: false
+---
+
+# Drop-in embed UI shell CSS
+
+`ghoul-viewer.css` is the drop-in UI shell stylesheet. `embed.html` is markup + a tiny demo page shell.
+
+## Do
+
+- Put UI shell styles in `ghoul-viewer.css`, not inline in `embed.html`
+- Scope tokens and resets on `.ghoul-stage-scale` (never host `:root` / `html` / `body`)
+- Keep class prefixes (`ghoul-`, `fx-`, `pane-`) and `--gv-*` tokens
+- Theme via tokens (`--gv-accent`, `--gv-ink`, `--gv-surface`, `--gv-font`, `--gv-scale`)
+- Leave page layout (full-viewport black, centering) in `embed.html` only
+
+## Don't
+
+- Style bare `html` / `body` / global `*` inside `ghoul-viewer.css`
+- Hardcode accent/font when a `--gv-*` token exists
+- Split the UI shell across multiple CSS files without a clear host-safe entrypoint
+
+## Host drop-in
+
+```html
+<link rel="stylesheet" href="ghoul-viewer.css" />
+<!-- markup: .ghoul-stage-scale > .ghoul-stage ... -->
+<!-- load BMAS Pixel Console, or override --gv-font -->
+<!-- set --gv-scale on .ghoul-stage-scale (1–3) -->
+```

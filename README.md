@@ -1,18 +1,31 @@
 # GhoulViewer
 
-Pixel-dithered 3D viewer for Based Ghouls (ids **0–6665**). The page you want to copy is **`embed.html`**: window chrome, scene / camera / lighting / effects, and a canvas that fills the view.
+Pixel-dithered 3D viewer for Based Ghouls (ids **0–6665**). The page you want to copy is **`embed.html`** plus **`ghoul-viewer.css`**: UI shell, scene / camera / lighting / effects, and a canvas that fills the view.
 
 ## Pages
 
 | URL | What it is |
 |---|---|
-| [`/embed.html`](embed.html) | Embeddable viewer (the chrome) |
+| [`/embed.html`](embed.html) | Embeddable viewer (UI shell) |
 | [`/embed.html?id=26`](embed.html?id=26) | Same, starting on a ghoul |
 | [`/`](index.html) | Studio editor (all panels) |
 
-`embed.html` scales with the browser width, up to 3× native size.
+`embed.html` scales with the browser width, up to 3× native size. UI shell styles live in [`ghoul-viewer.css`](ghoul-viewer.css) so you can drop them into another project with the same `.ghoul-*` markup.
 
 Full JS API: [COMMANDS.md](COMMANDS.md)
+
+---
+
+## Drop-in UI shell CSS
+
+```html
+<link rel="stylesheet" href="ghoul-viewer.css" />
+```
+
+- Tokens sit on `.ghoul-stage-scale` (`--gv-scale`, `--gv-accent`, `--gv-font`, …) — they do not touch the host `:root`
+- Load the BMAS Pixel Console font, or override `--gv-font`
+- Set `--gv-scale` on `.ghoul-stage-scale` (1–3) for display size
+- Page shell (full-viewport black, centering) stays in the host; it is not in the CSS kit
 
 ---
 
@@ -28,7 +41,7 @@ Point at `embed.html` on a host that serves this app (models, palettes, and the 
 ></iframe>
 ```
 
-Native chrome is **315×206**. At 3× that is **945×618**. Give the iframe a width; the page scales to fit.
+Native UI shell is **315×206**. At 3× that is **945×618**. Give the iframe a width; the page scales to fit.
 
 ---
 
@@ -89,7 +102,7 @@ const viewer = mountGhoulViewer(document.getElementById('my-div'), {
 await viewer.ready;
 ```
 
-The div must have a size (`width` / `height` or flex). This path is the canvas only — no `embed.html` chrome.
+The div must have a size (`width` / `height` or flex). This path is the canvas only — no `embed.html` UI shell.
 
 ---
 

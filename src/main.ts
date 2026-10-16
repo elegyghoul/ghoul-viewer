@@ -25,6 +25,7 @@ import {
   backgroundHasClouds,
   backgroundOceanMat,
   backgroundRipple,
+  updateNc69rDisplayScroll,
   cssToHex,
   enableBloomLayer,
   hexToCss,
@@ -38,7 +39,7 @@ import {
   type BackgroundRipple,
 } from './materials';
 
-/** Studio controls, or a detached dummy so embed pages need no chrome. */
+/** Studio controls, or a detached dummy so embed pages need no UI shell panels. */
 function q<T extends HTMLElement>(sel: string): T {
   return (document.querySelector(sel) as T | null) ?? (document.createElement('div') as unknown as T);
 }
@@ -3235,6 +3236,7 @@ function animate(): void {
   }
   playMode.update(dt, ghoulball.frozen);
   updateLightTween(dt);
+  updateNc69rDisplayScroll(dt);
   syncLightsToGhoul();
   ghoulball.update(dt);
   updateCubeGrid(dt);

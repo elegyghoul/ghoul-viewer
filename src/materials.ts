@@ -138,6 +138,9 @@ const ACCENT: Record<
   loldefi_0: { color: 0x00add5, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   loldefi_1: { color: 0xfbb1cb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.855, metalness: 0 },
   loldefi_2: { color: 0xffa8c1, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
+  nc69r_0: { color: 0x9a9a9a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.103, metalness: 0.92 },
+  nc69r_1: { color: 0x1a1a1a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.195, metalness: 0.739 },
+  nc69r_2: { color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5, roughness: 1, metalness: 0.38 },
 
 };
 
@@ -162,7 +165,7 @@ const BACKGROUND: Record<string, number> = {
   Dungeon: 0x000000,
   BasedChain: 0x000000,
   Retro_Sunset: 0x000000,
-  Based_Classic: 0xffb69a,
+  Based_Classic: 0xeeb088,
   Retro_Palms: 0x15000f,
   Vaporwave_Palms: 0x000000,
   Vaporwave_Columns: 0x000000,
@@ -190,7 +193,7 @@ export const DEFAULT_GRADIENT_DISTANCE = 1;
 const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Loans: { top: 0x2a4b89, bottom: 0x637ca1 },
   Retro_Palms: { top: 0x15000f, bottom: 0x15000f },
-  Based_Classic: { top: 0x00bfff, bottom: 0xffb69a },
+  Based_Classic: { top: 0x4a88b9, bottom: 0xeeb088, distance: 0.57 },
 
 };
 
@@ -429,7 +432,12 @@ function tintKeepMaps(
   },
   name: string,
 ): THREE.Material {
+  const hook = src.onBeforeCompile;
+  const cacheKey = src.customProgramCacheKey;
   const m = src.clone();
+  // Material.clone() drops onBeforeCompile. The visor scroll lives there.
+  m.onBeforeCompile = hook;
+  m.customProgramCacheKey = () => cacheKey.call(m);
   if (isColorMaterial(m)) m.color.setHex(accent.color);
   if (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhysicalMaterial) {
     if (accent.roughness != null) m.roughness = accent.roughness;
@@ -958,4 +966,100 @@ export function paintBeams(root: THREE.Object3D, hex: number): void {
       });
     }
   });
+}
+
+/**
+ * nc69r visor (`nc69r Display`). The two lenses share one map, and the right
+ * lens V runs upward while the left lens V runs downward. One shared V shift
+ * therefore sends them opposite ways on the face. Flipping the offset per side
+ * cancels that mirror and they travel together.
+ * Span is the visor’s own V height: a texel at one edge arrives at the other,
+ * then the trip reverses. The map repeats so the gradient never runs out.
+ */
+const NC69_SCROLL_LEG = 1.6;
+const NC69_SCROLL_SPAN = 0.4945;
+const nc69ScrollUniform = { value: 0 };
+let nc69ScrollElapsed = 0;
+let nc69Gradient: THREE.Texture | null = null;
+
+/** Live Unity file, not the JPEG baked into ghoul-avatar.glb. */
+function nc69DisplayTexture(): THREE.Texture {
+  if (nc69Gradient) return nc69Gradient;
+  const tex = new THREE.TextureLoader().load(`/textures/redgradient.png?v=${Date.now()}`);
+  tex.name = 'redgradient';
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.flipY = false;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  nc69Gradient = tex;
+  return tex;
+}
+
+
+function displayScrollInstalled(mat: THREE.Material): boolean {
+  return mat.onBeforeCompile.toString().includes('nc69-scroll-v4');
+}
+
+function isNc69DisplayMaterial(mat: THREE.Material, meshName: string): boolean {
+  // ACCENT save renames the material to nc69r_2. The display mesh stays nc69r_3.
+  if (meshName === 'nc69r_3') return true;
+  const name = `${mat.name} ${meshName}`.toLowerCase();
+  if (name.includes('nc69r') && name.includes('display')) return true;
+  const mapName = ((mat as THREE.MeshStandardMaterial).map?.name ?? '').toLowerCase();
+  return name.includes('nc69r') && mapName.includes('redgradient');
+}
+
+export function attachNc69rDisplayScroll(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (!mat || !isNc69DisplayMaterial(mat, mesh.name)) continue;
+      const std = mat as THREE.MeshStandardMaterial;
+      const map = nc69DisplayTexture();
+      std.map = map;
+      std.emissiveMap = map;
+      std.emissive.set(0xffffff);
+      std.emissiveIntensity = 1.5;
+      std.toneMapped = false;
+      std.fog = false;
+      std.needsUpdate = true;
+      enableBloomLayer(mesh);
+      if (displayScrollInstalled(mat)) continue;
+      std.onBeforeCompile = (shader) => {
+        shader.uniforms.uNc69Scroll = nc69ScrollUniform;
+        shader.vertexShader =
+          'uniform float uNc69Scroll;\n' +
+          shader.vertexShader.replace(
+            '#include <uv_vertex>',
+            /* glsl */ `
+            #include <uv_vertex>
+            #ifdef USE_MAP
+              // nc69-scroll-v4
+              // Bridge strip sits at U ~ 0.93; leave that seam parked.
+              // Same V shift on both lenses: their unwraps are mirrored, so
+              // the bands travel opposite ways on the face.
+              if (uv.x <= 0.85) {
+                vMapUv.y -= uNc69Scroll;
+                #ifdef USE_EMISSIVEMAP
+                  vEmissiveMapUv.y -= uNc69Scroll;
+                #endif
+              }
+            #endif
+            `,
+          );
+      };
+      std.customProgramCacheKey = () => 'nc69r-display-scroll-v4';
+      std.userData.nc69DisplayScroll = true;
+    }
+  });
+}
+
+export function updateNc69rDisplayScroll(dt: number): void {
+  if (dt > 0) nc69ScrollElapsed += dt;
+  // Cosine, not an ease-in-out. Reverse acceleration is already building
+  // through the far half of the trip, so the turn doesn't sit at a stop.
+  const theta = ((nc69ScrollElapsed % (NC69_SCROLL_LEG * 2)) / NC69_SCROLL_LEG) * Math.PI;
+  nc69ScrollUniform.value = ((1 - Math.cos(theta)) / 2) * NC69_SCROLL_SPAN;
 }

@@ -19,7 +19,7 @@ const viewer = mountGhoulViewer(document.getElementById('my-div'), { id: 469 });
 
 The host must have a size (`width` / `height` or flex). The canvas stretches to fill it.
 
-Demo (no chrome): `/embed.html`
+Demo (UI shell): `/embed.html`
 
 ---
 

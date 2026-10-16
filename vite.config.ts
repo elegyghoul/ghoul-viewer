@@ -296,6 +296,36 @@ function readJsonBody(req: Connect.IncomingMessage): Promise<string> {
   });
 }
 
+const redgradientPath = path.join(rootDir, '../Assets/Resources/Materials/redgradient.png');
+
+/** Dev serves the Unity PNG live. The GLB only has a baked copy of it. */
+function redgradientPlugin(): Plugin {
+  return {
+    name: 'nc69-redgradient',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.split('?')[0] !== '/textures/redgradient.png') {
+          next();
+          return;
+        }
+        if (!fs.existsSync(redgradientPath)) {
+          next();
+          return;
+        }
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'no-cache');
+        fs.createReadStream(redgradientPath).pipe(res);
+      });
+    },
+    closeBundle() {
+      if (!fs.existsSync(redgradientPath)) return;
+      const outDir = path.join(rootDir, 'dist/textures');
+      fs.mkdirSync(outDir, { recursive: true });
+      fs.copyFileSync(redgradientPath, path.join(outDir, 'redgradient.png'));
+    },
+  };
+}
+
 function saveMaterialsPlugin(): Plugin {
   return {
     name: 'save-materials',
@@ -332,7 +362,7 @@ function saveMaterialsPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [saveMaterialsPlugin()],
+  plugins: [redgradientPlugin(), saveMaterialsPlugin()],
   server: {
     // Keep material writes local-dev only; plugin is serve-only anyway.
     watch: {

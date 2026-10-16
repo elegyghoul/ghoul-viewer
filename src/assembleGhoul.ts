@@ -13,6 +13,7 @@ import {
   paintEyes,
   enableBloomLayer,
   prepareEyewearTransparency,
+  attachNc69rDisplayScroll,
   tintObject,
   materialAtSlot,
   clearBloomLayers,
@@ -405,6 +406,7 @@ export class GhoulAssembler {
         ) {
           prepareEyewearTransparency(obj);
         }
+        if (id === 'nc69r') attachNc69rDisplayScroll(obj);
       }
     }
   }
@@ -556,6 +558,8 @@ export class GhoulAssembler {
       if (!this.bodyRoot) continue;
       for (const obj of resolvePart(this.bodyRoot, id)) {
         applyPartAccentOverrides(obj, id);
+        // Accent tint clones the visor material and would drop the scroll hook.
+        if (id === 'nc69r') attachNc69rDisplayScroll(obj);
       }
     }
   }
