@@ -13,7 +13,7 @@ const CALM_PALETTE_URL = '/Palette/dither-calm-48-1x.png';
 const MAX_PALETTE = 64;
 
 /** sRGB swatches appended to every loaded palette strip (survives palette URL swaps). */
-const EXTRA_PALETTE_HEX: readonly number[] = [0x567e56, 0x8b6300];
+const EXTRA_PALETTE_HEX: readonly number[] = [0x567e56, 0x8b6300, 0x7696a7, 0xd2b29c];
 
 function hexToPaletteColor(hex: number): THREE.Vector3 {
   return new THREE.Vector3(

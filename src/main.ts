@@ -2533,7 +2533,17 @@ function setBgMode(next: BgMode): void {
     (prev === 'grid' || prev === 'trait') &&
     prev !== next
   ) {
+    // Pose still snaps; the orbit the user left stays put.
+    const heldPos = camera.position.clone();
+    const heldTarget = controls?.target.clone();
     resetGhoulPoseAndCamera();
+    if (controls && heldTarget) {
+      camera.position.copy(heldPos);
+      controls.target.copy(heldTarget);
+      controls.update();
+      applyCamRoll();
+      syncCamUiFromCamera();
+    }
     if (playMode.active) playMode.syncFloorFromRoot();
   }
 }

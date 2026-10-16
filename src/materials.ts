@@ -165,7 +165,7 @@ const BACKGROUND: Record<string, number> = {
   Dungeon: 0x000000,
   BasedChain: 0x000000,
   Retro_Sunset: 0x000000,
-  Based_Classic: 0xeeb088,
+  Based_Classic: 0xecb38e,
   Retro_Palms: 0x15000f,
   Vaporwave_Palms: 0x000000,
   Vaporwave_Columns: 0x000000,
@@ -193,7 +193,7 @@ export const DEFAULT_GRADIENT_DISTANCE = 1;
 const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Loans: { top: 0x2a4b89, bottom: 0x637ca1 },
   Retro_Palms: { top: 0x15000f, bottom: 0x15000f },
-  Based_Classic: { top: 0x4a88b9, bottom: 0xeeb088, distance: 0.57 },
+  Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
 
 };
 

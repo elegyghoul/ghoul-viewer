@@ -169,12 +169,28 @@ function buildCloudField(name: string): { root: THREE.Group; puffs: CloudPuff[] 
   return { root, puffs };
 }
 
-function makeGradientSkyMaterial(top: number, bottom: number, distance: number): THREE.ShaderMaterial {
+/** Screen-space column swirl for procedural skies. 0 keeps a straight gradient. */
+const GRADIENT_COLUMN_SWIRL: Record<string, number> = {
+  Based_Classic: 1,
+};
+
+function gradientColumnSwirl(name: string): number {
+  return GRADIENT_COLUMN_SWIRL[name] ?? 0;
+}
+
+function makeGradientSkyMaterial(
+  top: number,
+  bottom: number,
+  distance: number,
+  swirl = 0,
+): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       uTop: { value: new THREE.Color(top) },
       uBottom: { value: new THREE.Color(bottom) },
       uDistance: { value: distance },
+      uSwirl: { value: swirl },
+      uTime: { value: 0 },
     },
     vertexShader: /* glsl */ `
       varying vec4 vClip;
@@ -187,14 +203,68 @@ function makeGradientSkyMaterial(top: number, bottom: number, distance: number):
       uniform vec3 uTop;
       uniform vec3 uBottom;
       uniform float uDistance;
+      uniform float uSwirl;
+      uniform float uTime;
       varying vec4 vClip;
+
+      float hash(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
+
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+        for (int i = 0; i < 3; i++) {
+          v += a * noise(p);
+          p = rot * p * 2.02 + vec2(1.7, 9.2);
+          a *= 0.5;
+        }
+        return v / 0.875;
+      }
+
       void main() {
-        // Screen-space Y so the mix matches 2D pixel-art BGs (not a 3D horizon).
-        // ndcY -1 = bottom of frame, +1 = top.
+        // Screen-space so the mix matches 2D pixel-art BGs (not a 3D horizon).
+        // ndc -1 = left/bottom of frame, +1 = right/top.
         // Distance 1 = full-frame blend; lower = tighter; higher = softer edges.
+        float ndcX = vClip.x / max(vClip.w, 1e-5);
         float ndcY = vClip.y / max(vClip.w, 1e-5);
         float d = max(uDistance, 0.02);
-        float t = clamp(0.5 + 0.5 * (ndcY / d), 0.0, 1.0);
+        float y = ndcY;
+
+        if (uSwirl > 0.001) {
+          // Slow drift: crests travel across columns, noise flows upward through them.
+          float t = uTime;
+          // Low horizontal frequency so a crest spans a wide run of columns.
+          float column =
+            sin(ndcX * 0.95 + 0.40 + t * 0.16) * 0.62 +
+            sin(ndcX * 1.85 - 1.20 - t * 0.09) * 0.24 +
+            sin(ndcX * 0.42 + 2.00 + t * 0.06) * 0.22;
+          vec2 p = vec2(ndcX * 0.62 + t * 0.03, ndcY * 0.95 - t * 0.13);
+          vec2 q = vec2(fbm(p), fbm(p + vec2(5.2, 1.3)));
+          vec2 r = vec2(
+            fbm(p + 0.55 * q + vec2(1.7, 9.2)),
+            fbm(p + 0.55 * q + vec2(8.3, 2.8))
+          );
+          float ebb = column * 0.20 + (r.y - 0.5) * 0.46 + (q.x - 0.5) * 0.18;
+          float curl = (r.x - 0.5) * 0.22 + (q.y - 0.5) * 0.10;
+          y += (ebb + curl * 0.35) * uSwirl;
+        }
+
+        float t = clamp(0.5 + 0.5 * (y / d), 0.0, 1.0);
         gl_FragColor = vec4(mix(uBottom, uTop, t), 1.0);
       }
     `,
@@ -394,6 +464,7 @@ export class BackgroundSceneManager {
       this.clearGrad.top,
       this.clearGrad.bottom,
       this.clearGrad.distance,
+      gradientColumnSwirl(name),
     );
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(SKYBOX_RADIUS, 64, 32), mat);
     mesh.name = `GradientSky_${name}`;
@@ -410,6 +481,7 @@ export class BackgroundSceneManager {
 
     this.time += dt;
     this.updateClouds(this.activeKey, this.time);
+    this.updateGradientSwirl(this.activeKey);
 
     const waters = this.waterByBg.get(this.activeKey);
     if (!waters?.length) return;
@@ -460,6 +532,15 @@ export class BackgroundSceneManager {
       w.positions.needsUpdate = true;
       w.mesh.geometry.computeVertexNormals();
     }
+  }
+
+  private updateGradientSwirl(key: string): void {
+    if (gradientColumnSwirl(key) <= 0) return;
+    const mesh = this.gradientSkyCache.get(key);
+    if (!mesh?.visible) return;
+    const mat = mesh.material as THREE.ShaderMaterial;
+    const uTime = mat.uniforms.uTime;
+    if (uTime) uTime.value = this.time;
   }
 
   private updateClouds(key: string, t: number): void {
