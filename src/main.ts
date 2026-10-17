@@ -13,6 +13,8 @@ import {
 } from './dither';
 import { CloakClothManager, DEFAULT_CLOTH_PARAMS } from './cloth';
 import { CigSmokeManager } from './cigSmoke';
+import { TorchFlameManager } from './torchFlame';
+import { HaloLightManager } from './haloLight';
 import { CudiParticleManager } from './cudiParticles';
 import { GhoulballController, DEFAULT_GHOULBALL_MATERIAL, GHOULBALL_WRAP_DURATION, type GhoulballMaterialParams } from './ghoulball';
 import { PlayController, DEFAULT_PLAY_PARAMS, type PlayCameraMode, type FollowCamParams } from './playMode';
@@ -439,7 +441,13 @@ function applyLights(mix: LightMix): void {
   // Kill any lights that came in with the GLB / extras.
   scene.traverse((o) => {
     const light = o as THREE.Light;
-    if (!light.isLight || MANAGED_LIGHTS.has(light)) return;
+    if (
+      !light.isLight ||
+      MANAGED_LIGHTS.has(light) ||
+      light.name === 'TorchFlameLight' ||
+      light.name === 'HaloPointLight'
+    )
+      return;
     light.intensity = 0;
     light.visible = false;
   });
@@ -841,6 +849,8 @@ const clock = new THREE.Clock();
 const animator = new GhoulAnimator();
 const cloakCloth = new CloakClothManager();
 const cigSmoke = new CigSmokeManager();
+const torchFlame = new TorchFlameManager();
+const haloLight = new HaloLightManager();
 const cudiParticles = new CudiParticleManager();
 const ghoulball = new GhoulballController();
 const playMode = new PlayController();
@@ -2324,6 +2334,8 @@ function doLoad(id?: number): void {
     }
     cloakCloth.sync();
     cigSmoke.sync(assembler.root, scene);
+    torchFlame.sync(assembler.root, scene);
+    haloLight.sync(assembler.root);
     void cudiParticles.sync(assembler.root, scene);
     playSelectedAnim();
     // New materials (eyes/emissive) need the current light scale applied.
@@ -2338,7 +2350,7 @@ function doLoad(id?: number): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig')) extras.push(pts);
+        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame')) extras.push(pts);
       });
       const refUrl =
         refImage.src || `/Ghouls/${String(n).padStart(4, '0')}.png`;
@@ -2522,7 +2534,7 @@ function setBgMode(next: BgMode): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig')) extras.push(pts);
+        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame')) extras.push(pts);
       });
       const refUrl = refImage.src || `/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`;
       ghoulball.start(asm.root, scene, refUrl, extras);
@@ -3252,6 +3264,8 @@ function animate(): void {
     animator.update(dt);
     cloakCloth.update(dt);
     cigSmoke.update(dt);
+    torchFlame.update(dt);
+    haloLight.update();
     cudiParticles.update(dt);
   }
   playMode.update(dt, ghoulball.frozen);

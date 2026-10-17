@@ -380,6 +380,12 @@ export class GhoulAssembler {
         obj.traverse((o) => {
           o.visible = true;
         });
+        // Fire is a disabled quad standing in for VFX_TorchLight.
+        if (id === 'torch') {
+          obj.traverse((o) => {
+            if (o.name === 'Fire') o.visible = false;
+          });
+        }
         ensureUniqueMeshMaterials(obj);
         if (id === 'eyeSocket' || id === 'perforated' || id === 'punctured') {
           paintBlack(obj);
