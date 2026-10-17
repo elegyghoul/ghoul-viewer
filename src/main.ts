@@ -15,6 +15,7 @@ import { CloakClothManager, DEFAULT_CLOTH_PARAMS } from './cloth';
 import { CigSmokeManager } from './cigSmoke';
 import { InfernalFlameManager, TorchFlameManager } from './torchFlame';
 import { HaloLightManager } from './haloLight';
+import { PositronicLights } from './positronicLights';
 import { CudiParticleManager } from './cudiParticles';
 import { GhoulballController, DEFAULT_GHOULBALL_MATERIAL, GHOULBALL_WRAP_DURATION, type GhoulballMaterialParams } from './ghoulball';
 import { PlayController, DEFAULT_PLAY_PARAMS, type PlayCameraMode, type FollowCamParams } from './playMode';
@@ -853,6 +854,7 @@ const cigSmoke = new CigSmokeManager();
 const torchFlame = new TorchFlameManager();
 const infernalFlame = new InfernalFlameManager();
 const haloLight = new HaloLightManager();
+const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
 const ghoulball = new GhoulballController();
 const playMode = new PlayController();
@@ -2353,6 +2355,7 @@ function doLoad(id?: number): void {
     torchFlame.sync(assembler.root, scene);
     infernalFlame.sync(assembler.root, scene);
     haloLight.sync(assembler.root);
+    positronicLights.sync(assembler.root);
     void cudiParticles.sync(assembler.root, scene);
     playSelectedAnim();
     // New materials (eyes/emissive) need the current light scale applied.
@@ -3286,6 +3289,7 @@ function animate(): void {
     haloLight.update();
     cudiParticles.update(dt);
   }
+  positronicLights.update();
   playMode.update(dt, ghoulball.frozen);
   updateLightTween(dt);
   updateBeamSway(dt);
