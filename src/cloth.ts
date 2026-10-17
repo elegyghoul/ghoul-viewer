@@ -25,7 +25,9 @@ function paintKeyForFamily(familyKey: string): string | null {
 
 function isMagicaClothName(name: string): boolean {
   const n = normalizeName(name);
-  return n === 'magica_cloth' || n.startsWith('magica_cloth_');
+  // "Magica Cloth" plus a Blender/Unity duplicate suffix. GLTFLoader strips
+  // the dot, so "Magica Cloth.001" arrives as "Magica_Cloth001".
+  return n === 'magica_cloth' || /^magica_cloth(?:_|\d)/.test(n);
 }
 
 /**
@@ -183,6 +185,10 @@ export class MeshClothSim {
   private readonly restLengths: Float32Array;
   private readonly springCount: number;
   private readonly count: number;
+  /** Primary mesh vertex count. Extra particles are rim-only and drawn by the trim. */
+  private readonly drawCount: number;
+  /** Trim vertex → particle index. One map per trim submesh, in constructor order. */
+  private readonly trimMaps: Int32Array[];
   private params: ClothParams;
   private normTick = 0;
   /** -1 = follow cloak mesh; else index into followBones. */
@@ -205,8 +211,14 @@ export class MeshClothSim {
     mesh.geometry = geom;
 
     const posAttr = geom.getAttribute('position') as THREE.BufferAttribute;
-    this.count = posAttr.count;
-    this.restLocal = new Float32Array(posAttr.array as Float32Array);
+    this.drawCount = posAttr.count;
+    // Newer glb exports give the rim its own vertex buffer. The August file
+    // kept those verts on the end of the cloak buffer, which is what the
+    // springs were indexed with. Fold the rim back into that same particle list.
+    const absorbed = absorbTrimVertices(new Float32Array(posAttr.array as Float32Array), extraSpringGeoms);
+    this.trimMaps = absorbed.maps;
+    this.count = absorbed.rest.length / 3;
+    this.restLocal = absorbed.rest;
     this.pos = new Float32Array(this.count * 3);
     this.prev = new Float32Array(this.count * 3);
     this.pinned = new Uint8Array(this.count);
@@ -215,7 +227,7 @@ export class MeshClothSim {
     this.boneBind.fill(-1);
     this.boneLocal = new Float32Array(this.count * 3);
 
-    const { springs, restLengths } = buildSprings(geom, this.restLocal, extraSpringGeoms);
+    const { springs, restLengths } = buildSprings(geom, this.restLocal, extraSpringGeoms, this.trimMaps);
     // Unity multi-material splits duplicate rim verts (same rest pos, different indices).
     // Weld those together so the trim cannot peel off the cloak.
     const welded = addCoincidentWelds(springs, restLengths, this.restLocal);
@@ -468,6 +480,27 @@ export class MeshClothSim {
 
   particleInfo(i: number): { pinned: boolean; soft: number } {
     return { pinned: !!this.pinned[i], soft: this.soft[i]! };
+  }
+
+  trimMap(index: number): Int32Array {
+    return this.trimMaps[index] ?? new Int32Array();
+  }
+
+  /** Write simulated rim particles back into that submesh's own vertex buffer. */
+  writeTrimPositions(geom: THREE.BufferGeometry, map: Int32Array, target: THREE.Object3D): void {
+    const attr = geom.getAttribute('position') as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    target.updateWorldMatrix(true, false);
+    _inv.copy(target.matrixWorld).invert();
+    for (let i = 0; i < map.length; i++) {
+      const p = map[i]! * 3;
+      const o = i * 3;
+      _v.set(this.pos[p]!, this.pos[p + 1]!, this.pos[p + 2]!).applyMatrix4(_inv);
+      arr[o] = _v.x;
+      arr[o + 1] = _v.y;
+      arr[o + 2] = _v.z;
+    }
+    attr.needsUpdate = true;
   }
 
   /**
@@ -761,7 +794,7 @@ export class MeshClothSim {
     const arr = attr.array as Float32Array;
     _inv.copy(this.mesh.matrixWorld).invert();
 
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < this.drawCount; i++) {
       const o = i * 3;
       _v.set(this.pos[o]!, this.pos[o + 1]!, this.pos[o + 2]!).applyMatrix4(_inv);
       arr[o] = _v.x;
@@ -775,24 +808,25 @@ export class MeshClothSim {
 }
 
 /**
- * Trim draw-call welded to the primary sim: same position buffer,
- * own index buffer + normals (rim faces only). Cannot separate from the main cloak.
+ * Hood rim. Keeps its own vertices and UVs from the glb.
+ * Each vert follows the cloak particle it was matched to, so a split
+ * export still hangs off the same sim as the August shared buffer.
  */
 class WeldedTrimMesh {
   readonly mesh: THREE.Mesh;
   private readonly originalGeometry: THREE.BufferGeometry;
   private readonly weldedGeometry: THREE.BufferGeometry;
   private readonly touchedMaterials: THREE.Material[] = [];
+  private readonly primary: MeshClothSim;
+  private readonly map: Int32Array;
 
-  constructor(mesh: THREE.Mesh, primary: MeshClothSim) {
+  constructor(mesh: THREE.Mesh, primary: MeshClothSim, trimIndex: number) {
     this.mesh = mesh;
+    this.primary = primary;
+    this.map = primary.trimMap(trimIndex);
     this.originalGeometry = mesh.geometry;
 
     const welded = mesh.geometry.clone();
-    const live = primary.mesh.geometry;
-    // Share positions only. Normals must come from trim faces — primary
-    // computeVertexNormals leaves rim-only verts at (0,0,0) which kills lighting.
-    welded.setAttribute('position', live.getAttribute('position')!);
     mesh.geometry = welded;
     this.weldedGeometry = welded;
 
@@ -810,10 +844,11 @@ class WeldedTrimMesh {
       this.touchedMaterials.push(mat);
     }
 
-    welded.computeVertexNormals();
+    this.sync();
   }
 
-  refreshNormals(): void {
+  sync(): void {
+    this.primary.writeTrimPositions(this.weldedGeometry, this.map, this.mesh);
     this.weldedGeometry.computeVertexNormals();
   }
 
@@ -828,15 +863,72 @@ class WeldedTrimMesh {
       mat.depthWrite = true;
       mat.needsUpdate = true;
     }
-    this.weldedGeometry.deleteAttribute('position');
     this.weldedGeometry.dispose();
   }
+}
+
+const TRIM_MATCH_CELL = 1e-4;
+
+/**
+ * Rim submeshes used to live in the cloak's vertex buffer (August export).
+ * Later exports split them into their own buffer, reindexed from 0.
+ * Match each rim vert onto a cloak particle, and append the ones that are
+ * actually new so their edges still constrain the right points.
+ */
+function absorbTrimVertices(
+  baseRest: Float32Array,
+  extraGeoms: THREE.BufferGeometry[],
+): { rest: Float32Array; maps: Int32Array[] } {
+  const baseCount = baseRest.length / 3;
+  const buckets = new Map<string, number[]>();
+  const keyOf = (x: number, y: number, z: number) =>
+    `${Math.round(x / TRIM_MATCH_CELL)},${Math.round(y / TRIM_MATCH_CELL)},${Math.round(z / TRIM_MATCH_CELL)}`;
+
+  for (let i = 0; i < baseCount; i++) {
+    const o = i * 3;
+    const key = keyOf(baseRest[o]!, baseRest[o + 1]!, baseRest[o + 2]!);
+    let list = buckets.get(key);
+    if (!list) {
+      list = [];
+      buckets.set(key, list);
+    }
+    list.push(i);
+  }
+
+  const extra: number[] = [];
+  const maps: Int32Array[] = [];
+  for (const geom of extraGeoms) {
+    const attr = geom.getAttribute('position') as THREE.BufferAttribute;
+    const map = new Int32Array(attr.count);
+    for (let i = 0; i < attr.count; i++) {
+      const x = attr.getX(i);
+      const y = attr.getY(i);
+      const z = attr.getZ(i);
+      const hits = buckets.get(keyOf(x, y, z));
+      if (hits && hits.length > 0) {
+        map[i] = hits[0]!;
+        continue;
+      }
+      const ni = baseCount + extra.length / 3;
+      map[i] = ni;
+      extra.push(x, y, z);
+      buckets.set(keyOf(x, y, z), [ni]);
+    }
+    maps.push(map);
+  }
+
+  if (extra.length === 0) return { rest: baseRest, maps };
+  const rest = new Float32Array(baseRest.length + extra.length);
+  rest.set(baseRest);
+  rest.set(extra, baseRest.length);
+  return { rest, maps };
 }
 
 function buildSprings(
   geom: THREE.BufferGeometry,
   restLocal: Float32Array,
   extraGeoms: THREE.BufferGeometry[] = [],
+  trimMaps: Int32Array[] = [],
 ): { springs: Int32Array; restLengths: Float32Array } {
   const edgeSet = new Set<string>();
   const pairs: number[] = [];
@@ -851,29 +943,33 @@ function buildSprings(
     pairs.push(lo, hi);
   };
 
-  const addFromGeom = (g: THREE.BufferGeometry) => {
-    const index = g.getIndex();
+  const addTriangles = (index: THREE.BufferAttribute | null, count: number, map: Int32Array | null) => {
+    const at = (i: number) => (map ? map[i]! : i);
     if (index) {
       for (let i = 0; i < index.count; i += 3) {
-        const a = index.getX(i);
-        const b = index.getX(i + 1);
-        const c = index.getX(i + 2);
+        const a = at(index.getX(i));
+        const b = at(index.getX(i + 1));
+        const c = at(index.getX(i + 2));
         addEdge(a, b);
         addEdge(b, c);
         addEdge(c, a);
       }
     } else {
-      const n = (g.getAttribute('position') as THREE.BufferAttribute).count;
-      for (let i = 0; i + 2 < n; i += 3) {
-        addEdge(i, i + 1);
-        addEdge(i + 1, i + 2);
-        addEdge(i + 2, i);
+      for (let i = 0; i + 2 < count; i += 3) {
+        addEdge(at(i), at(i + 1));
+        addEdge(at(i + 1), at(i + 2));
+        addEdge(at(i + 2), at(i));
       }
     }
   };
 
-  addFromGeom(geom);
-  for (const extra of extraGeoms) addFromGeom(extra);
+  const pos = geom.getAttribute('position') as THREE.BufferAttribute;
+  addTriangles(geom.getIndex(), pos.count, null);
+  for (let i = 0; i < extraGeoms.length; i++) {
+    const extra = extraGeoms[i]!;
+    const extraPos = extra.getAttribute('position') as THREE.BufferAttribute;
+    addTriangles(extra.getIndex(), extraPos.count, trimMaps[i] ?? null);
+  }
 
   const springCount = pairs.length / 2;
   const springs = new Int32Array(pairs);
@@ -1320,7 +1416,7 @@ export class CloakClothManager {
         paint,
       );
       primary.bindFollowBones(this.followBones);
-      const trims = trimMeshes.map((m) => new WeldedTrimMesh(m, primary));
+      const trims = trimMeshes.map((m, i) => new WeldedTrimMesh(m, primary, i));
       this.families.set(key, { primary, trims });
     }
 
@@ -1331,7 +1427,10 @@ export class CloakClothManager {
   }
 
   reset(): void {
-    for (const family of this.families.values()) family.primary.reset();
+    for (const family of this.families.values()) {
+      family.primary.reset();
+      for (const trim of family.trims) trim.sync();
+    }
   }
 
   update(dt: number): void {
@@ -1342,7 +1441,7 @@ export class CloakClothManager {
       for (const family of this.families.values()) {
         if (!family.primary.mesh.visible) continue;
         family.primary.update(dt, this.capsules);
-        for (const trim of family.trims) trim.refreshNormals();
+        for (const trim of family.trims) trim.sync();
       }
       this.commitCapsuleMotion();
     }

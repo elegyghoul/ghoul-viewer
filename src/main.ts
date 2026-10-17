@@ -1565,11 +1565,20 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
   syncSaveButton();
 }
 
+/** Skin painted on the body when a unique forces it and the Ghoul trait is None. */
+function forcedBodySkin(): string | null {
+  if (!currentTraits || currentTraits.ghoul !== 'None' || !assembler) return null;
+  const skin = assembler.skinBase;
+  if (!skin || skin === 'None') return null;
+  return skin;
+}
+
 function selectTrait(category: keyof GhoulTraits): void {
   if (!currentTraits) return;
   const value = currentTraits[category];
   if (typeof value !== 'string' || !value) return;
-  if (value === 'None' && category !== 'background') return;
+  const forcedSkin = category === 'ghoul' ? forcedBodySkin() : null;
+  if (value === 'None' && category !== 'background' && !forcedSkin) return;
 
   selectedTraitKey = category;
   for (const row of traitsListEl.querySelectorAll('.trait-row')) {
@@ -1577,7 +1586,7 @@ function selectTrait(category: keyof GhoulTraits): void {
     row.classList.toggle('is-selected', selected);
     row.setAttribute('aria-pressed', selected ? 'true' : 'false');
   }
-  showMaterialEditor(category, value);
+  showMaterialEditor(category, forcedSkin ?? value);
 }
 
 function syncLightControls(): void {
@@ -1691,10 +1700,12 @@ function showTraits(traits: GhoulTraits): void {
   clearMaterialEditor();
 
   let firstKey: keyof GhoulTraits | null = null;
+  const bodySkin = traits.ghoul === 'None' ? forcedBodySkin() : null;
   for (const { key, label } of TRAIT_LABELS) {
     const value = traits[key];
     if (typeof value !== 'string') continue;
-    if (!value || value === 'None') continue;
+    const display = key === 'ghoul' && bodySkin ? bodySkin : value;
+    if (!display || display === 'None') continue;
     if (!firstKey) firstKey = key;
     const row = document.createElement('div');
     row.className = 'trait-row';
@@ -1705,7 +1716,7 @@ function showTraits(traits: GhoulTraits): void {
     const dt = document.createElement('dt');
     dt.textContent = label;
     const dd = document.createElement('dd');
-    dd.textContent = formatTraitValue(value);
+    dd.textContent = formatTraitValue(display);
     row.append(dt, dd);
     row.addEventListener('click', () => selectTrait(key));
     row.addEventListener('keydown', (e) => {
