@@ -285,40 +285,41 @@ function isBoneMaterial(mat: THREE.Material | null | undefined): boolean {
   return !!mat && normalizeName(mat.name) === 'bone';
 }
 
-function positronicNamed(obj: THREE.Object3D): boolean {
-  let p: THREE.Object3D | null = obj;
-  while (p) {
-    const name = normalizeName(p.name);
-    if (name === 'positronic' || name.startsWith('positronic_') || name.startsWith('positronic.')) {
-      return true;
-    }
-    p = p.parent;
-  }
-  return false;
-}
+/** Parts whose authored Bone slots follow the ghoul Light material. */
+const GHOUL_LIGHT_PARTS = ['positronic', 'eyeSocket', 'perforated', 'punctured'] as const;
 
 /** Remember Bone slots while they still carry the authored material name. */
-function markPositronicBoneSlots(root: THREE.Object3D): void {
-  root.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh || mesh.userData.positronicBoneSlots || !positronicNamed(mesh)) return;
+function markGhoulLightBoneSlots(root: THREE.Object3D): void {
+  const markMesh = (mesh: THREE.Mesh): void => {
+    if (mesh.userData.ghoulLightSlots) return;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const slots = mats
       .map((mat, i) => (isBoneMaterial(mat) ? i : -1))
       .filter((i) => i >= 0);
-    if (slots.length) mesh.userData.positronicBoneSlots = slots;
-  });
+    if (slots.length) mesh.userData.ghoulLightSlots = slots;
+  };
+
+  for (const id of GHOUL_LIGHT_PARTS) {
+    for (const obj of resolvePart(root, id)) {
+      const self = obj as THREE.Mesh;
+      if (self.isMesh) markMesh(self);
+      obj.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) markMesh(mesh);
+      });
+    }
+  }
 }
 
-/** Positronic Bone slots use the ghoul's Light material instance. */
-function bindPositronicBoneToLight(root: THREE.Object3D): void {
-  markPositronicBoneSlots(root);
+/** Bone slots on positronic and cranium use the ghoul's Light material instance. */
+function bindGhoulLightBone(root: THREE.Object3D): void {
+  markGhoulLightBoneSlots(root);
   const light = bodyLightMaterial(root);
   if (!light) return;
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    const slots = mesh.userData.positronicBoneSlots as number[] | undefined;
+    const slots = mesh.userData.ghoulLightSlots as number[] | undefined;
     if (!slots?.length) return;
     const mats = Array.isArray(mesh.material) ? [...mesh.material] : [mesh.material];
     for (const slot of slots) {
@@ -360,7 +361,7 @@ export class GhoulAssembler {
     // CigReal used specular-glossiness in the GLB; Three no longer loads that map.
     restoreCigTexture(this.bodyRoot);
     enableLaceCutout(this.bodyRoot);
-    markPositronicBoneSlots(this.bodyRoot);
+    markGhoulLightBoneSlots(this.bodyRoot);
 
     // Unity uses one currentHead and swaps mesh assets. We keep Head - Teeth as
     // the display node (correct Idle TRS) and swap geometries for Flesh/Fangs.
@@ -789,7 +790,7 @@ export class GhoulAssembler {
     this.skinBase = skinName;
     this.skinLightHex = skinColor(skinName).getHex();
     this.skinDarkHex = skinDarkColor(skinName).getHex();
-    bindPositronicBoneToLight(this.bodyRoot);
+    bindGhoulLightBone(this.bodyRoot);
   }
 
   /** Live-update body/head light + dark skin slots without reassembling traits. */
@@ -801,7 +802,7 @@ export class GhoulAssembler {
       light: this.skinLightHex,
       dark: this.skinDarkHex,
     });
-    bindPositronicBoneToLight(this.bodyRoot);
+    bindGhoulLightBone(this.bodyRoot);
   }
 
   /**

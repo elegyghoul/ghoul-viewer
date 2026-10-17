@@ -941,12 +941,21 @@ export function prepareEyewearTransparency(root: THREE.Object3D): void {
   });
 }
 
-/** Force solid unlit black (cranium Eye Socket “hole”). */
+/** Force solid unlit black on the cranium hole. Bone slots stay for the ghoul Light bind. */
 export function paintBlack(root: THREE.Object3D): void {
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.material = paintBlackMaterial(mesh.material as THREE.Material);
+    const keep = new Set<number>((mesh.userData.ghoulLightSlots as number[] | undefined) ?? []);
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    let changed = false;
+    const next = mats.map((mat, i) => {
+      if (!mat || keep.has(i) || mat.name.trim().toLowerCase() === 'bone') return mat;
+      changed = true;
+      return paintBlackMaterial(mat);
+    });
+    if (!changed) return;
+    mesh.material = Array.isArray(mesh.material) || next.length > 1 ? next : next[0]!;
   });
 }
 
