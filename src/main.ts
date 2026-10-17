@@ -25,6 +25,8 @@ import {
   backgroundHasClouds,
   backgroundOceanMat,
   backgroundRipple,
+  bindBeamSway,
+  updateBeamSway,
   updateNc69rDisplayScroll,
   cssToHex,
   enableBloomLayer,
@@ -582,6 +584,9 @@ let bgMode: BgMode = 'trait';
 let lastSceneBg: 'grid' | 'trait' = 'trait';
 let lastUnlitScale = 1;
 const GRID_CLEAR = 0x000000;
+/** 1/1 Ghoul Pegs (#0207) has no Background trait. Trait BG is this flat clear. */
+const GHOUL_PEGS_ID = 207;
+const GHOUL_PEGS_BG = 0xf6e2b4;
 
 function liveBackgroundKey(): string | null {
   const name = currentTraits?.background;
@@ -800,7 +805,12 @@ function syncGridAndBackground(): void {
     gm.transparent = true;
   }
   if (trait) {
-    const g = key ? gradientForKey(key) : { top: GRID_CLEAR, bottom: GRID_CLEAR, distance: DEFAULT_GRADIENT_DISTANCE };
+    const g =
+      currentId === GHOUL_PEGS_ID
+        ? { top: GHOUL_PEGS_BG, bottom: GHOUL_PEGS_BG, distance: DEFAULT_GRADIENT_DISTANCE }
+        : key
+          ? gradientForKey(key)
+          : { top: GRID_CLEAR, bottom: GRID_CLEAR, distance: DEFAULT_GRADIENT_DISTANCE };
     // Flat clear matches horizon; the sphere skybox carries the vertical gradient.
     scene.background = new THREE.Color(g.bottom);
     bgScenes.setClearGradient(g.top, g.bottom, g.distance ?? DEFAULT_GRADIENT_DISTANCE);
@@ -3246,6 +3256,7 @@ function animate(): void {
   }
   playMode.update(dt, ghoulball.frozen);
   updateLightTween(dt);
+  updateBeamSway(dt);
   updateNc69rDisplayScroll(dt);
   syncLightsToGhoul();
   ghoulball.update(dt);
@@ -3294,6 +3305,7 @@ async function boot(): Promise<void> {
     });
 
     animator.bind(assembler.root, assembler.animations);
+    bindBeamSway(assembler.root);
     cloakCloth.bind(assembler.root);
     frameCharacter(assembler);
     doLoad(currentId);

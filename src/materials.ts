@@ -132,15 +132,20 @@ const ACCENT: Record<
   rayGhoul_4: { color: 0x000000, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.08 },
   eyeTears_0: { color: 0x414dd2, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0.05 },
   bullHorns_0: { color: 0xd6c084, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.2, metalness: 0.7 },
-  key_0: { color: 0xeab950, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.06, metalness: 0.26 },
-  vaporwaveTea_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.3, metalness: 0.554 },
-  vaporwaveTea_1: { color: 0xba942b, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.37, metalness: 0.78 },
+  key_0: { color: 0xeab950, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.66, metalness: 1 },
+  vaporwaveTea_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.62, metalness: 0.554 },
+  vaporwaveTea_1: { color: 0xba942b, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.62, metalness: 0.78 },
   loldefi_0: { color: 0x00add5, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
-  loldefi_1: { color: 0xfbb1cb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.855, metalness: 0 },
+  loldefi_1: { color: 0xffadca, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.27 },
   loldefi_2: { color: 0xffa8c1, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   nc69r_0: { color: 0x9a9a9a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.103, metalness: 0.92 },
   nc69r_1: { color: 0x1a1a1a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.195, metalness: 0.739 },
   nc69r_2: { color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5, roughness: 1, metalness: 0.38 },
+  beams_0: { color: 0x37ff00 },
+  beams_1: { color: 0x66e943 },
+  beams_2: { color: 0x87fb2e },
+  beams_3: { color: 0x66e943 },
+  beams_4: { color: 0x66e943 },
 
 };
 
@@ -966,6 +971,129 @@ export function paintBeams(root: THREE.Object3D, hex: number): void {
       });
     }
   });
+}
+
+/**
+ * Eye lasers yaw together from the sockets. They sit on the midpoint between
+ * the authored right pose and its mirror, and only reach 20% of the way
+ * toward either end. Nose and ball meshes stay put — only the two shafts
+ * move, for every beam color. Cosine so each side is a turn, not a stop.
+ */
+const BEAM_SWAY_PERIOD = 16;
+/** Fraction of the old center-to-end gap kept on each side. */
+const BEAM_SWAY_REACH = 0.2;
+
+type SwayBeam = {
+  object: THREE.Object3D;
+  rest: THREE.Quaternion;
+  /** Head up, expressed in the beam parent's space. */
+  axis: THREE.Vector3;
+};
+
+const swayBeams: SwayBeam[] = [];
+let beamSwayElapsed = 0;
+/** Signed yaw (radians) of the authored shafts. Zero offset keeps that pose. */
+let beamSwayHalf = 0;
+
+const _swayQuat = new THREE.Quaternion();
+const _swayInv = new THREE.Quaternion();
+const _swayBase = new THREE.Vector3();
+const _swayCorner = new THREE.Vector3();
+
+function farthestBeamCorner(mesh: THREE.Mesh): THREE.Vector3 {
+  const geo = mesh.geometry;
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const tip = new THREE.Vector3();
+  if (!bb) return tip;
+  let best = -1;
+  for (const x of [bb.min.x, bb.max.x]) {
+    for (const y of [bb.min.y, bb.max.y]) {
+      for (const z of [bb.min.z, bb.max.z]) {
+        _swayCorner.set(x, y, z);
+        const len = _swayCorner.lengthSq();
+        if (len > best) {
+          best = len;
+          tip.copy(_swayCorner);
+        }
+      }
+    }
+  }
+  return tip;
+}
+
+/** Head +Y walked down into `beam.parent` local space. */
+function headUpInParent(beam: THREE.Object3D, head: THREE.Object3D): THREE.Vector3 {
+  const axis = new THREE.Vector3(0, 1, 0);
+  const chain: THREE.Object3D[] = [];
+  let o: THREE.Object3D | null = beam.parent;
+  while (o && o !== head) {
+    chain.push(o);
+    o = o.parent;
+  }
+  for (let i = chain.length - 1; i >= 0; i--) {
+    _swayInv.copy(chain[i]!.quaternion).invert();
+    axis.applyQuaternion(_swayInv);
+  }
+  return axis.normalize();
+}
+
+/** Signed yaw of the shaft in head space. +Z is straight out of the face. */
+function pointInHead(beam: THREE.Object3D, head: THREE.Object3D, local: THREE.Vector3): THREE.Vector3 {
+  const v = local.clone();
+  let o: THREE.Object3D | null = beam;
+  while (o && o !== head) {
+    v.multiply(o.scale);
+    v.applyQuaternion(o.quaternion);
+    v.add(o.position);
+    o = o.parent;
+  }
+  return v;
+}
+
+function beamYawInHead(beam: THREE.Object3D, head: THREE.Object3D, tipLocal: THREE.Vector3): number {
+  const tip = pointInHead(beam, head, tipLocal);
+  const base = pointInHead(beam, head, _swayBase.set(0, 0, 0));
+  tip.sub(base);
+  return Math.atan2(tip.x, tip.z);
+}
+
+export function bindBeamSway(root: THREE.Object3D): void {
+  swayBeams.length = 0;
+  beamSwayHalf = 0;
+  let head: THREE.Object3D | null = null;
+  root.traverse((o) => {
+    if (!head && (o.name === 'mixamorig:Head' || o.name === 'mixamorigHead')) head = o;
+  });
+  if (!head) return;
+
+  const yaws: number[] = [];
+  for (const name of ['Beam_Left', 'Beam_Right']) {
+    const beam = root.getObjectByName(name);
+    const mesh = beam as THREE.Mesh | undefined;
+    if (!beam || !mesh?.isMesh) continue;
+    const tip = farthestBeamCorner(mesh);
+    yaws.push(beamYawInHead(beam, head, tip));
+    swayBeams.push({
+      object: beam,
+      rest: beam.quaternion.clone(),
+      axis: headUpInParent(beam, head),
+    });
+  }
+  if (!yaws.length) return;
+  beamSwayHalf = yaws.reduce((a, b) => a + b, 0) / yaws.length;
+}
+
+export function updateBeamSway(dt: number): void {
+  if (!swayBeams.length || beamSwayHalf === 0) return;
+  if (dt > 0) beamSwayElapsed += dt;
+  const phase = (beamSwayElapsed / BEAM_SWAY_PERIOD) * Math.PI * 2;
+  // -half is straight ahead. ±reach*half is 20% of the way to each old end.
+  const offset = -beamSwayHalf * (1 - BEAM_SWAY_REACH * Math.cos(phase));
+  for (const b of swayBeams) {
+    _swayQuat.setFromAxisAngle(b.axis, offset);
+    b.object.quaternion.copy(_swayQuat).multiply(b.rest);
+  }
 }
 
 /**

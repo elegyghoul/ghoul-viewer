@@ -89,7 +89,7 @@
     "Red_Horns": { "show": ["redHorns"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "loldefi", "positronic", "crown"] },
     "loldefi": { "show": ["loldefi"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "positronic", "crown"] },
     "Positronic": { "show": ["positronic"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "loldefi", "crown"] },
-    "Crown": { "show": ["positronic", "crown"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "loldefi"] }
+    "Crown": { "show": ["crown"], "hide": ["fleshner", "halo", "mowhawk", "candle", "dirt", "nightcap", "circlet", "redHorns", "loldefi", "positronic"] }
   },
   "topEyeAcc": {
     "None": { "show": [], "hide": ["jaysGlasses", "redacted"] },
