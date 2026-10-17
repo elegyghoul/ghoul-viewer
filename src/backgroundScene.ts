@@ -24,6 +24,13 @@ function skyboxRadius(name: string): number {
 }
 
 /**
+ * Full sphere, entire JPEG, no mirror. The file is a bit taller than 90°,
+ * so the extra strip hangs below the horizon and the bottom edge clamps
+ * across the rest of the sphere.
+ */
+const SPILL_SKY_KEYS = new Set(['Neon_Sunset']);
+
+/**
  * SphereGeometry UVs run 1 at the north pole → 0 at the south pole.
  * Fold them so the equator is 0 and both poles are 1. With the existing
  * horizon crop, the lower hemisphere then mirrors the upper sky.
@@ -754,16 +761,26 @@ export class BackgroundSceneManager {
             tex.wrapT = THREE.ClampToEdgeWrapping;
 
             // Equirect strip: width = 360°, height = vertical FOV.
-            // Ideal upper-hemisphere map is 4:1 (360×90). Ours is 4096×1100
-            // (~3.72:1 ≈ 97° tall) — sample the top 90° and drop the rest.
-            // The lower hemisphere reuses that same strip, mirrored.
+            // Ideal upper-hemisphere map is 4:1 (360×90). 4096×1100 is
+            // ~3.72:1, about 97° tall.
             const img = tex.image as { width: number; height: number };
             const aspect = img.width / Math.max(1, img.height);
             const imageVFov = (Math.PI * 2) / aspect;
             const upperVFov = Math.PI * 0.5;
-            const vRepeat = Math.min(1, upperVFov / imageVFov);
-            tex.repeat.set(1, vRepeat);
-            tex.offset.set(0, 1 - vRepeat);
+            const spill = SPILL_SKY_KEYS.has(name);
+            if (spill) {
+              // Whole image, same degrees-per-pixel. Zenith is the top edge.
+              // The bottom edge lands imageVFov below the zenith, a few
+              // degrees under the horizon. Clamp holds that edge to the nadir.
+              const vScale = Math.PI / Math.max(imageVFov, 1e-4);
+              tex.repeat.set(1, vScale);
+              tex.offset.set(0, 1 - vScale);
+            } else {
+              // Top 90° only. The lower hemisphere mirrors that crop.
+              const vRepeat = Math.min(1, upperVFov / imageVFov);
+              tex.repeat.set(1, vRepeat);
+              tex.offset.set(0, 1 - vRepeat);
+            }
             tex.needsUpdate = true;
 
             const mat = new THREE.MeshBasicMaterial({
@@ -773,13 +790,11 @@ export class BackgroundSceneManager {
               fog: false,
               toneMapped: false,
             });
-            // Full sphere. UVs fold at the equator so below the horizon
-            // repeats the upper sky (zenith at the nadir, horizon continuous).
             const radius = skyboxRadius(name);
-            const mesh = new THREE.Mesh(
-              mirrorLowerHemisphere(new THREE.SphereGeometry(radius, 64, 48)),
-              mat,
-            );
+            const geometry = spill
+              ? new THREE.SphereGeometry(radius, 64, 48)
+              : mirrorLowerHemisphere(new THREE.SphereGeometry(radius, 64, 48));
+            const mesh = new THREE.Mesh(geometry, mat);
             mesh.position.y = SKYBOX_Y_BY_KEY[name] ?? 0;
             mesh.name = `Skybox_${name}`;
             mesh.renderOrder = -10;
