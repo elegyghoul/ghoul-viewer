@@ -145,7 +145,7 @@ export type MaterialSaveTarget =
   | { kind: 'skin'; key: string; slot: 'light' | 'dark' }
   | { kind: 'accent'; key: string }
   | { kind: 'eye'; key: string }
-  | { kind: 'background'; key: string; slot: 'top' | 'bottom' | 'clouds' };
+  | { kind: 'background'; key: string; slot: 'top' | 'bottom' | 'clouds' | 'tint' | 'point' };
 
 export type EditableMaterial = {
   label: string;

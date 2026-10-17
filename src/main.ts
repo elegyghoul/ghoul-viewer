@@ -26,8 +26,12 @@ import {
   backgroundFog,
   backgroundGradient,
   backgroundHasClouds,
+  backgroundHasPointLight,
+  backgroundHasSkyTint,
   backgroundOceanMat,
+  backgroundPointLight,
   backgroundRipple,
+  backgroundSkyTint,
   bindBeamSway,
   updateBeamSway,
   updateNc69rDisplayScroll,
@@ -622,7 +626,7 @@ function gradientFromEditor(key: string): Pick<BackgroundGradient, 'top' | 'bott
   for (const e of editorEntries) {
     const t = e.saveTarget;
     if (!t || t.kind !== 'background' || t.key !== key) continue;
-    if (t.slot === 'clouds') continue;
+    if (t.slot === 'clouds' || t.slot === 'tint' || t.slot === 'point') continue;
     const withColor = e.material as THREE.Material & { color?: THREE.Color };
     if (!withColor.color?.isColor) continue;
     const hex = withColor.color.getHex() & 0xffffff;
@@ -659,6 +663,49 @@ function gradientForKey(key: string): BackgroundGradient {
 
 function cloudColorForKey(key: string): number {
   return cloudColorFromEditor(key) ?? bgCloudLive.get(key) ?? backgroundCloudColor(key);
+}
+
+const bgSkyTintLive = new Map<string, number>();
+
+function skyTintFromEditor(key: string): number | null {
+  if (selectedTraitKey !== 'background') return null;
+  if (currentTraits?.background !== key) return null;
+  for (const e of editorEntries) {
+    const t = e.saveTarget;
+    if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'tint') continue;
+    const withColor = e.material as THREE.Material & { color?: THREE.Color };
+    if (!withColor.color?.isColor) continue;
+    return withColor.color.getHex() & 0xffffff;
+  }
+  return null;
+}
+
+function skyTintForKey(key: string): number {
+  return skyTintFromEditor(key) ?? bgSkyTintLive.get(key) ?? backgroundSkyTint(key);
+}
+
+const pointLightLive = new Map<string, { color: number; intensity: number }>();
+
+function pointColorFromEditor(key: string): number | null {
+  if (selectedTraitKey !== 'background') return null;
+  if (currentTraits?.background !== key) return null;
+  for (const e of editorEntries) {
+    const t = e.saveTarget;
+    if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'point') continue;
+    const withColor = e.material as THREE.Material & { color?: THREE.Color };
+    if (!withColor.color?.isColor) continue;
+    return withColor.color.getHex() & 0xffffff;
+  }
+  return null;
+}
+
+function pointLightForKey(key: string): { color: number; intensity: number } {
+  const saved = backgroundPointLight(key) ?? { color: 0xfff6ea, intensity: 28000 };
+  const live = pointLightLive.get(key);
+  return {
+    color: pointColorFromEditor(key) ?? live?.color ?? saved.color,
+    intensity: live?.intensity ?? saved.intensity,
+  };
 }
 
 const bgScenes = new BackgroundSceneManager(scene);
@@ -825,7 +872,14 @@ function syncGridAndBackground(): void {
     // Flat clear matches horizon; the sphere skybox carries the vertical gradient.
     scene.background = new THREE.Color(g.bottom);
     bgScenes.setClearGradient(g.top, g.bottom, g.distance ?? DEFAULT_GRADIENT_DISTANCE);
-    if (key) bgScenes.setCloudColor(cloudColorForKey(key));
+    if (key) {
+      bgScenes.setCloudColor(cloudColorForKey(key));
+      bgScenes.setSkyTint(key, skyTintForKey(key));
+      if (backgroundHasPointLight(key)) {
+        const point = pointLightForKey(key);
+        bgScenes.setPoolLight(key, point.color, point.intensity);
+      }
+    }
   } else {
     scene.background = new THREE.Color(GRID_CLEAR);
   }
@@ -839,6 +893,11 @@ function syncGridAndBackground(): void {
       const g = gradientForKey(key);
       bgScenes.setClearGradient(g.top, g.bottom, g.distance ?? DEFAULT_GRADIENT_DISTANCE);
       bgScenes.setCloudColor(cloudColorForKey(key));
+      bgScenes.setSkyTint(key, skyTintForKey(key));
+      if (backgroundHasPointLight(key)) {
+        const point = pointLightForKey(key);
+        bgScenes.setPoolLight(key, point.color, point.intensity);
+      }
       applyOceanMatIfSet(key);
     }
     syncOceanControls();
@@ -1153,7 +1212,7 @@ function buildSavePayload(): {
     }
   >;
   eye?: Record<string, { color: number }>;
-  background?: Record<string, { color?: number; top?: number; bottom?: number; clouds?: number }>;
+  background?: Record<string, { color?: number; top?: number; bottom?: number; clouds?: number; tint?: number; pointColor?: number; pointIntensity?: number }>;
 } {
   const skin: Record<
     string,
@@ -1172,7 +1231,7 @@ function buildSavePayload(): {
   const eye: Record<string, { color: number }> = {};
   const background: Record<
     string,
-    { color?: number; top?: number; bottom?: number; clouds?: number; distance?: number }
+    { color?: number; top?: number; bottom?: number; clouds?: number; distance?: number; tint?: number; pointColor?: number; pointIntensity?: number }
   > = {};
   const seen = new Set<string>();
 
@@ -1229,6 +1288,12 @@ function buildSavePayload(): {
         row.color = color;
       } else if (target.slot === 'clouds') {
         row.clouds = color;
+      } else if (target.slot === 'tint') {
+        row.tint = color;
+      } else if (target.slot === 'point') {
+        const point = pointLightForKey(target.key);
+        row.pointColor = color;
+        row.pointIntensity = point.intensity;
       }
       const g = gradientForKey(target.key);
       row.distance = g.distance ?? DEFAULT_GRADIENT_DISTANCE;
@@ -1262,6 +1327,8 @@ function summarizePayload(payload: ReturnType<typeof buildSavePayload>): string 
       bits.push(`${k} ${hexToCss(v.color)}`);
     }
     if (v.clouds != null) bits.push(`${k} clouds ${hexToCss(v.clouds)}`);
+    if (v.tint != null) bits.push(`${k} tint ${hexToCss(v.tint)}`);
+    if (v.pointColor != null) bits.push(`${k} point ${hexToCss(v.pointColor)} ×${v.pointIntensity ?? ''}`);
   }
   return bits.join(', ') || 'materials.ts';
 }
@@ -1354,7 +1421,31 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
         saveTarget: { kind: 'background', key, slot: 'clouds' },
       });
     }
-    materialHint.textContent = `${formatTraitValue(key)} · skybox gradient${showClouds ? ' + clouds' : ''} · savable`;
+    const showSkyTint = backgroundHasSkyTint(key);
+    if (showSkyTint) {
+      const tintHex = bgSkyTintLive.get(key) ?? backgroundSkyTint(key);
+      editorEntries.push({
+        label: `${key} · Tint`,
+        material: new THREE.MeshBasicMaterial({ color: tintHex }),
+        lit: false,
+        saveTarget: { kind: 'background', key, slot: 'tint' },
+      });
+    }
+    const showPoint = backgroundHasPointLight(key);
+    if (showPoint) {
+      const point = pointLightForKey(key);
+      editorEntries.push({
+        label: `${key} · Point`,
+        material: new THREE.MeshBasicMaterial({ color: point.color }),
+        lit: false,
+        saveTarget: { kind: 'background', key, slot: 'point' },
+      });
+    }
+    materialHint.textContent = showPoint
+      ? `${formatTraitValue(key)} · point light · savable`
+      : showSkyTint
+        ? `${formatTraitValue(key)} · ocean sphere tint · savable`
+        : `${formatTraitValue(key)} · skybox gradient${showClouds ? ' + clouds' : ''} · savable`;
     const card = document.createElement('div');
     card.className = 'mat-card';
     const title = document.createElement('div');
@@ -1362,14 +1453,18 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
     title.textContent = key;
     const meta = document.createElement('div');
     meta.className = 'mat-card-meta';
-    meta.textContent = showClouds
-      ? 'Skybox gradient + clouds · savable'
-      : 'Skybox gradient · top → bottom · savable';
+    meta.textContent = showPoint
+      ? 'Ocean sphere · point light · savable'
+      : showSkyTint
+        ? 'Ocean sphere · tint × texture · savable'
+        : showClouds
+          ? 'Skybox gradient + clouds · savable'
+          : 'Skybox gradient · top → bottom · savable';
     card.append(title, meta);
 
     for (const entry of editorEntries) {
       const slot = entry.saveTarget?.kind === 'background' ? entry.saveTarget.slot : 'top';
-      if (slot === 'clouds') continue;
+      if (slot === 'clouds' || slot === 'tint' || slot === 'point') continue;
       const row = document.createElement('label');
       row.className = 'mat-color-row';
       row.append(slot === 'top' ? 'Top' : 'Bottom');
@@ -1439,6 +1534,81 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
       });
       row.append(colorInput, val);
       card.append(row);
+    }
+
+    for (const entry of editorEntries) {
+      const slot = entry.saveTarget?.kind === 'background' ? entry.saveTarget.slot : 'top';
+      if (slot !== 'tint') continue;
+      const row = document.createElement('label');
+      row.className = 'mat-color-row';
+      row.append('Tint');
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = colorFromMaterial(entry.material);
+      const val = document.createElement('span');
+      val.className = 'mat-val';
+      val.textContent = colorInput.value;
+      colorInput.addEventListener('input', () => {
+        applyColorToGroup(entry, colorInput.value);
+        val.textContent = hexToCss(cssToHex(colorInput.value));
+        const tint = skyTintFromEditor(key);
+        if (tint != null) {
+          bgSkyTintLive.set(key, tint);
+          bgScenes.setSkyTint(key, tint);
+        }
+      });
+      row.append(colorInput, val);
+      card.append(row);
+    }
+
+    if (showPoint) {
+      const point = pointLightForKey(key);
+      const applyPoint = (color: number, intensity: number): void => {
+        pointLightLive.set(key, { color, intensity });
+        bgScenes.setPoolLight(key, color, intensity);
+      };
+      for (const entry of editorEntries) {
+        const slot = entry.saveTarget?.kind === 'background' ? entry.saveTarget.slot : 'top';
+        if (slot !== 'point') continue;
+        const row = document.createElement('label');
+        row.className = 'mat-color-row';
+        row.append('Point');
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = colorFromMaterial(entry.material);
+        const val = document.createElement('span');
+        val.className = 'mat-val';
+        val.textContent = colorInput.value;
+        colorInput.addEventListener('input', () => {
+          applyColorToGroup(entry, colorInput.value);
+          val.textContent = hexToCss(cssToHex(colorInput.value));
+          const color = pointColorFromEditor(key);
+          if (color != null) applyPoint(color, pointLightForKey(key).intensity);
+        });
+        row.append(colorInput, val);
+        card.append(row);
+      }
+      const strengthRow = document.createElement('label');
+      strengthRow.title = 'Centre point light strength. Only the Pool 1 sky receives it.';
+      strengthRow.append('Point strength');
+      const strengthInput = document.createElement('input');
+      strengthInput.type = 'range';
+      strengthInput.min = '0';
+      strengthInput.max = '100000';
+      strengthInput.step = '100';
+      strengthInput.value = String(point.intensity);
+      const strengthVal = document.createElement('span');
+      strengthVal.className = 'mat-val';
+      strengthVal.textContent = String(Math.round(point.intensity));
+      strengthInput.addEventListener('input', () => {
+        const intensity = Number(strengthInput.value);
+        strengthVal.textContent = String(Math.round(intensity));
+        const color = pointLightForKey(key).color;
+        applyPoint(color, intensity);
+        dirtySaveKeys.add(`background:${key}:point`);
+      });
+      strengthRow.append(strengthInput, strengthVal);
+      card.append(strengthRow);
     }
     materialList.append(card);
     syncSaveButton();
@@ -2979,14 +3149,14 @@ function syncOceanControls(): void {
     return;
   }
 
-  const hasWater = bgScenes.hasWaterPlane(key);
-  oceanTraitHint.textContent = hasWater
+  const hasOcean = bgScenes.hasEditableOcean(key);
+  oceanTraitHint.textContent = hasOcean
     ? `Editing ocean for ${key.replace(/_/g, ' ')}`
     : `${key.replace(/_/g, ' ')} — no WaterPlane in this BG`;
   const ripple = rippleForKey(key);
   const mat = oceanMatForKey(key);
   for (const el of rippleInputs) el.disabled = false;
-  for (const el of matInputs) el.disabled = !hasWater;
+  for (const el of matInputs) el.disabled = !hasOcean;
   oceanSaveBtn.disabled = false;
   oceanEnabledInput.checked = ripple.enabled;
   oceanAmplitudeInput.value = String(ripple.amplitude);

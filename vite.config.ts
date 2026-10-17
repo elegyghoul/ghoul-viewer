@@ -22,7 +22,10 @@ export type SaveMaterialsPayload = {
     }
   >;
   eye?: Record<string, { color: number }>;
-  background?: Record<string, { color?: number; top?: number; bottom?: number; clouds?: number; distance?: number }>;
+  background?: Record<
+    string,
+    { color?: number; top?: number; bottom?: number; clouds?: number; distance?: number; tint?: number; pointColor?: number; pointIntensity?: number }
+  >;
   backgroundFog?: Record<
     string,
     { enabled: boolean; color: number; near: number; far: number }
@@ -265,6 +268,17 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
     }
     if (vals.clouds != null) {
       next = upsertInConstObject(next, 'BACKGROUND_CLOUDS', key, hexLiteral(vals.clouds));
+    }
+    if (vals.tint != null) {
+      next = upsertInConstObject(next, 'BACKGROUND_SKY_TINT', key, hexLiteral(vals.tint));
+    }
+    if (vals.pointColor != null && vals.pointIntensity != null) {
+      next = upsertInConstObject(
+        next,
+        'BACKGROUND_POINT_LIGHT',
+        key,
+        `{ color: ${hexLiteral(vals.pointColor)}, intensity: ${Math.round(vals.pointIntensity)} }`,
+      );
     }
   }
 

@@ -30,6 +30,81 @@ function skyboxRadius(name: string): number {
  */
 const SPILL_SKY_KEYS = new Set(['Neon_Sunset']);
 
+/** Full sphere wrapped in the shared ocean map, rippled like the water plane. */
+const OCEAN_SKY_KEYS = new Set(['Pool_1']);
+
+/** Wave height on an ocean sky, as a fraction of the sphere radius at amplitude 1.
+ *  The ocean map's height only swings about ±0.4, so this has to be large
+ *  before a radius-80 shell moves toward the ghoul. */
+const OCEAN_SKY_WAVE = 4;
+
+/** Ocean-sky UV repeat relative to the water ripple frequency. 0.25 = 4× larger tiles. */
+const OCEAN_SKY_TILE_SCALE = 0.25;
+
+/** Point light at the world origin, compiled into the Pool sky only. */
+const DEFAULT_POOL_LIGHT = { color: 0xfff6ea, intensity: 28000 };
+
+type PoolLightUniform = {
+  color: { value: THREE.Color };
+  intensity: { value: number };
+};
+
+const poolLightUniforms = new WeakMap<THREE.Material, PoolLightUniform>();
+
+function attachPoolCenterLight(
+  mat: THREE.MeshStandardMaterial,
+  color = DEFAULT_POOL_LIGHT.color,
+  intensity = DEFAULT_POOL_LIGHT.intensity,
+): void {
+  const uniforms: PoolLightUniform = {
+    color: { value: new THREE.Color(color) },
+    intensity: { value: intensity },
+  };
+  poolLightUniforms.set(mat, uniforms);
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uPoolLightColor = uniforms.color;
+    shader.uniforms.uPoolLightIntensity = uniforms.intensity;
+    shader.fragmentShader =
+      'uniform vec3 uPoolLightColor;\nuniform float uPoolLightIntensity;\n' +
+      shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        /* glsl */ `
+          {
+            // View-space position of this fragment, and of the world origin.
+            vec3 poolPos = - vViewPosition;
+            vec3 poolLight = (viewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+            vec3 toLight = poolLight - poolPos;
+            float dist = length(toLight);
+            float atten = uPoolLightIntensity / max(dist * dist, 1.0);
+            vec3 L = toLight / max(dist, 1e-4);
+            vec3 N = normalize(normal);
+            vec3 V = normalize(vViewPosition);
+            vec3 H = normalize(L + V);
+            float ndotl = clamp(dot(N, L), 0.0, 1.0);
+            float ndoth = clamp(dot(N, H), 0.0, 1.0);
+            // Metalness removes the diffuse tint. Roughness widens the highlight.
+            float rough = clamp(material.roughness, 0.045, 1.0);
+            float specPower = exp2(12.0 * (1.0 - rough));
+            float spec = pow(ndoth, specPower) * (specPower + 8.0) * 0.125;
+            vec3 diffuse = material.diffuseContribution * RECIPROCAL_PI;
+            vec3 specular = material.specularColorBlended * spec;
+            outgoingLight += (diffuse + specular) * uPoolLightColor * atten * ndotl;
+          }
+          #include <opaque_fragment>
+        `,
+      );
+  };
+  mat.customProgramCacheKey = () => 'pool-center-light-pbr';
+  mat.needsUpdate = true;
+}
+
+function writePoolCenterLight(mat: THREE.Material, color: number, intensity: number): void {
+  const uniforms = poolLightUniforms.get(mat);
+  if (!uniforms) return;
+  uniforms.color.value.setHex(color & 0xffffff);
+  uniforms.intensity.value = intensity;
+}
+
 /**
  * SphereGeometry UVs run 1 at the north pole → 0 at the south pole.
  * Fold them so the equator is 0 and both poles are 1. With the existing
@@ -56,6 +131,15 @@ type WaterPlaneRipple = {
   rest: Float32Array;
   positions: THREE.BufferAttribute;
   uvs: THREE.BufferAttribute | null;
+};
+
+type OceanSky = {
+  mesh: THREE.Mesh;
+  rest: Float32Array;
+  normals: Float32Array;
+  positions: THREE.BufferAttribute;
+  uvs: THREE.BufferAttribute;
+  radius: number;
 };
 
 type CloudPuff = {
@@ -279,6 +363,9 @@ export class BackgroundSceneManager {
   private readonly root = new THREE.Group();
   private readonly floorCache = new Map<string, THREE.Object3D>();
   private readonly skyCache = new Map<string, THREE.Object3D>();
+  private readonly oceanSkyCache = new Map<string, OceanSky>();
+  private readonly skyTint = new Map<string, number>();
+  private readonly poolLight = new Map<string, { color: number; intensity: number }>();
   private readonly gradientSkyCache = new Map<string, THREE.Mesh>();
   private readonly cloudCache = new Map<string, { root: THREE.Group; puffs: CloudPuff[] }>();
   private readonly waterByBg = new Map<string, WaterPlaneRipple[]>();
@@ -314,6 +401,12 @@ export class BackgroundSceneManager {
     return (this.waterByBg.get(key)?.length ?? 0) > 0;
   }
 
+  /** Water plane, or an ocean-texture sky that uses the same material controls. */
+  hasEditableOcean(key: string | null | undefined): boolean {
+    if (!key) return false;
+    return this.hasWaterPlane(key) || OCEAN_SKY_KEYS.has(key);
+  }
+
   setOceanMaterial(key: string, settings: BackgroundOceanMat): void {
     this.oceanMatByKey.set(key, { ...settings });
     this.applyOceanMatToKey(key);
@@ -323,7 +416,8 @@ export class BackgroundSceneManager {
     const saved = this.oceanMatByKey.get(key);
     if (saved) return { ...saved };
     const waters = this.waterByBg.get(key);
-    const mesh = waters?.[0]?.mesh;
+    const sky = this.oceanSkyCache.get(key);
+    const mesh = waters?.[0]?.mesh ?? sky?.mesh;
     if (!mesh) return null;
     const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as
       | THREE.MeshStandardMaterial
@@ -367,7 +461,24 @@ export class BackgroundSceneManager {
     if (mesh?.visible) this.applyGradientColors(mesh);
   }
 
-  /** Tint procedural cloud sprites (map × colour). */
+  /** Tint for an ocean-texture sky sphere (map × colour). */
+  setSkyTint(key: string, hex: number): void {
+    const color = hex & 0xffffff;
+    this.skyTint.set(key, color);
+    const sky = this.oceanSkyCache.get(key);
+    if (!sky) return;
+    const mat = sky.mesh.material as THREE.MeshBasicMaterial;
+    mat.color.setHex(color);
+  }
+
+  /** Centre point light compiled into an ocean sky. No effect on other materials. */
+  setPoolLight(key: string, color: number, intensity: number): void {
+    const next = { color: color & 0xffffff, intensity };
+    this.poolLight.set(key, next);
+    const sky = this.oceanSkyCache.get(key);
+    if (!sky) return;
+    writePoolCenterLight(sky.mesh.material as THREE.Material, next.color, next.intensity);
+  }
   setCloudColor(hex: number): void {
     this.cloudColor = hex & 0xffffff;
     if (!this.activeKey || !this.wantVisible) return;
@@ -466,6 +577,7 @@ export class BackgroundSceneManager {
     this.time += dt;
     this.updateClouds(this.activeKey, this.time);
     this.updateGradientSwirl(this.activeKey);
+    this.updateOceanSky(this.activeKey);
 
     const waters = this.waterByBg.get(this.activeKey);
     if (!waters?.length) return;
@@ -604,9 +716,56 @@ export class BackgroundSceneManager {
 
   private applyOceanMatToKey(key: string): void {
     const settings = this.oceanMatByKey.get(key);
+    if (!settings) return;
     const waters = this.waterByBg.get(key);
-    if (!settings || !waters) return;
-    for (const w of waters) this.applyOceanMatToMesh(w.mesh, settings);
+    if (waters) for (const w of waters) this.applyOceanMatToMesh(w.mesh, settings);
+    const sky = this.oceanSkyCache.get(key);
+    if (sky) this.applyOceanMatToSky(key, sky, settings);
+  }
+
+  /** Lit ocean settings on the sky sphere, without the floor-mesh fog/depth flags. */
+  private applyOceanMatToSky(key: string, sky: OceanSky, settings: BackgroundOceanMat): void {
+    const current = sky.mesh.material as THREE.Material;
+    const map =
+      current instanceof THREE.MeshStandardMaterial || current instanceof THREE.MeshBasicMaterial
+        ? current.map
+        : null;
+    let std: THREE.MeshStandardMaterial;
+    if (current instanceof THREE.MeshStandardMaterial) {
+      std = current;
+    } else {
+      std = new THREE.MeshStandardMaterial({
+        map,
+        side: THREE.BackSide,
+        fog: false,
+        toneMapped: false,
+      });
+      attachPoolCenterLight(
+        std,
+        this.poolLight.get(key)?.color ?? DEFAULT_POOL_LIGHT.color,
+        this.poolLight.get(key)?.intensity ?? DEFAULT_POOL_LIGHT.intensity,
+      );
+      current.dispose();
+      sky.mesh.material = std;
+    }
+    std.color.setHex(settings.color);
+    std.metalness = settings.metalness;
+    std.roughness = settings.roughness;
+    std.opacity = settings.opacity;
+    std.transparent = settings.opacity < 0.999;
+    std.depthWrite = false;
+    std.envMapIntensity = settings.envMapIntensity;
+    std.side = THREE.BackSide;
+    std.fog = false;
+    std.toneMapped = false;
+    if (map && this.ripple.enabled) {
+      std.normalMap = map;
+      std.normalScale.set(1.1, 1.1);
+    } else {
+      std.normalMap = null;
+    }
+    std.needsUpdate = true;
+    this.skyTint.set(key, settings.color);
   }
 
   private applyOceanMatToMesh(mesh: THREE.Mesh, settings: BackgroundOceanMat): void {
@@ -746,6 +905,7 @@ export class BackgroundSceneManager {
   }
 
   private async loadSkybox(name: string): Promise<THREE.Object3D | null> {
+    if (OCEAN_SKY_KEYS.has(name)) return this.loadOceanSky(name);
     const cached = this.skyCache.get(name);
     if (cached) return cached;
     if (this.skyMissing.has(name)) return null;
@@ -819,5 +979,125 @@ export class BackgroundSceneManager {
       this.skyInflight.set(name, pending);
     }
     return pending;
+  }
+
+  private async loadOceanSky(name: string): Promise<THREE.Object3D | null> {
+    const cached = this.skyCache.get(name);
+    if (cached) return cached;
+    if (this.skyMissing.has(name)) return null;
+
+    let pending = this.skyInflight.get(name);
+    if (!pending) {
+      pending = (async () => {
+        try {
+          await this.ensureOceanMap();
+          const src = this.oceanTex;
+          if (!src) {
+            this.skyMissing.add(name);
+            return null;
+          }
+          const map = src.clone();
+          map.colorSpace = THREE.SRGBColorSpace;
+          map.wrapS = THREE.RepeatWrapping;
+          map.wrapT = THREE.RepeatWrapping;
+          map.needsUpdate = true;
+
+          const radius = skyboxRadius(name);
+          const geometry = new THREE.SphereGeometry(radius, 128, 96);
+          const position = geometry.getAttribute('position') as THREE.BufferAttribute;
+          const normal = geometry.getAttribute('normal') as THREE.BufferAttribute;
+          const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
+          const mat = new THREE.MeshStandardMaterial({
+            map,
+            color: this.skyTint.get(name) ?? 0xffffff,
+            side: THREE.BackSide,
+            depthWrite: false,
+            fog: false,
+            toneMapped: false,
+            roughness: 0.45,
+            metalness: 0.15,
+          });
+          const pool = this.poolLight.get(name) ?? DEFAULT_POOL_LIGHT;
+          attachPoolCenterLight(mat, pool.color, pool.intensity);
+          const mesh = new THREE.Mesh(geometry, mat);
+          mesh.name = `Skybox_${name}`;
+          mesh.renderOrder = -10;
+          mesh.frustumCulled = false;
+          mesh.visible = false;
+          this.root.add(mesh);
+          this.skyCache.set(name, mesh);
+          this.oceanSkyCache.set(name, {
+            mesh,
+            rest: new Float32Array(position.array as Float32Array),
+            normals: new Float32Array(normal.array as Float32Array),
+            positions: position,
+            uvs: uv,
+            radius,
+          });
+          return mesh;
+        } catch {
+          this.skyMissing.add(name);
+          return null;
+        } finally {
+          this.skyInflight.delete(name);
+        }
+      })();
+      this.skyInflight.set(name, pending);
+    }
+    return pending;
+  }
+
+  /** Scroll and displace an ocean sky the same way a WaterPlane ripples. */
+  private updateOceanSky(key: string): void {
+    const sky = this.oceanSkyCache.get(key);
+    if (!sky?.mesh.visible) return;
+
+    const map = (sky.mesh.material as THREE.MeshBasicMaterial).map;
+    const { enabled, amplitude, frequency, speed } = this.ripple;
+    const pos = sky.positions.array as Float32Array;
+    if (!enabled || amplitude <= 1e-6) {
+      pos.set(sky.rest);
+      sky.positions.needsUpdate = true;
+      if (map) {
+        map.offset.set(0, 0);
+        map.repeat.set(1, 1);
+      }
+      sky.mesh.geometry.computeVertexNormals();
+      return;
+    }
+
+    const t = this.time * speed;
+    const tile = Math.max(0.05, frequency) * OCEAN_SKY_TILE_SCALE;
+    const wave = amplitude * sky.radius * OCEAN_SKY_WAVE;
+    if (map) {
+      map.offset.set(t * 0.035, t * 0.022);
+      map.repeat.set(tile, tile);
+    }
+
+    const rest = sky.rest;
+    const nrm = sky.normals;
+    for (let i = 0, vi = 0; i < rest.length; i += 3, vi++) {
+      let h: number;
+      if (this.oceanPixels) {
+        const u0 = sky.uvs.getX(vi);
+        const v0 = sky.uvs.getY(vi);
+        const h1 = this.sampleOceanHeight(u0 * tile + t * 0.08, v0 * tile + t * 0.05);
+        const h2 = this.sampleOceanHeight(u0 * tile * 0.7 - t * 0.04, v0 * tile * 0.85 + t * 0.07);
+        h = h1 * 0.65 + h2 * 0.35;
+      } else {
+        const x = rest[i]!;
+        const y = rest[i + 1]!;
+        const z = rest[i + 2]!;
+        h =
+          Math.sin(x * tile + t) * Math.cos(z * tile * 0.85 + t * 1.15) * 0.55 +
+          Math.sin((x + y) * tile * 0.55 - t * 0.9) * 0.3 +
+          Math.sin((x * 0.35 - z) * tile * 1.4 + t * 1.35) * 0.15;
+      }
+      pos[i] = rest[i]! + nrm[i]! * h * wave;
+      pos[i + 1] = rest[i + 1]! + nrm[i + 1]! * h * wave;
+      pos[i + 2] = rest[i + 2]! + nrm[i + 2]! * h * wave;
+    }
+    sky.positions.needsUpdate = true;
+    sky.mesh.geometry.computeVertexNormals();
   }
 }

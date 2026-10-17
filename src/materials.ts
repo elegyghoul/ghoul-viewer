@@ -186,7 +186,8 @@ const BACKGROUND: Record<string, number> = {
   Moonbased: 0x000000,
   Based_Loans: 0x637ca1,
   Rebase_Radio: 0x000000,
-  Pool_1: 0x000000,
+  Pool_1: 0x4770b3,
+
 };
 
 /** Vertical clear-colour gradient (top → bottom) for Trait BG. */
@@ -203,12 +204,30 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Loans: { top: 0x2a4b89, bottom: 0x637ca1 },
   Retro_Palms: { top: 0x15000f, bottom: 0x15000f },
   Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
+  Pool_1: { top: 0x009ceb, bottom: 0x4770b3, distance: 0.81 },
 
 };
 
 /** Tint for procedural Trait BG cloud sprites (white map × colour). */
 const BACKGROUND_CLOUDS: Record<string, number> = {
   Based_Loans: 0xffffff,
+};
+
+/** Tint for ocean-texture sky spheres (map × colour). White leaves the texture unchanged. */
+const BACKGROUND_SKY_TINT: Record<string, number> = {
+  Pool_1: 0xffffff,
+
+};
+
+/** Centre point light compiled into the Pool 1 sky only. */
+export type BackgroundPointLight = {
+  color: number;
+  intensity: number;
+};
+
+const BACKGROUND_POINT_LIGHT: Record<string, BackgroundPointLight> = {
+  Pool_1: { color: 0xffffff, intensity: 34400 },
+
 };
 
 /** Distance fog for Trait BG 3D scenes (per background trait key). */
@@ -250,6 +269,24 @@ export function backgroundCloudColor(name: string): number {
 
 export function backgroundHasClouds(name: string): boolean {
   return Object.prototype.hasOwnProperty.call(BACKGROUND_CLOUDS, name);
+}
+
+export function backgroundSkyTint(name: string): number {
+  return BACKGROUND_SKY_TINT[name] ?? 0xffffff;
+}
+
+export function backgroundHasSkyTint(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(BACKGROUND_SKY_TINT, name);
+}
+
+export function backgroundPointLight(name: string): BackgroundPointLight | null {
+  const saved = BACKGROUND_POINT_LIGHT[name];
+  if (!saved) return null;
+  return { color: saved.color, intensity: saved.intensity };
+}
+
+export function backgroundHasPointLight(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(BACKGROUND_POINT_LIGHT, name);
 }
 
 export function backgroundFog(name: string): BackgroundFog {
@@ -296,6 +333,7 @@ export const DEFAULT_DIR_LIGHT: BackgroundDirLight = {
 const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset: { enabled: true, color: 0x742a44, intensity: 12.8, azimuth: 160, elevation: 32 },
   Retro_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Vaporwave_Palms: { enabled: true, color: 0xfff2d0, intensity: 4.05, azimuth: 360, elevation: 55 },
+  Pool_1: { enabled: false, color: 0xffffff, intensity: 3.05, azimuth: 312, elevation: 57 },
 
 };
 
@@ -317,6 +355,7 @@ const BACKGROUND_RIPPLE: Record<string, BackgroundRipple> = {
   // Ocean disabled for now — re-enable via FX → Ocean when ready.
   Retro_Palms: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
   Neon_Sunset: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
+  Pool_1: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
 
 };
 
@@ -351,6 +390,7 @@ export const DEFAULT_OCEAN_MAT: BackgroundOceanMat = {
 };
 
 const BACKGROUND_OCEAN_MAT: Record<string, BackgroundOceanMat> = {  Neon_Sunset: { color: 0x34005e, metalness: 0.44, roughness: 0.44, opacity: 0.66, envMapIntensity: 0 },
+  Pool_1: { color: 0x0d87d3, metalness: 0.08, roughness: 0.6, opacity: 0.27, envMapIntensity: 1.25 },
 
 };
 
