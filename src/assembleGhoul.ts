@@ -262,7 +262,7 @@ function applySkinToBodyOnly(
   }
 }
 
-/** Body slot 0 — the ghoul's basic Light skin (Irradiated - Light, and so on). */
+/** Body slot 0 â€” the ghoul's basic Light skin (Irradiated - Light, and so on). */
 function bodyLightMaterial(root: THREE.Object3D): THREE.Material | null {
   const body = findBodyNode(root);
   if (!body) return null;
