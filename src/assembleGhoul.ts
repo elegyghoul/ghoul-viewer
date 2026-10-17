@@ -18,6 +18,7 @@ import {
   tintObject,
   materialAtSlot,
   clearBloomLayers,
+  enableLaceCutout,
   restoreCigTexture,
   skinColor,
   skinDarkColor,
@@ -358,6 +359,7 @@ export class GhoulAssembler {
     this.root.add(this.bodyRoot);
     // CigReal used specular-glossiness in the GLB; Three no longer loads that map.
     restoreCigTexture(this.bodyRoot);
+    enableLaceCutout(this.bodyRoot);
     markPositronicBoneSlots(this.bodyRoot);
 
     // Unity uses one currentHead and swaps mesh assets. We keep Head - Teeth as

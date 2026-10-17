@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import type { EditableMaterial } from './assembleGhoul';
 import { PIXEL_SIZE } from './dither';
+import { placeHeadOrbit } from './headOrbit';
 import { accentColor } from './materials';
 
 /**
  * Procedural flame. Soft additive sprites, no texture.
  * Particles spawn at an anchor and climb. The torch uses the stick tip;
- * the infernal flame uses the same simulation, tinted purple, at the
- * Infernal Flame socket.
+ * the infernal flame uses the same simulation, tinted purple, orbiting
+ * the Infernal Flame socket with a downward sine bob.
  */
 
 const PARTICLE_COUNT = 36;
@@ -32,6 +33,8 @@ type Emitter = Anchor & {
   ages: Float32Array;
   /** seed, size, core */
   rng: Float32Array;
+  /** Host position before the head orbit. Null when the flame stays put. */
+  restLocal: THREE.Vector3 | null;
 };
 
 type FlameSpec = {
@@ -56,6 +59,8 @@ type FlameSpec = {
   lightLow: THREE.ColorRepresentation;
   collect: (root: THREE.Object3D) => Anchor[];
   conceal?: (host: THREE.Object3D) => void;
+  /** Circle the head socket. Crest of the bob is the authored height. */
+  headOrbit?: boolean;
 };
 
 function chainVisible(obj: THREE.Object3D): boolean {
@@ -169,6 +174,7 @@ const INFERNAL_SPEC: FlameSpec = {
   lightLow: 0x411a4a,
   collect: collectInfernal,
   conceal: hideInfernalQuads,
+  headOrbit: true,
 };
 
 function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): Emitter {
@@ -268,7 +274,14 @@ function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): 
   points.renderOrder = spec.renderOrder;
   points.name = spec.pointsName;
   scene.add(points);
-  return { ...anchor, points, positions, ages, rng };
+  return {
+    ...anchor,
+    points,
+    positions,
+    ages,
+    rng,
+    restLocal: spec.headOrbit ? anchor.host.position.clone() : null,
+  };
 }
 
 class ProceduralFlame {
@@ -349,6 +362,7 @@ class ProceduralFlame {
     }
 
     for (const em of this.emitters) {
+      if (this.spec.headOrbit && em.restLocal) placeHeadOrbit(em.host, em.restLocal, time);
       this.spec.conceal?.(em.host);
       if (!chainVisible(em.host)) {
         em.points.visible = false;
@@ -428,6 +442,7 @@ class ProceduralFlame {
 
   dispose(): void {
     for (const em of this.emitters) {
+      if (em.restLocal) em.host.position.copy(em.restLocal);
       em.points.removeFromParent();
       em.points.geometry.dispose();
       (em.points.material as THREE.Material).dispose();

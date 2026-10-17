@@ -134,7 +134,7 @@ const ACCENT: Record<
   eyeTears_0: { color: 0x414dd2, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0.05 },
   bullHorns_0: { color: 0xd6c084, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.2, metalness: 0.7 },
   key_0: { color: 0xeab950, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.66, metalness: 1 },
-  vaporwaveTea_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.62, metalness: 0.554 },
+  vaporwaveTea_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.63, metalness: 0.74 },
   vaporwaveTea_1: { color: 0xba942b, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.62, metalness: 0.78 },
   loldefi_0: { color: 0x00add5, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   loldefi_1: { color: 0xffadca, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.27 },
@@ -150,6 +150,9 @@ const ACCENT: Record<
   InfernalCore: { color: 0x0c000f },
   InfernalMid: { color: 0x000000 },
   InfernalEdge: { color: 0xa84e8d },
+  nightcap_0: { color: 0xfff4f1, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.91, metalness: 0.28 },
+  nightcap_1: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
+  vaporwaveTea_2: { color: 0xffd642, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.13 },
 
 };
 
@@ -169,7 +172,7 @@ const BACKGROUND: Record<string, number> = {
   Sorrow: 0x010306,
   Decay: 0x020900,
   Pitch_Black: 0x000000,
-  Based_Ghoul_Blue: 0x3187d3,
+  Based_Ghoul_Blue: 0x2572b6,
   Darkness: 0x000000,
   Dungeon: 0x000000,
   BasedChain: 0x000000,
@@ -205,6 +208,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Retro_Palms: { top: 0x15000f, bottom: 0x15000f },
   Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
   Pool_1: { top: 0x009ceb, bottom: 0x4770b3, distance: 0.81 },
+  Based_Ghoul_Blue: { top: 0x2572b6, bottom: 0x2572b6, distance: 0.97 },
 
 };
 
@@ -674,6 +678,43 @@ export function normalizeMaterials(root: THREE.Object3D, opts?: { keepBlack?: bo
       });
     });
     mesh.material = Array.isArray(mesh.material) ? next : next[0]!;
+  });
+}
+
+/**
+ * Nearest texel, with anisotropy. Anisotropy only runs on a mipmapped min
+ * filter, so the min filter is nearest-mipmap rather than plain nearest.
+ * The GPU clamps the sample count to its maximum.
+ */
+function nearestAnisoLaceMap(map: THREE.Texture | null): void {
+  if (!map) return;
+  map.magFilter = THREE.NearestFilter;
+  map.minFilter = THREE.NearestMipmapNearestFilter;
+  map.generateMipmaps = true;
+  map.anisotropy = 16;
+  map.needsUpdate = true;
+}
+
+/**
+ * Nightcap "Lace" ships with the holes in the base-color alpha, but the GLB
+ * leaves the material opaque. Cut out texels below the glTF mask threshold.
+ */
+export function enableLaceCutout(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (mat.name.trim().toLowerCase() !== 'lace') continue;
+      const m = mat as THREE.MeshStandardMaterial;
+      nearestAnisoLaceMap(m.map);
+      nearestAnisoLaceMap(m.alphaMap);
+      m.alphaTest = 0.5;
+      m.transparent = false;
+      m.depthWrite = true;
+      m.opacity = 1;
+      m.needsUpdate = true;
+    }
   });
 }
 

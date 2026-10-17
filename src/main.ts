@@ -13,6 +13,7 @@ import {
 } from './dither';
 import { CloakClothManager, DEFAULT_CLOTH_PARAMS } from './cloth';
 import { CigSmokeManager } from './cigSmoke';
+import { SpecialOrbitManager } from './headOrbit';
 import { InfernalFlameManager, TorchFlameManager } from './torchFlame';
 import { HaloLightManager } from './haloLight';
 import { PositronicLights } from './positronicLights';
@@ -913,6 +914,7 @@ const cloakCloth = new CloakClothManager();
 const cigSmoke = new CigSmokeManager();
 const torchFlame = new TorchFlameManager();
 const infernalFlame = new InfernalFlameManager();
+const specialOrbit = new SpecialOrbitManager();
 const haloLight = new HaloLightManager();
 const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
@@ -2525,6 +2527,7 @@ function doLoad(id?: number): void {
     cigSmoke.sync(assembler.root, scene);
     torchFlame.sync(assembler.root, scene);
     infernalFlame.sync(assembler.root, scene);
+    specialOrbit.sync(assembler.root);
     haloLight.sync(assembler.root);
     positronicLights.sync(assembler.root);
     void cudiParticles.sync(assembler.root, scene);
@@ -3457,6 +3460,7 @@ function animate(): void {
     cigSmoke.update(dt);
     torchFlame.update(dt);
     infernalFlame.update(dt);
+    specialOrbit.update();
     haloLight.update();
     cudiParticles.update(dt);
   }
