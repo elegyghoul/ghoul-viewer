@@ -112,7 +112,7 @@ const ACCENT: Record<
   BeadyEyes_1: { color: 0xfff4f1, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0 },
   BeadyEyes_2: { color: 0x000000, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 1 },
   BeadyEyes_3: { color: 0xfff4f1, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0 },
-  xeKF420_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0 },
+  xeKF420_0: { color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5, roughness: 1, metalness: 0.78 },
   xeKF420_1: { color: 0x999999, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.198, metalness: 0.921 },
   xeKF420_2: { color: 0x909290, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.12, metalness: 0.45 },
   xeKF420_3: { color: 0xdd9a78, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
@@ -1194,4 +1194,77 @@ export function updateNc69rDisplayScroll(dt: number): void {
   // through the far half of the trip, so the turn doesn't sit at a stop.
   const theta = ((nc69ScrollElapsed % (NC69_SCROLL_LEG * 2)) / NC69_SCROLL_LEG) * Math.PI;
   nc69ScrollUniform.value = ((1 - Math.cos(theta)) / 2) * NC69_SCROLL_SPAN;
+}
+
+/**
+ * xeKF420 slot 0 (`xekf420 - Display 1`, accent key xeKF420_0).
+ * bluegradient runs bright-to-black across U, and U increases to screen right.
+ * U shifts continuously so the band keeps traveling one way. The map repeats.
+ */
+/** UV units per second. One screen-width of the display takes about 1.6s. */
+const XE_SCROLL_SPEED = 0.98 / 1.6;
+const xeScrollUniform = { value: 0 };
+let xeScrollElapsed = 0;
+
+function xeScrollInstalled(mat: THREE.Material): boolean {
+  return mat.onBeforeCompile.toString().includes('xekf-scroll-v1');
+}
+
+function isXeDisplayMaterial(mat: THREE.Material, meshName: string): boolean {
+  const name = `${mat.name} ${meshName}`.toLowerCase();
+  if (name.includes('xekf420') && name.includes('display')) return true;
+  // Accent save renames this slot from "xekf420 - Display 1" to xeKF420_0.
+  if (mat.name === 'xeKF420_0') return true;
+  const mapName = ((mat as THREE.MeshStandardMaterial).map?.name ?? '').toLowerCase();
+  return mapName.includes('bluegradient');
+}
+
+export function attachXeDisplayScroll(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (!mat || !isXeDisplayMaterial(mat, mesh.name)) continue;
+      const std = mat as THREE.MeshStandardMaterial;
+      const map = std.map;
+      if (map) {
+        map.wrapS = THREE.RepeatWrapping;
+        map.wrapT = THREE.RepeatWrapping;
+        map.needsUpdate = true;
+        std.emissiveMap = map;
+      }
+      std.emissive.set(0xffffff);
+      std.emissiveIntensity = 1.5;
+      std.toneMapped = false;
+      std.fog = false;
+      std.needsUpdate = true;
+      enableBloomLayer(mesh);
+      if (xeScrollInstalled(mat)) continue;
+      std.onBeforeCompile = (shader) => {
+        shader.uniforms.uXeScroll = xeScrollUniform;
+        shader.vertexShader =
+          'uniform float uXeScroll;\n' +
+          shader.vertexShader.replace(
+            '#include <uv_vertex>',
+            /* glsl */ `
+            #include <uv_vertex>
+            #ifdef USE_MAP
+              // xekf-scroll-v1
+              vMapUv.x -= uXeScroll;
+              #ifdef USE_EMISSIVEMAP
+                vEmissiveMapUv.x -= uXeScroll;
+              #endif
+            #endif
+            `,
+          );
+      };
+      std.customProgramCacheKey = () => 'xekf-display-scroll-v1';
+    }
+  });
+}
+
+export function updateXeDisplayScroll(dt: number): void {
+  if (dt > 0) xeScrollElapsed += dt;
+  xeScrollUniform.value = -((xeScrollElapsed * XE_SCROLL_SPEED) % 1);
 }

@@ -31,6 +31,7 @@ import {
   bindBeamSway,
   updateBeamSway,
   updateNc69rDisplayScroll,
+  updateXeDisplayScroll,
   cssToHex,
   enableBloomLayer,
   hexToCss,
@@ -3294,6 +3295,7 @@ function animate(): void {
   updateLightTween(dt);
   updateBeamSway(dt);
   updateNc69rDisplayScroll(dt);
+  updateXeDisplayScroll(dt);
   syncLightsToGhoul();
   ghoulball.update(dt);
   updateCubeGrid(dt);
