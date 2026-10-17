@@ -726,7 +726,8 @@ export class BackgroundSceneManager {
               mat.needsUpdate = true;
             }
             mesh.castShadow = true;
-            mesh.receiveShadow = true;
+            // Neon Sunset ocean should not show the sun shadow on the water.
+            mesh.receiveShadow = !(name === 'Neon_Sunset' && isWaterPlaneName(mesh.name));
           });
           this.collectWaterPlanes(root, name);
           this.root.add(root);
