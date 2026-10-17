@@ -27,6 +27,7 @@ import {
   UNITY_PART_NAMES,
   UNITY_SOCKETS,
 } from './unityNames';
+import { hideInfernalPlaceholderMeshes } from './torchFlame';
 
 const UNITY_GLB = '/models/ghoul-avatar.glb';
 
@@ -386,6 +387,8 @@ export class GhoulAssembler {
             if (o.name === 'Fire') o.visible = false;
           });
         }
+        // Infernal flame quads stand in for the particle flame.
+        if (id === 'infernalFlame') hideInfernalPlaceholderMeshes(obj.parent ?? obj);
         ensureUniqueMeshMaterials(obj);
         if (id === 'eyeSocket' || id === 'perforated' || id === 'punctured') {
           paintBlack(obj);

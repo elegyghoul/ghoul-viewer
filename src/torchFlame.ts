@@ -1,9 +1,13 @@
 import * as THREE from 'three';
+import type { EditableMaterial } from './assembleGhoul';
 import { PIXEL_SIZE } from './dither';
+import { accentColor } from './materials';
 
 /**
- * Procedural torch flame. Soft additive sprites, no texture.
- * They spawn at the end of the stick and climb.
+ * Procedural flame. Soft additive sprites, no texture.
+ * Particles spawn at an anchor and climb. The torch uses the stick tip;
+ * the infernal flame uses the same simulation, tinted purple, at the
+ * Infernal Flame socket.
  */
 
 const PARTICLE_COUNT = 36;
@@ -17,17 +21,41 @@ const _up = new THREE.Vector3();
 const _out = new THREE.Vector3();
 const _side = new THREE.Vector3();
 
-/** Candela. Close to the head, so this stays well under the scene key. */
-const TORCH_LIGHT = 0.9;
-
-type Emitter = {
+type Anchor = {
   tip: THREE.Object3D;
-  torch: THREE.Object3D;
+  host: THREE.Object3D;
+};
+
+type Emitter = Anchor & {
   points: THREE.Points;
   positions: Float32Array;
   ages: Float32Array;
   /** seed, size, core */
   rng: Float32Array;
+};
+
+type FlameSpec = {
+  pointsName: string;
+  lightName: string;
+  /** Candela. Close to the head, so this stays well under the scene key. */
+  lightIntensity: number;
+  lightDistance: number;
+  /** Sprite size and flame volume. 1 matches the torch. */
+  size: number;
+  volume: number;
+  /** 0 = hot core fades at the rim (torch). 1 = rim stays as bright as the body. */
+  outer: number;
+  /** Multiplier on the sprite color. Torch stays hot; infernal stays under the dither whites. */
+  gain: number;
+  renderOrder: number;
+  pointMax: number;
+  hot: THREE.ColorRepresentation;
+  mid: THREE.ColorRepresentation;
+  edge: THREE.ColorRepresentation;
+  lightHot: THREE.ColorRepresentation;
+  lightLow: THREE.ColorRepresentation;
+  collect: (root: THREE.Object3D) => Anchor[];
+  conceal?: (host: THREE.Object3D) => void;
 };
 
 function chainVisible(obj: THREE.Object3D): boolean {
@@ -39,13 +67,111 @@ function chainVisible(obj: THREE.Object3D): boolean {
   return true;
 }
 
-function hideFireQuad(torch: THREE.Object3D): void {
-  torch.traverse((o) => {
-    if (o !== torch && o.name === 'Fire') o.visible = false;
+function hideFireQuad(host: THREE.Object3D): void {
+  host.traverse((o) => {
+    if (o !== host && o.name === 'Fire') o.visible = false;
   });
 }
 
-function createEmitter(tip: THREE.Object3D, torch: THREE.Object3D, scene: THREE.Object3D): Emitter {
+function normNode(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+/** Placeholder quads exported with the infernal flame. The empty "Infernal Flame" node stays. */
+export function hideInfernalPlaceholderMeshes(scope: THREE.Object3D): void {
+  scope.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const n = normNode(o.name);
+    if (n.startsWith('infernal_flame') || n.startsWith('infernalflame')) o.visible = false;
+  });
+}
+
+function hideInfernalQuads(host: THREE.Object3D): void {
+  hideInfernalPlaceholderMeshes(host.parent ?? host);
+}
+
+function collectTorches(root: THREE.Object3D): Anchor[] {
+  const anchors: Anchor[] = [];
+  root.traverse((o) => {
+    if (o.name !== 'Torch' || !chainVisible(o)) return;
+    hideFireQuad(o);
+    let tip = o.getObjectByName('VFX_TorchLight');
+    if (!tip) {
+      tip = new THREE.Object3D();
+      tip.name = 'TorchFlameTip';
+      tip.position.set(-0.135, 0.002, -0.005);
+      o.add(tip);
+    }
+    tip.visible = true;
+    anchors.push({ tip, host: o });
+  });
+  return anchors;
+}
+
+function collectInfernal(root: THREE.Object3D): Anchor[] {
+  const anchors: Anchor[] = [];
+  root.traverse((o) => {
+    if (normNode(o.name) !== 'infernal_flame') return;
+    if ((o as THREE.Mesh).isMesh) return;
+    if (!chainVisible(o)) return;
+    hideInfernalQuads(o);
+    let tip: THREE.Object3D | undefined;
+    o.traverse((child) => {
+      if (!tip && child !== o && normNode(child.name).startsWith('vfx_fire')) tip = child;
+    });
+    if (!tip) {
+      tip = new THREE.Object3D();
+      tip.name = 'InfernalFlameTip';
+      o.add(tip);
+    }
+    tip.visible = true;
+    anchors.push({ tip, host: o });
+  });
+  return anchors;
+}
+
+const TORCH_SPEC: FlameSpec = {
+  pointsName: 'TorchFlame',
+  lightName: 'TorchFlameLight',
+  lightIntensity: 0.9,
+  lightDistance: 1.8,
+  size: 1,
+  volume: 1,
+  outer: 0,
+  gain: 1.1,
+  renderOrder: 4,
+  pointMax: 32,
+  hot: new THREE.Color(1, 0.96, 0.35),
+  mid: new THREE.Color(1, 0.78, 0.08),
+  edge: new THREE.Color(1, 0.42, 0.02),
+  lightHot: 0xffe38a,
+  lightLow: 0xff7a18,
+  collect: collectTorches,
+  conceal: hideFireQuad,
+};
+
+const INFERNAL_SPEC: FlameSpec = {
+  pointsName: 'InfernalFlame',
+  lightName: 'InfernalFlameLight',
+  lightIntensity: 0.9,
+  lightDistance: 2.4,
+  size: 3.1,
+  volume: 2.5,
+  outer: 0.45,
+  gain: 0.82,
+  renderOrder: 4,
+  pointMax: 96,
+  hot: accentColor('InfernalCore'),
+  mid: accentColor('InfernalMid'),
+  edge: accentColor('InfernalEdge'),
+  lightHot: 0xffffff,
+  lightLow: 0x411a4a,
+  collect: collectInfernal,
+  conceal: hideInfernalQuads,
+};
+
+function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): Emitter {
   const positions = new Float32Array(PARTICLE_COUNT * 3);
   const ages = new Float32Array(PARTICLE_COUNT);
   const rng = new Float32Array(PARTICLE_COUNT * 3);
@@ -67,11 +193,20 @@ function createEmitter(tip: THREE.Object3D, torch: THREE.Object3D, scene: THREE.
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uViewport: { value: PIXEL_SIZE },
+      uSize: { value: spec.size },
+      uPointMax: { value: spec.pointMax },
+      uOuter: { value: spec.outer },
+      uGain: { value: spec.gain },
+      uHot: { value: new THREE.Color(spec.hot) },
+      uMid: { value: new THREE.Color(spec.mid) },
+      uEdge: { value: new THREE.Color(spec.edge) },
     },
     vertexShader: /* glsl */ `
       attribute float aAge;
       attribute vec3 aSeed;
       uniform float uViewport;
+      uniform float uSize;
+      uniform float uPointMax;
       varying float vT;
       varying float vSeed;
       varying float vCore;
@@ -85,12 +220,17 @@ function createEmitter(tip: THREE.Object3D, torch: THREE.Object3D, scene: THREE.
         float lifeScale = vCore > 0.5
           ? mix(1.2, 0.7, t)
           : mix(0.85, 0.2, smoothstep(0.15, 1.0, t));
-        float world = 0.085 * aSeed.y * lifeScale;
+        float world = 0.085 * uSize * aSeed.y * lifeScale;
         gl_PointSize = world * projectionMatrix[1][1] * uViewport * 0.5 / max(0.05, -mv.z);
-        gl_PointSize = clamp(gl_PointSize, 2.0, 32.0);
+        gl_PointSize = clamp(gl_PointSize, 2.0, uPointMax);
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform vec3 uHot;
+      uniform vec3 uMid;
+      uniform vec3 uEdge;
+      uniform float uOuter;
+      uniform float uGain;
       varying float vT;
       varying float vSeed;
       varying float vCore;
@@ -104,16 +244,15 @@ function createEmitter(tip: THREE.Object3D, torch: THREE.Object3D, scene: THREE.
         float core = smoothstep(0.55, 0.0, d);
         if (body < 0.04) discard;
 
-        vec3 hot = vec3(1.0, 0.96, 0.35);
-        vec3 mid = vec3(1.0, 0.78, 0.08);
-        vec3 edge = vec3(1.0, 0.42, 0.02);
         float heat = clamp(core * 0.9 + (vCore > 0.5 ? 0.4 : 0.15) - vT * 0.28, 0.0, 1.0);
-        vec3 color = mix(edge, mid, smoothstep(0.0, 0.45, heat));
-        color = mix(color, hot, smoothstep(0.45, 1.0, heat));
+        vec3 color = mix(uEdge, uMid, smoothstep(0.0, 0.45, heat));
+        color = mix(color, uHot, smoothstep(0.45, 1.0, heat));
 
         float fade = smoothstep(0.0, 0.05, vT) * (1.0 - smoothstep(0.55, 1.0, vT));
-        float alpha = body * fade * (0.55 + core * 0.45) * (vCore > 0.5 ? 1.0 : 0.8);
-        gl_FragColor = vec4(color * (1.1 + vSeed * 0.15), alpha);
+        float bodyW = mix(0.55, 0.92, uOuter);
+        float coreW = mix(0.45, 0.2, uOuter);
+        float alpha = body * fade * (bodyW + core * coreW) * (vCore > 0.5 ? 1.0 : 0.8);
+        gl_FragColor = vec4(color * uGain * (1.0 + vSeed * 0.14), alpha);
       }
     `,
     transparent: true,
@@ -126,16 +265,13 @@ function createEmitter(tip: THREE.Object3D, torch: THREE.Object3D, scene: THREE.
 
   const points = new THREE.Points(geom, mat);
   points.frustumCulled = false;
-  points.renderOrder = 4;
-  points.name = 'TorchFlame';
+  points.renderOrder = spec.renderOrder;
+  points.name = spec.pointsName;
   scene.add(points);
-  return { tip, torch, points, positions, ages, rng };
+  return { ...anchor, points, positions, ages, rng };
 }
 
-const _hot = new THREE.Color(0xffe38a);
-const _low = new THREE.Color(0xff7a18);
-
-export class TorchFlameManager {
+class ProceduralFlame {
   private emitters: Emitter[] = [];
   private scene: THREE.Object3D | null = null;
   private light: THREE.PointLight | null = null;
@@ -143,11 +279,30 @@ export class TorchFlameManager {
   private flicker = 1;
   private flickerTarget = 1;
   private flickerHold = 0;
+  private liveCore: THREE.Color | null = null;
+  private liveMid: THREE.Color | null = null;
+  private liveEdge: THREE.Color | null = null;
+  private readonly spec: FlameSpec;
+  private readonly lightHot = new THREE.Color();
+  private readonly lightLow = new THREE.Color();
+
+  constructor(spec: FlameSpec) {
+    this.spec = spec;
+    this.lightHot.set(spec.lightHot);
+    this.lightLow.set(spec.lightLow);
+  }
+
+  /** Core, middle, and rim. Each is used as picked — nothing is mixed toward white. */
+  setColors(core: THREE.Color, mid: THREE.Color, edge: THREE.Color): void {
+    this.liveCore = core;
+    this.liveMid = mid;
+    this.liveEdge = edge;
+  }
 
   private ensureLight(scene: THREE.Object3D): THREE.PointLight {
     if (!this.light) {
-      this.light = new THREE.PointLight(0xffc84a, 0, 1.8, 2);
-      this.light.name = 'TorchFlameLight';
+      this.light = new THREE.PointLight(this.lightHot, 0, this.spec.lightDistance, 2);
+      this.light.name = this.spec.lightName;
       this.light.castShadow = false;
     }
     if (this.light.parent !== scene) scene.add(this.light);
@@ -168,23 +323,8 @@ export class TorchFlameManager {
       return;
     }
 
-    const torches: THREE.Object3D[] = [];
-    root.traverse((o) => {
-      if (o.name !== 'Torch' || !chainVisible(o)) return;
-      torches.push(o);
-    });
-
-    for (const torch of torches) {
-      hideFireQuad(torch);
-      let tip = torch.getObjectByName('VFX_TorchLight');
-      if (!tip) {
-        tip = new THREE.Object3D();
-        tip.name = 'TorchFlameTip';
-        tip.position.set(-0.135, 0.002, -0.005);
-        torch.add(tip);
-      }
-      tip.visible = true;
-      this.emitters.push(createEmitter(tip, torch, scene));
+    for (const anchor of this.spec.collect(root)) {
+      this.emitters.push(createEmitter(anchor, scene, this.spec));
     }
   }
 
@@ -197,10 +337,20 @@ export class TorchFlameManager {
     }
     const time = performance.now() * 0.001;
     let lit = false;
+    if (this.liveCore && this.liveMid && this.liveEdge) {
+      this.lightLow.copy(this.liveCore);
+      this.lightHot.copy(this.liveEdge);
+      for (const em of this.emitters) {
+        const mat = em.points.material as THREE.ShaderMaterial;
+        (mat.uniforms.uHot.value as THREE.Color).copy(this.liveCore);
+        (mat.uniforms.uMid.value as THREE.Color).copy(this.liveMid);
+        (mat.uniforms.uEdge.value as THREE.Color).copy(this.liveEdge);
+      }
+    }
 
     for (const em of this.emitters) {
-      hideFireQuad(em.torch);
-      if (!chainVisible(em.torch)) {
+      this.spec.conceal?.(em.host);
+      if (!chainVisible(em.host)) {
         em.points.visible = false;
         continue;
       }
@@ -234,13 +384,14 @@ export class TorchFlameManager {
         const seed = rng[r]!;
         const core = rng[r + 2]! > 0.5;
         const climb = core ? t * 0.45 : t;
-        const h = RISE * climb * (0.55 + seed * 0.7);
-        const lean = LEAN * (core ? 0.3 : t);
-        const spread = (seed - 0.5) * (core ? 0.018 : 0.055) * (0.35 + t);
+        const volume = this.spec.volume;
+        const h = RISE * volume * climb * (0.55 + seed * 0.7);
+        const lean = LEAN * volume * (core ? 0.3 : t);
+        const spread = (seed - 0.5) * (core ? 0.018 : 0.055) * volume * (0.35 + t);
         const flick =
-          Math.sin(time * (core ? 18.0 : 11.0) + seed * 40.0) * (core ? 0.01 : 0.026) * t +
-          Math.sin(time * 27.0 + seed * 13.0) * 0.016 * t;
-        const hop = Math.sin(time * 21.0 + seed * 19.0) * 0.018 * t;
+          Math.sin(time * (core ? 18.0 : 11.0) + seed * 40.0) * (core ? 0.01 : 0.026) * volume * t +
+          Math.sin(time * 27.0 + seed * 13.0) * 0.016 * volume * t;
+        const hop = Math.sin(time * 21.0 + seed * 19.0) * 0.018 * volume * t;
         const o = i * 3;
         pos[o] = _origin.x + _up.x * (h + hop) + _out.x * lean + _side.x * (spread + flick);
         pos[o + 1] = _origin.y + _up.y * (h + hop) + _out.y * lean + _side.y * (spread + flick);
@@ -252,7 +403,7 @@ export class TorchFlameManager {
       (g.getAttribute('aAge') as THREE.BufferAttribute).needsUpdate = true;
       (g.getAttribute('aSeed') as THREE.BufferAttribute).needsUpdate = true;
 
-      if (!lit && this.scene) {
+      if (!lit && this.scene && this.spec.lightIntensity > 0) {
         const light = this.ensureLight(this.scene);
         light.visible = true;
         light.position.copy(_origin).addScaledVector(_up, 0.05);
@@ -266,8 +417,8 @@ export class TorchFlameManager {
         this.flicker += (this.flickerTarget - this.flicker) * Math.min(1, clamped * 16);
         const buzz = 0.94 + 0.06 * Math.sin(time * 53);
         const level = Math.max(0.2, this.flicker * buzz);
-        light.intensity = TORCH_LIGHT * level;
-        light.color.copy(_low).lerp(_hot, Math.min(1, level));
+        light.intensity = this.spec.lightIntensity * level;
+        light.color.copy(this.lightLow).lerp(this.lightHot, Math.min(1, level));
         lit = true;
       }
     }
@@ -283,5 +434,45 @@ export class TorchFlameManager {
     }
     this.emitters = [];
     this.setLightOff();
+  }
+}
+
+export class TorchFlameManager extends ProceduralFlame {
+  constructor() {
+    super(TORCH_SPEC);
+  }
+}
+
+export class InfernalFlameManager extends ProceduralFlame {
+  private readonly coreMat = new THREE.MeshBasicMaterial({ color: accentColor('InfernalCore') });
+  private readonly midMat = new THREE.MeshBasicMaterial({ color: accentColor('InfernalMid') });
+  private readonly edgeMat = new THREE.MeshBasicMaterial({ color: accentColor('InfernalEdge') });
+
+  constructor() {
+    super(INFERNAL_SPEC);
+    this.setColors(this.coreMat.color, this.midMat.color, this.edgeMat.color);
+  }
+
+  materials(): EditableMaterial[] {
+    return [
+      {
+        label: 'InfernalCore',
+        material: this.coreMat,
+        lit: false,
+        saveTarget: { kind: 'accent', key: 'InfernalCore' },
+      },
+      {
+        label: 'InfernalMid',
+        material: this.midMat,
+        lit: false,
+        saveTarget: { kind: 'accent', key: 'InfernalMid' },
+      },
+      {
+        label: 'InfernalEdge',
+        material: this.edgeMat,
+        lit: false,
+        saveTarget: { kind: 'accent', key: 'InfernalEdge' },
+      },
+    ];
   }
 }

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 const SKIN: Record<string, number> = {
   Bleached: 0xc4d5b3,
   Stricken: 0x845b9f,
-  Irradiated: 0x6b61c2,
+  Irradiated: 0x4e44a7,
   Plagued: 0x548d4c,
   Cursed: 0x8d3b3a,
   Stained: rgb(0.5372549, 0.41176474, 0.0), // ochre
@@ -15,7 +15,7 @@ const SKIN: Record<string, number> = {
   Crayola: rgb(0.34117648, 0.53333336, 0.3529412),
   Drall: rgb(0.49411768, 0.80392164, 0.8313726),
   Lilb: rgb(0.54509807, 0.4156863, 0.0),
-  Ray: rgb(0.87843144, 0.6431373, 0.49411768),
+  Ray: 0xd18f66,
   OldOne: rgb(0.2, 0.5411765, 0.41176474),
 };
 
@@ -34,7 +34,7 @@ const SKIN_DARK: Record<string, number> = {
   Crayola: rgb(0.15, 0.25, 0.16),
   Drall: rgb(0.2, 0.4, 0.42),
   Lilb: rgb(0.25, 0.18, 0.0),
-  Ray: rgb(0.45, 0.3, 0.22),
+  Ray: 0x734d38,
   OldOne: rgb(0.08, 0.25, 0.18),
 };
 
@@ -48,6 +48,7 @@ const SKIN_FINISH: Record<string, { roughness: number; metalness: number }> = {
   Bleached: { roughness: 0.85, metalness: 0.02 },
   Poolside: { roughness: 0.25, metalness: 0.21 },
   Rosy: { roughness: 0.85, metalness: 0 },
+  Ray: { roughness: 0.91, metalness: 0.52 },
 
 };
 
@@ -146,6 +147,9 @@ const ACCENT: Record<
   beams_2: { color: 0x87fb2e },
   beams_3: { color: 0x66e943 },
   beams_4: { color: 0x66e943 },
+  InfernalCore: { color: 0x0c000f },
+  InfernalMid: { color: 0x000000 },
+  InfernalEdge: { color: 0xa84e8d },
 
 };
 
