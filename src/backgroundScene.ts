@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { BackgroundOceanMat, BackgroundRipple } from './materials';
-import { backgroundColor, backgroundFog, enableSkyBloom } from './materials';
+import { enableSkyBloom } from './materials';
 
 const gltfLoader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
@@ -19,37 +19,22 @@ const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Palms: -25,
 };
 
-/** Horizon fill disc: slightly under the ground plane; extra drop when WaterPlane is present. */
-const HORIZON_DISC_Y = -0.04;
-const HORIZON_DISC_OCEAN_DROP = 2;
-
 function skyboxRadius(name: string): number {
   return SKYBOX_RADIUS_BY_KEY[name] ?? SKYBOX_RADIUS;
 }
 
-function groundColorFromFloor(floor: THREE.Object3D | null, fallback: number): number {
-  if (!floor) return fallback;
-  const size = new THREE.Vector3();
-  let best = fallback;
-  let bestArea = 0;
-  floor.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh || !mesh.geometry) return;
-    mesh.geometry.computeBoundingBox();
-    const box = mesh.geometry.boundingBox;
-    if (!box) return;
-    box.getSize(size);
-    const area = Math.abs(size.x * size.z);
-    if (area <= bestArea) return;
-    const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as
-      | THREE.MeshBasicMaterial
-      | THREE.MeshStandardMaterial
-      | undefined;
-    if (!mat || !('color' in mat) || !mat.color) return;
-    bestArea = area;
-    best = mat.color.getHex() & 0xffffff;
-  });
-  return best;
+/**
+ * SphereGeometry UVs run 1 at the north pole → 0 at the south pole.
+ * Fold them so the equator is 0 and both poles are 1. With the existing
+ * horizon crop, the lower hemisphere then mirrors the upper sky.
+ */
+function mirrorLowerHemisphere(geometry: THREE.SphereGeometry): THREE.SphereGeometry {
+  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) {
+    uv.setY(i, Math.abs(uv.getY(i) - 0.5) * 2);
+  }
+  uv.needsUpdate = true;
+  return geometry;
 }
 
 /** Camera far plane must clear the largest skybox dome. */
@@ -287,7 +272,6 @@ export class BackgroundSceneManager {
   private readonly root = new THREE.Group();
   private readonly floorCache = new Map<string, THREE.Object3D>();
   private readonly skyCache = new Map<string, THREE.Object3D>();
-  private readonly horizonDiscCache = new Map<string, THREE.Mesh>();
   private readonly gradientSkyCache = new Map<string, THREE.Mesh>();
   private readonly cloudCache = new Map<string, { root: THREE.Group; puffs: CloudPuff[] }>();
   private readonly waterByBg = new Map<string, WaterPlaneRipple[]>();
@@ -321,10 +305,6 @@ export class BackgroundSceneManager {
   hasWaterPlane(key: string | null | undefined): boolean {
     if (!key) return false;
     return (this.waterByBg.get(key)?.length ?? 0) > 0;
-  }
-
-  private horizonDiscY(name: string): number {
-    return HORIZON_DISC_Y - (this.hasWaterPlane(name) ? HORIZON_DISC_OCEAN_DROP : 0);
   }
 
   setOceanMaterial(key: string, settings: BackgroundOceanMat): void {
@@ -419,9 +399,6 @@ export class BackgroundSceneManager {
     if (sky) {
       sky.visible = true;
       shown = true;
-      const disc = this.ensureHorizonDisc(name, floor);
-      disc.position.y = this.horizonDiscY(name);
-      disc.visible = true;
     } else {
       // No photo skybox — procedural vertical gradient on a sphere.
       const gradSky = this.ensureGradientSky(name);
@@ -760,37 +737,6 @@ export class BackgroundSceneManager {
     return pending;
   }
 
-  private ensureHorizonDisc(name: string, floor: THREE.Object3D | null): THREE.Mesh {
-    const cached = this.horizonDiscCache.get(name);
-    if (cached) return cached;
-
-    const fog = backgroundFog(name);
-    const fallback = fog.enabled ? fog.color : backgroundColor(name);
-    const color = groundColorFromFloor(floor, fallback);
-    const radius = skyboxRadius(name) * 0.999;
-    const geo = new THREE.CircleGeometry(radius, 64);
-    geo.rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshBasicMaterial({
-      color,
-      fog: true,
-      depthWrite: true,
-      toneMapped: false,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.name = `HorizonDisc_${name}`;
-    mesh.position.y = this.horizonDiscY(name);
-    mesh.renderOrder = -9;
-    mesh.frustumCulled = false;
-    mesh.visible = false;
-    mesh.receiveShadow = false;
-    this.root.add(mesh);
-    this.horizonDiscCache.set(name, mesh);
-    return mesh;
-  }
-
   private async loadSkybox(name: string): Promise<THREE.Object3D | null> {
     const cached = this.skyCache.get(name);
     if (cached) return cached;
@@ -810,11 +756,12 @@ export class BackgroundSceneManager {
             // Equirect strip: width = 360°, height = vertical FOV.
             // Ideal upper-hemisphere map is 4:1 (360×90). Ours is 4096×1100
             // (~3.72:1 ≈ 97° tall) — sample the top 90° and drop the rest.
+            // The lower hemisphere reuses that same strip, mirrored.
             const img = tex.image as { width: number; height: number };
             const aspect = img.width / Math.max(1, img.height);
             const imageVFov = (Math.PI * 2) / aspect;
-            const domeVFov = Math.PI * 0.5;
-            const vRepeat = Math.min(1, domeVFov / imageVFov);
+            const upperVFov = Math.PI * 0.5;
+            const vRepeat = Math.min(1, upperVFov / imageVFov);
             tex.repeat.set(1, vRepeat);
             tex.offset.set(0, 1 - vRepeat);
             tex.needsUpdate = true;
@@ -826,10 +773,11 @@ export class BackgroundSceneManager {
               fog: false,
               toneMapped: false,
             });
-            // Upper hemisphere only (Y-up) — flat rim sits on the ground plane.
+            // Full sphere. UVs fold at the equator so below the horizon
+            // repeats the upper sky (zenith at the nadir, horizon continuous).
             const radius = skyboxRadius(name);
             const mesh = new THREE.Mesh(
-              new THREE.SphereGeometry(radius, 64, 24, 0, Math.PI * 2, 0, domeVFov),
+              mirrorLowerHemisphere(new THREE.SphereGeometry(radius, 64, 48)),
               mat,
             );
             mesh.position.y = SKYBOX_Y_BY_KEY[name] ?? 0;

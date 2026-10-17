@@ -222,6 +222,7 @@ export type BackgroundFog = {
 const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Retro_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Sunset: { enabled: true, color: 0xce397e, near: 3.95, far: 80 },
+  Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
 
 };
 
@@ -294,6 +295,7 @@ export const DEFAULT_DIR_LIGHT: BackgroundDirLight = {
 
 const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset: { enabled: true, color: 0x742a44, intensity: 12.8, azimuth: 160, elevation: 32 },
   Retro_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
+  Vaporwave_Palms: { enabled: true, color: 0xfff2d0, intensity: 4.05, azimuth: 360, elevation: 55 },
 
 };
 
