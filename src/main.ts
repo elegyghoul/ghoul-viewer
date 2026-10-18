@@ -481,6 +481,11 @@ function applyLights(mix: LightMix): void {
             base = mat.color.clone();
             unlitColorBase.set(mat, base);
           }
+          // Halos emit their own colour, so the point-light master does not dim them.
+          if (mat.name.includes('Halo')) {
+            mat.color.copy(base);
+            continue;
+          }
           mat.color.copy(base).multiplyScalar(unlitScale);
         } else if (
           mat instanceof THREE.MeshStandardMaterial ||
@@ -1168,6 +1173,8 @@ function setMaterialColor(mat: THREE.Material, css: string, label?: string): voi
   const withColor = mat as THREE.Material & { color?: THREE.Color };
   if (withColor.color && withColor.color.isColor) {
     withColor.color.setHex(hex);
+    const stored = unlitColorBase.get(mat as THREE.MeshBasicMaterial);
+    if (stored) stored.setHex(hex);
     mat.needsUpdate = true;
   }
   if (assembler && selectedTraitKey === 'ghoul' && label) {
