@@ -15,6 +15,7 @@ import { CloakClothManager, DEFAULT_CLOTH_PARAMS } from './cloth';
 import { CigSmokeManager } from './cigSmoke';
 import { SpecialOrbitManager } from './headOrbit';
 import { IdolTrailManager } from './idolTrail';
+import { EyeLookManager } from './eyeLook';
 import { EyeFlameManager, InfernalFlameManager, TorchFlameManager } from './torchFlame';
 import { HaloLightManager } from './haloLight';
 import { PositronicLights } from './positronicLights';
@@ -933,6 +934,7 @@ const cloakCloth = new CloakClothManager();
 const cigSmoke = new CigSmokeManager();
 const torchFlame = new TorchFlameManager();
 const eyeFlame = new EyeFlameManager();
+const eyeLook = new EyeLookManager();
 const infernalFlame = new InfernalFlameManager();
 const specialOrbit = new SpecialOrbitManager();
 const idolTrail = new IdolTrailManager();
@@ -2686,6 +2688,7 @@ function doLoad(id?: number): void {
     cigSmoke.sync(assembler.root, scene);
     torchFlame.sync(assembler.root, scene);
     eyeFlame.sync(assembler.root, scene);
+    eyeLook.sync(assembler.root);
     infernalFlame.sync(assembler.root, scene);
     specialOrbit.sync(assembler.root);
     idolTrail.sync(assembler.root, scene);
@@ -3617,6 +3620,7 @@ function animate(): void {
   const dt = clock.getDelta();
   if (!ghoulball.frozen) {
     animator.update(dt);
+    eyeLook.update(dt);
     cloakCloth.update(dt);
     cigSmoke.update(dt);
     drool.update(dt);
