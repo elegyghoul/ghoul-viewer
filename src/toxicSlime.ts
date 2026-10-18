@@ -30,7 +30,7 @@ function isToxicHead(name: string): boolean {
 }
 
 function dripInstalled(mat: THREE.Material): boolean {
-  return mat.onBeforeCompile.toString().includes(DRIP_KEY);
+  return mat.userData.toxicDrip === DRIP_KEY;
 }
 
 /** Multiply by the matrix's 3×3 only, so a direction stays a direction. */
@@ -49,24 +49,26 @@ function apply3x3(m: THREE.Matrix4, v: THREE.Vector3, out: THREE.Vector3): THREE
 function install(mat: THREE.Material): void {
   if (!(mat instanceof THREE.MeshStandardMaterial)) return;
   // userData survives Material.clone(); the compile hook does not.
+  // A second bind used to chain another hook, which declared the uniforms twice.
   if (dripInstalled(mat)) return;
-  // A hot reload leaves the previous drip hook on the material. Don't stack them.
-  const prevSrc = mat.onBeforeCompile.toString();
-  const prev = prevSrc.includes('toxic-drip-v') ? null : mat.onBeforeCompile;
-  mat.onBeforeCompile = (shader, renderer) => {
-    prev?.(shader, renderer);
+  mat.userData.toxicDrip = DRIP_KEY;
+  mat.onBeforeCompile = (shader) => {
     shader.uniforms.uToxicTime = timeUniform;
     shader.uniforms.uToxicDown = downUniform;
     shader.uniforms.uToxicForward = forwardUniform;
-    shader.vertexShader =
-      'uniform float uToxicTime;\n' +
-      'uniform vec3 uToxicDown;\n' +
-      'uniform vec3 uToxicForward;\n' +
-      shader.vertexShader.replace(
+    let source = shader.vertexShader;
+    if (!source.includes('uToxicTime')) {
+      source =
+        'uniform float uToxicTime;\n' +
+        'uniform vec3 uToxicDown;\n' +
+        'uniform vec3 uToxicForward;\n' +
+        source;
+    }
+    shader.vertexShader = source.replace(
         '#include <begin_vertex>',
         /* glsl */ `
         #include <begin_vertex>
-        // ${DRIP_KEY}
+        // toxic-drip-v4
         {
           vec3 downDir = normalize(uToxicDown);
           vec3 fwd = normalize(uToxicForward);
