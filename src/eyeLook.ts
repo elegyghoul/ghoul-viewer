@@ -68,14 +68,14 @@ export class EyeLookManager {
     this.hold = 0.35 + Math.random() * 0.4;
     if (!root) return;
 
-    let host: THREE.Object3D | null = null;
+    const found: { host: THREE.Object3D | null } = { host: null };
     root.traverse((o) => {
-      if (!host && baseName(o.name) === 'dialatedeyes') host = o;
+      if (!found.host && baseName(o.name) === 'dialatedeyes') found.host = o;
     });
-    if (!host) return;
-    this.host = host;
+    if (!found.host) return;
+    this.host = found.host;
 
-    for (const child of host.children) {
+    for (const child of found.host.children) {
       const n = baseName(child.name);
       if (n !== 'lefteye' && n !== 'righteye') continue;
       this.eyes.push({ obj: child, rest: child.quaternion.clone() });
