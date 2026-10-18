@@ -165,7 +165,9 @@ function isFloorGrid(mesh: THREE.Mesh): boolean {
   return n === 'plane' || n.startsWith('grid');
 }
 
-/** Column meshes in a background share one lit material. The ground grid stays separate. */
+/** Column meshes in a columns background share one lit material. The ground grid stays separate. */
+const COLUMN_BG_KEYS = new Set(['Vaporwave_Columns']);
+
 function collectColumnMeshes(root: THREE.Object3D): THREE.Mesh[] {
   const columns: THREE.Mesh[] = [];
   root.traverse((o) => {
@@ -177,6 +179,7 @@ function collectColumnMeshes(root: THREE.Object3D): THREE.Mesh[] {
 }
 
 function unifyColumnMaterial(root: THREE.Object3D, bgKey: string): void {
+  if (!COLUMN_BG_KEYS.has(bgKey)) return;
   const columns = collectColumnMeshes(root);
   let shared: THREE.MeshStandardMaterial | null = null;
   for (const mesh of columns) {
@@ -443,7 +446,7 @@ export class BackgroundSceneManager {
 
   /** The one material driving every column. Empty until that background has loaded. */
   columnMaterials(key: string | null | undefined): THREE.MeshStandardMaterial[] {
-    if (!key) return [];
+    if (!key || !COLUMN_BG_KEYS.has(key)) return [];
     const root = this.floorCache.get(key);
     if (!root) return [];
     const seen = new Set<THREE.Material>();
