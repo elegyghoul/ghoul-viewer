@@ -500,7 +500,8 @@ export class CudiParticleManager {
   dispose(): void {
     for (const [mesh, y] of this.eyeYNudge) mesh.position.y = y;
     this.eyeYNudge.clear();
-    for (const mesh of this.hidden) mesh.visible = true;
+    // Visibility belongs to trait assembly. Forcing these back on after a
+    // ghoul swap resurrects Head - Teeth, Rag, and the Cudi meshes.
     this.hidden.clear();
     for (const em of this.emitters) {
       em.points.removeFromParent();

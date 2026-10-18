@@ -15,8 +15,7 @@ export class GhoulAnimator {
 
     for (const clip of animations) {
       const key = normalizeClipName(clip.name);
-      if (key) this.clips.set(key, clip);
-      // Also keep raw name
+      if (key && !this.clips.has(key)) this.clips.set(key, clip);
       this.clips.set(clip.name, clip);
     }
   }
@@ -85,7 +84,13 @@ function normalizeMixamoHipsScale(root: THREE.Object3D): void {
   });
 }
 
+/** Blender's copy suffix, as in Idle.002. Those clips must not replace Idle. */
+function isDuplicateClip(name: string): boolean {
+  return /\.\d{3}$/.test(name.trim());
+}
+
 function normalizeClipName(name: string): string | null {
+  if (isDuplicateClip(name)) return null;
   const lower = name.toLowerCase();
   for (const p of PREFERRED) {
     if (lower === p.toLowerCase()) return p;
@@ -99,6 +104,7 @@ function normalizeClipName(name: string): string | null {
 function findFuzzy(map: Map<string, THREE.AnimationClip>, name: string): THREE.AnimationClip | undefined {
   const lower = name.toLowerCase();
   for (const [k, v] of map) {
+    if (isDuplicateClip(k)) continue;
     if (k.toLowerCase() === lower) return v;
     if (k.toLowerCase().includes(lower)) return v;
   }

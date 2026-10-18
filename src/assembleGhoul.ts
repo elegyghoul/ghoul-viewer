@@ -661,6 +661,11 @@ export class GhoulAssembler {
     if (!display) return;
 
     display.visible = true;
+    // Cudi particles hide the head primitives themselves. The group being
+    // visible does not bring those children back.
+    display.traverse((o) => {
+      o.visible = true;
+    });
     ensureAncestorsVisible(display, this.bodyRoot);
 
     const key: 'teeth' | 'fangs' | 'flesh' =
