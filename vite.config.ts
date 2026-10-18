@@ -24,7 +24,19 @@ export type SaveMaterialsPayload = {
   eye?: Record<string, { color: number }>;
   background?: Record<
     string,
-    { color?: number; top?: number; bottom?: number; clouds?: number; distance?: number; tint?: number; pointColor?: number; pointIntensity?: number }
+    {
+      color?: number;
+      top?: number;
+      bottom?: number;
+      clouds?: number;
+      distance?: number;
+      tint?: number;
+      pointColor?: number;
+      pointIntensity?: number;
+      columnsColor?: number;
+      columnsRoughness?: number;
+      columnsMetalness?: number;
+    }
   >;
   backgroundFog?: Record<
     string,
@@ -278,6 +290,18 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
         'BACKGROUND_POINT_LIGHT',
         key,
         `{ color: ${hexLiteral(vals.pointColor)}, intensity: ${Math.round(vals.pointIntensity)} }`,
+      );
+    }
+    if (
+      vals.columnsColor != null &&
+      vals.columnsRoughness != null &&
+      vals.columnsMetalness != null
+    ) {
+      next = upsertInConstObject(
+        next,
+        'BACKGROUND_COLUMN_MAT',
+        key,
+        `{ color: ${hexLiteral(vals.columnsColor)}, roughness: ${Number(vals.columnsRoughness.toFixed(3))}, metalness: ${Number(vals.columnsMetalness.toFixed(3))} }`,
       );
     }
   }

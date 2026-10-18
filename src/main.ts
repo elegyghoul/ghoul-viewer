@@ -17,6 +17,9 @@ import { SpecialOrbitManager } from './headOrbit';
 import { InfernalFlameManager, TorchFlameManager } from './torchFlame';
 import { HaloLightManager } from './haloLight';
 import { PositronicLights } from './positronicLights';
+import { bindToxicSlime, updateToxicSlime } from './toxicSlime';
+import { bindToxicMist, updateToxicMist } from './toxicMist';
+import { DroolManager, DROOL_PRESETS } from './drool';
 import { CudiParticleManager } from './cudiParticles';
 import { GhoulballController, DEFAULT_GHOULBALL_MATERIAL, GHOULBALL_WRAP_DURATION, type GhoulballMaterialParams } from './ghoulball';
 import { PlayController, DEFAULT_PLAY_PARAMS, type PlayCameraMode, type FollowCamParams } from './playMode';
@@ -900,6 +903,15 @@ function syncGridAndBackground(): void {
         bgScenes.setPoolLight(key, point.color, point.intensity);
       }
       applyOceanMatIfSet(key);
+      if (
+        selectedTraitKey === 'background' &&
+        currentTraits?.background === key &&
+        !editorEntries.some(
+          (e) => e.saveTarget?.kind === 'background' && e.saveTarget.slot === 'columns',
+        )
+      ) {
+        appendColumnMaterialCard(key);
+      }
     }
     syncOceanControls();
   });
@@ -918,6 +930,7 @@ const specialOrbit = new SpecialOrbitManager();
 const haloLight = new HaloLightManager();
 const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
+const drool = new DroolManager();
 const ghoulball = new GhoulballController();
 const playMode = new PlayController();
 let assembler: GhoulAssembler | null = null;
@@ -1115,6 +1128,8 @@ const ballEnvVal = q<HTMLSpanElement>('#ballEnvVal');
 const ballReflectivityVal = q<HTMLSpanElement>('#ballReflectivityVal');
 const ballSwirlVal = q<HTMLSpanElement>('#ballSwirlVal');
 const traitsListEl = q<HTMLDListElement>('#traitsList');
+const sceneVertsEl = q<HTMLElement>('#sceneVerts');
+const sceneTrisEl = q<HTMLElement>('#sceneTris');
 const materialHint = q<HTMLElement>('#materialHint');
 const materialList = q<HTMLElement>('#materialList');
 const materialSaveBtn = q<HTMLButtonElement>('#materialSave');
@@ -1214,7 +1229,22 @@ function buildSavePayload(): {
     }
   >;
   eye?: Record<string, { color: number }>;
-  background?: Record<string, { color?: number; top?: number; bottom?: number; clouds?: number; tint?: number; pointColor?: number; pointIntensity?: number }>;
+  background?: Record<
+    string,
+    {
+      color?: number;
+      top?: number;
+      bottom?: number;
+      clouds?: number;
+      distance?: number;
+      tint?: number;
+      pointColor?: number;
+      pointIntensity?: number;
+      columnsColor?: number;
+      columnsRoughness?: number;
+      columnsMetalness?: number;
+    }
+  >;
 } {
   const skin: Record<
     string,
@@ -1233,7 +1263,19 @@ function buildSavePayload(): {
   const eye: Record<string, { color: number }> = {};
   const background: Record<
     string,
-    { color?: number; top?: number; bottom?: number; clouds?: number; distance?: number; tint?: number; pointColor?: number; pointIntensity?: number }
+    {
+      color?: number;
+      top?: number;
+      bottom?: number;
+      clouds?: number;
+      distance?: number;
+      tint?: number;
+      pointColor?: number;
+      pointIntensity?: number;
+      columnsColor?: number;
+      columnsRoughness?: number;
+      columnsMetalness?: number;
+    }
   > = {};
   const seen = new Set<string>();
 
@@ -1296,6 +1338,11 @@ function buildSavePayload(): {
         const point = pointLightForKey(target.key);
         row.pointColor = color;
         row.pointIntensity = point.intensity;
+      } else if (target.slot === 'columns') {
+        const std = entry.material as THREE.MeshStandardMaterial;
+        row.columnsColor = color;
+        row.columnsRoughness = std.roughness;
+        row.columnsMetalness = std.metalness;
       }
       const g = gradientForKey(target.key);
       row.distance = g.distance ?? DEFAULT_GRADIENT_DISTANCE;
@@ -1331,6 +1378,7 @@ function summarizePayload(payload: ReturnType<typeof buildSavePayload>): string 
     if (v.clouds != null) bits.push(`${k} clouds ${hexToCss(v.clouds)}`);
     if (v.tint != null) bits.push(`${k} tint ${hexToCss(v.tint)}`);
     if (v.pointColor != null) bits.push(`${k} point ${hexToCss(v.pointColor)} ×${v.pointIntensity ?? ''}`);
+    if (v.columnsColor != null) bits.push(`${k} columns ${hexToCss(v.columnsColor)}`);
   }
   return bits.join(', ') || 'materials.ts';
 }
@@ -1385,6 +1433,98 @@ function clearMaterialEditor(): void {
   materialList.replaceChildren();
   materialHint.textContent = 'Select a trait';
   setSaveStatus('');
+  syncSaveButton();
+}
+
+/** One card for every column in a background. They share a single material. */
+function appendColumnMaterialCard(key: string): void {
+  const mats = bgScenes.columnMaterials(key);
+  const mat = mats[0];
+  if (!mat) return;
+  if (
+    editorEntries.some(
+      (e) => e.saveTarget?.kind === 'background' && e.saveTarget.slot === 'columns' && e.saveTarget.key === key,
+    )
+  ) {
+    return;
+  }
+  const entry: EditableMaterial = {
+    label: `${key} · Columns`,
+    material: mat,
+    lit: true,
+    saveTarget: { kind: 'background', key, slot: 'columns' },
+  };
+  editorEntries.push(entry);
+  for (const extra of mats.slice(1)) {
+    editorEntries.push({ ...entry, material: extra });
+  }
+
+  const card = document.createElement('div');
+  card.className = 'mat-card';
+  const title = document.createElement('div');
+  title.className = 'mat-card-title';
+  title.textContent = 'Columns';
+  const meta = document.createElement('div');
+  meta.className = 'mat-card-meta';
+  meta.textContent = 'Lit · every column · savable';
+  card.append(title, meta);
+
+  const colorRow = document.createElement('label');
+  colorRow.className = 'mat-color-row';
+  colorRow.append('Colour');
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  colorInput.value = colorFromMaterial(mat);
+  const colorVal = document.createElement('span');
+  colorVal.className = 'mat-val';
+  colorVal.textContent = colorInput.value;
+  colorInput.addEventListener('input', () => {
+    applyColorToGroup(entry, colorInput.value);
+    colorVal.textContent = hexToCss(cssToHex(colorInput.value));
+  });
+  colorRow.append(colorInput, colorVal);
+
+  const roughRow = document.createElement('label');
+  roughRow.append('Roughness');
+  const roughInput = document.createElement('input');
+  roughInput.type = 'range';
+  roughInput.min = '0';
+  roughInput.max = '1';
+  roughInput.step = '0.01';
+  roughInput.value = String(mat.roughness);
+  const roughVal = document.createElement('span');
+  roughVal.className = 'mat-val';
+  roughVal.textContent = mat.roughness.toFixed(2);
+  roughInput.addEventListener('input', () => {
+    const v = Number(roughInput.value);
+    applyFinishToGroup(entry, 'roughness', v);
+    roughVal.textContent = v.toFixed(2);
+  });
+  roughRow.append(roughInput, roughVal);
+
+  const metalRow = document.createElement('label');
+  metalRow.append('Metallic');
+  const metalInput = document.createElement('input');
+  metalInput.type = 'range';
+  metalInput.min = '0';
+  metalInput.max = '1';
+  metalInput.step = '0.01';
+  metalInput.value = String(mat.metalness);
+  const metalVal = document.createElement('span');
+  metalVal.className = 'mat-val';
+  metalVal.textContent = mat.metalness.toFixed(2);
+  metalInput.addEventListener('input', () => {
+    const v = Number(metalInput.value);
+    applyFinishToGroup(entry, 'metalness', v);
+    metalVal.textContent = v.toFixed(2);
+  });
+  metalRow.append(metalInput, metalVal);
+
+  card.append(colorRow, roughRow, metalRow);
+  materialList.append(card);
+  if (!materialHint.textContent.includes('columns')) {
+    materialHint.textContent = `${materialHint.textContent} · columns`;
+  }
   syncSaveButton();
 }
 
@@ -1613,6 +1753,7 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
       card.append(strengthRow);
     }
     materialList.append(card);
+    appendColumnMaterialCard(key);
     syncSaveButton();
     syncGridAndBackground();
     return;
@@ -1660,7 +1801,9 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
           ? 'Top'
           : entry.saveTarget.slot === 'bottom'
             ? 'Bottom'
-            : 'Clouds';
+            : entry.saveTarget.slot === 'columns'
+              ? 'Columns'
+              : 'Clouds';
       title.textContent = `${entry.saveTarget.key} · ${slot}`;
     } else {
       title.textContent = entry.label;
@@ -2523,7 +2666,12 @@ function doLoad(id?: number): void {
       playMode.syncFloorFromRoot();
       playMode.refreshLocomotion();
     }
+    bindToxicSlime(assembler.root);
+    bindToxicMist(assembler.root, scene);
     cloakCloth.sync();
+    drool.sync(assembler.root, scene, [
+      { anchorNames: ['Sludge Mouth', 'Sludge_Mouth'], style: DROOL_PRESETS.sludge },
+    ]);
     cigSmoke.sync(assembler.root, scene);
     torchFlame.sync(assembler.root, scene);
     infernalFlame.sync(assembler.root, scene);
@@ -3458,6 +3606,7 @@ function animate(): void {
     animator.update(dt);
     cloakCloth.update(dt);
     cigSmoke.update(dt);
+    drool.update(dt);
     torchFlame.update(dt);
     infernalFlame.update(dt);
     specialOrbit.update();
@@ -3468,6 +3617,8 @@ function animate(): void {
   playMode.update(dt, ghoulball.frozen);
   updateLightTween(dt);
   updateBeamSway(dt);
+  updateToxicSlime(dt);
+  updateToxicMist(dt);
   updateNc69rDisplayScroll(dt);
   updateXeDisplayScroll(dt);
   syncLightsToGhoul();
@@ -3485,6 +3636,51 @@ function animate(): void {
   if (bgMode === 'ghoulball') syncBallRotUi();
   if (dither) dither.render(renderer, scene, camera);
   else renderer.render(scene, camera);
+  updateSceneStats();
+}
+
+let shownSceneVerts = -1;
+let shownSceneTris = -1;
+
+function branchVisible(obj: THREE.Object3D): boolean {
+  let p: THREE.Object3D | null = obj;
+  while (p) {
+    if (!p.visible) return false;
+    p = p.parent;
+  }
+  return true;
+}
+
+/** Visible meshes in the live scene. Hidden traits are left out. */
+function updateSceneStats(): void {
+  let vertices = 0;
+  let triangles = 0;
+  scene.traverse((obj) => {
+    if (!branchVisible(obj)) return;
+    const mesh = obj as THREE.Mesh;
+    const geo = mesh.geometry as THREE.BufferGeometry | undefined;
+    if (!geo) return;
+    const line = obj as THREE.Line;
+    const points = obj as THREE.Points;
+    if (!mesh.isMesh && !line.isLine && !points.isPoints) return;
+    const pos = geo.getAttribute('position');
+    if (!pos) return;
+    const copies = (mesh as THREE.InstancedMesh).isInstancedMesh
+      ? Math.max(0, (mesh as THREE.InstancedMesh).count)
+      : 1;
+    vertices += pos.count * copies;
+    if (!mesh.isMesh) return;
+    const index = geo.getIndex();
+    const tris = index ? index.count / 3 : pos.count / 3;
+    triangles += tris * copies;
+  });
+  const verts = Math.round(vertices);
+  const tris = Math.round(triangles);
+  if (verts === shownSceneVerts && tris === shownSceneTris) return;
+  shownSceneVerts = verts;
+  shownSceneTris = tris;
+  sceneVertsEl.textContent = verts.toLocaleString('en-US');
+  sceneTrisEl.textContent = tris.toLocaleString('en-US');
 }
 
 async function boot(): Promise<void> {

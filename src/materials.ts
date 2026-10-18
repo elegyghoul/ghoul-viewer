@@ -153,6 +153,7 @@ const ACCENT: Record<
   nightcap_0: { color: 0xfff4f1, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.91, metalness: 0.28 },
   nightcap_1: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   vaporwaveTea_2: { color: 0xffd642, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.13 },
+  mouthSludge_0: { color: 0x2dc016, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.39, metalness: 0.753 },
 
 };
 
@@ -209,6 +210,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
   Pool_1: { top: 0x009ceb, bottom: 0x4770b3, distance: 0.81 },
   Based_Ghoul_Blue: { top: 0x2572b6, bottom: 0x2572b6, distance: 0.97 },
+  Vaporwave_Columns: { top: 0x000000, bottom: 0x000000, distance: 1 },
 
 };
 
@@ -246,6 +248,7 @@ const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Retro_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Sunset: { enabled: true, color: 0xce397e, near: 3.95, far: 80 },
   Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
+  Vaporwave_Columns: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
 
 };
 
@@ -397,6 +400,23 @@ const BACKGROUND_OCEAN_MAT: Record<string, BackgroundOceanMat> = {  Neon_Sunset:
   Pool_1: { color: 0x0d87d3, metalness: 0.08, roughness: 0.6, opacity: 0.27, envMapIntensity: 1.25 },
 
 };
+
+/** Lit finish for every column in a background (one material, all meshes). */
+export type BackgroundColumnMat = {
+  color: number;
+  roughness: number;
+  metalness: number;
+};
+
+const BACKGROUND_COLUMN_MAT: Record<string, BackgroundColumnMat> = {  Vaporwave_Columns: { color: 0xe0e0e0, roughness: 0.56, metalness: 0.17 },
+
+};
+
+export function backgroundColumnMat(name: string): BackgroundColumnMat | null {
+  const saved = BACKGROUND_COLUMN_MAT[name];
+  if (!saved) return null;
+  return { color: saved.color, roughness: saved.roughness, metalness: saved.metalness };
+}
 
 export function backgroundOceanMat(name: string): BackgroundOceanMat | null {
   const saved = BACKGROUND_OCEAN_MAT[name];

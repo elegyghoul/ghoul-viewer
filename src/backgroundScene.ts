@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { BackgroundOceanMat, BackgroundRipple } from './materials';
+import { backgroundColumnMat } from './materials';
 import { enableSkyBloom } from './materials';
 
 const gltfLoader = new GLTFLoader();
@@ -17,6 +18,11 @@ const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
 /** Per-trait vertical shift (negative = lower horizon). */
 const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Palms: -25,
+};
+
+/** Traits that reuse another background's sky photo. */
+const SKYBOX_FILE_BY_KEY: Record<string, string> = {
+  Vaporwave_Columns: 'Vaporwave_Palms',
 };
 
 function skyboxRadius(name: string): number {
@@ -153,6 +159,45 @@ type CloudPuff = {
 };
 
 const OCEAN_MAP_URL = '/models/backgrounds/ocean.jpg';
+
+function isFloorGrid(mesh: THREE.Mesh): boolean {
+  const n = mesh.name.trim().toLowerCase();
+  return n === 'plane' || n.startsWith('grid');
+}
+
+/** Column meshes in a background share one lit material. The ground grid stays separate. */
+function collectColumnMeshes(root: THREE.Object3D): THREE.Mesh[] {
+  const columns: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || isFloorGrid(mesh)) return;
+    columns.push(mesh);
+  });
+  return columns;
+}
+
+function unifyColumnMaterial(root: THREE.Object3D, bgKey: string): void {
+  const columns = collectColumnMeshes(root);
+  let shared: THREE.MeshStandardMaterial | null = null;
+  for (const mesh of columns) {
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        shared = mat;
+        break;
+      }
+    }
+    if (shared) break;
+  }
+  if (!shared) return;
+  const saved = backgroundColumnMat(bgKey);
+  if (saved) {
+    shared.color.setHex(saved.color);
+    shared.roughness = saved.roughness;
+    shared.metalness = saved.metalness;
+  }
+  for (const mesh of columns) mesh.material = shared;
+}
 
 function isWaterPlaneName(name: string): boolean {
   const n = name.trim();
@@ -394,6 +439,24 @@ export class BackgroundSceneManager {
   constructor(scene: THREE.Scene) {
     this.root.name = 'BackgroundScenes';
     scene.add(this.root);
+  }
+
+  /** The one material driving every column. Empty until that background has loaded. */
+  columnMaterials(key: string | null | undefined): THREE.MeshStandardMaterial[] {
+    if (!key) return [];
+    const root = this.floorCache.get(key);
+    if (!root) return [];
+    const seen = new Set<THREE.Material>();
+    const out: THREE.MeshStandardMaterial[] = [];
+    for (const mesh of collectColumnMeshes(root)) {
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of mats) {
+        if (!(mat instanceof THREE.MeshStandardMaterial) || seen.has(mat)) continue;
+        seen.add(mat);
+        out.push(mat);
+      }
+    }
+    return out;
   }
 
   hasWaterPlane(key: string | null | undefined): boolean {
@@ -889,6 +952,7 @@ export class BackgroundSceneManager {
             mesh.receiveShadow = !(name === 'Neon_Sunset' && isWaterPlaneName(mesh.name));
           });
           this.collectWaterPlanes(root, name);
+          unifyColumnMaterial(root, name);
           this.root.add(root);
           this.floorCache.set(name, root);
           return root;
@@ -914,7 +978,7 @@ export class BackgroundSceneManager {
     if (!pending) {
       pending = new Promise<THREE.Object3D | null>((resolve) => {
         texLoader.load(
-          `/models/skybox/${name}.jpg`,
+          `/models/skybox/${SKYBOX_FILE_BY_KEY[name] ?? name}.jpg`,
           (tex) => {
             tex.colorSpace = THREE.SRGBColorSpace;
             tex.flipY = true;

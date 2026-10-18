@@ -526,6 +526,39 @@ body {
   word-break: break-word;
 }
 
+#sceneStats {
+  flex-shrink: 0;
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid #3a3730;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#sceneStats .scene-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+#sceneStats dt {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+#sceneStats dd {
+  margin: 0;
+  font-size: 13px;
+  color: #e8e6e3;
+  font-variant-numeric: tabular-nums;
+}
+
 #fxPanel {
   width: 100%;
   display: flex;
