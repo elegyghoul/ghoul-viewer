@@ -41,8 +41,12 @@ const _wobble = new THREE.Quaternion();
 type Rig = {
   obj: THREE.Object3D;
   rest: THREE.Vector3;
-  /** Authored orientation. Set only for the can, which spins on local up. */
-  restQuat: THREE.Quaternion | null;
+  /** Authored orientation, restored when the orbit stops. */
+  restQuat: THREE.Quaternion;
+  /** Can spins on its long axis. */
+  spin: boolean;
+  /** Idol keeps the authored face pointing away from the socket. */
+  faceOut: boolean;
 };
 
 function normNode(name: string): string {
@@ -70,11 +74,13 @@ export class SpecialOrbitManager {
         }
       }
       if (nested) continue;
-      const spin = normNode(obj.name) === 'tea';
+      const name = normNode(obj.name);
       this.rigs.push({
         obj,
         rest: obj.position.clone(),
-        restQuat: spin ? obj.quaternion.clone() : null,
+        restQuat: obj.quaternion.clone(),
+        spin: name === 'tea',
+        faceOut: name === 'idol',
       });
     }
   }
@@ -84,7 +90,16 @@ export class SpecialOrbitManager {
     const time = performance.now() * 0.001;
     for (const rig of this.rigs) {
       placeHeadOrbit(rig.obj, rig.rest, time);
-      if (!rig.restQuat) continue;
+      if (rig.faceOut) {
+        // The authored pose points the back of the cross outward. Add a half
+        // turn so the front stays aimed away from the socket as it orbits.
+        const ang = Math.atan2(rig.obj.position.z, rig.obj.position.x);
+        const restAng = Math.atan2(rig.rest.z, rig.rest.x);
+        _spin.setFromAxisAngle(_spinAxis, ang - restAng + Math.PI);
+        rig.obj.quaternion.copy(_spin).multiply(rig.restQuat);
+        continue;
+      }
+      if (!rig.spin) continue;
       const phase = time * TEA_SPIN;
       // Tilt around a horizontal axis that turns with the spin, then spin the can.
       _wobbleAxis.set(Math.cos(phase), 0, Math.sin(phase));
@@ -97,7 +112,7 @@ export class SpecialOrbitManager {
   dispose(): void {
     for (const rig of this.rigs) {
       rig.obj.position.copy(rig.rest);
-      if (rig.restQuat) rig.obj.quaternion.copy(rig.restQuat);
+      rig.obj.quaternion.copy(rig.restQuat);
     }
     this.rigs = [];
   }

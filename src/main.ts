@@ -14,7 +14,8 @@ import {
 import { CloakClothManager, DEFAULT_CLOTH_PARAMS } from './cloth';
 import { CigSmokeManager } from './cigSmoke';
 import { SpecialOrbitManager } from './headOrbit';
-import { InfernalFlameManager, TorchFlameManager } from './torchFlame';
+import { IdolTrailManager } from './idolTrail';
+import { EyeFlameManager, InfernalFlameManager, TorchFlameManager } from './torchFlame';
 import { HaloLightManager } from './haloLight';
 import { PositronicLights } from './positronicLights';
 import { bindToxicSlime, updateToxicSlime } from './toxicSlime';
@@ -455,6 +456,7 @@ function applyLights(mix: LightMix): void {
       !light.isLight ||
       MANAGED_LIGHTS.has(light) ||
       light.name === 'TorchFlameLight' ||
+      light.name === 'EyeFlameLight' ||
       light.name === 'InfernalFlameLight' ||
       light.name === 'HaloPointLight'
     )
@@ -925,8 +927,10 @@ const animator = new GhoulAnimator();
 const cloakCloth = new CloakClothManager();
 const cigSmoke = new CigSmokeManager();
 const torchFlame = new TorchFlameManager();
+const eyeFlame = new EyeFlameManager();
 const infernalFlame = new InfernalFlameManager();
 const specialOrbit = new SpecialOrbitManager();
+const idolTrail = new IdolTrailManager();
 const haloLight = new HaloLightManager();
 const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
@@ -2674,8 +2678,10 @@ function doLoad(id?: number): void {
     ]);
     cigSmoke.sync(assembler.root, scene);
     torchFlame.sync(assembler.root, scene);
+    eyeFlame.sync(assembler.root, scene);
     infernalFlame.sync(assembler.root, scene);
     specialOrbit.sync(assembler.root);
+    idolTrail.sync(assembler.root, scene);
     haloLight.sync(assembler.root);
     positronicLights.sync(assembler.root);
     void cudiParticles.sync(assembler.root, scene);
@@ -2692,7 +2698,7 @@ function doLoad(id?: number): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('InfernalFlame')) extras.push(pts);
+        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame')) extras.push(pts);
       });
       const refUrl =
         refImage.src || `/Ghouls/${String(n).padStart(4, '0')}.png`;
@@ -2876,7 +2882,7 @@ function setBgMode(next: BgMode): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('InfernalFlame')) extras.push(pts);
+        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame')) extras.push(pts);
       });
       const refUrl = refImage.src || `/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`;
       ghoulball.start(asm.root, scene, refUrl, extras);
@@ -3608,8 +3614,10 @@ function animate(): void {
     cigSmoke.update(dt);
     drool.update(dt);
     torchFlame.update(dt);
+    eyeFlame.update(dt);
     infernalFlame.update(dt);
     specialOrbit.update();
+    idolTrail.update(dt);
     haloLight.update();
     cudiParticles.update(dt);
   }

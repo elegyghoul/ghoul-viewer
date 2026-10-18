@@ -6,8 +6,9 @@ import { accentColor } from './materials';
 
 /**
  * Procedural flame. Soft additive sprites, no texture.
- * Particles spawn at an anchor and climb. The torch uses the stick tip;
- * the infernal flame uses the same simulation, tinted purple, orbiting
+ * Particles spawn at an anchor and climb. The torch uses the stick tip.
+ * The powerful Flames trait uses the same flame, smaller, on the eye-socket empties.
+ * The infernal flame uses the same simulation, tinted purple, orbiting
  * the Infernal Flame socket with a downward sine bob.
  */
 
@@ -21,6 +22,7 @@ const _quat = new THREE.Quaternion();
 const _up = new THREE.Vector3();
 const _out = new THREE.Vector3();
 const _side = new THREE.Vector3();
+const _litSum = new THREE.Vector3();
 
 type Anchor = {
   tip: THREE.Object3D;
@@ -136,6 +138,33 @@ function collectInfernal(root: THREE.Object3D): Anchor[] {
   return anchors;
 }
 
+function collectEyeFlames(root: THREE.Object3D): Anchor[] {
+  const anchors: Anchor[] = [];
+  root.traverse((o) => {
+    if (normNode(o.name) !== 'flames' || !chainVisible(o)) return;
+    o.traverse((child) => {
+      if (child === o || !normNode(child.name).startsWith('vfx_fire')) return;
+      let nested = false;
+      child.traverse((grand) => {
+        if (grand !== child && normNode(grand.name).startsWith('vfx_fire')) nested = true;
+      });
+      // One empty sits in each eye socket. Skip the parent that only holds it.
+      if (nested) return;
+      child.visible = true;
+      anchors.push({ tip: child, host: child });
+    });
+  });
+  return anchors;
+}
+
+const TORCH_COLORS = {
+  hot: new THREE.Color(1, 0.96, 0.35),
+  mid: new THREE.Color(1, 0.78, 0.08),
+  edge: new THREE.Color(1, 0.42, 0.02),
+  lightHot: 0xffe38a,
+  lightLow: 0xff7a18,
+} as const;
+
 const TORCH_SPEC: FlameSpec = {
   pointsName: 'TorchFlame',
   lightName: 'TorchFlameLight',
@@ -147,11 +176,11 @@ const TORCH_SPEC: FlameSpec = {
   gain: 1.1,
   renderOrder: 4,
   pointMax: 32,
-  hot: new THREE.Color(1, 0.96, 0.35),
-  mid: new THREE.Color(1, 0.78, 0.08),
-  edge: new THREE.Color(1, 0.42, 0.02),
-  lightHot: 0xffe38a,
-  lightLow: 0xff7a18,
+  hot: TORCH_COLORS.hot,
+  mid: TORCH_COLORS.mid,
+  edge: TORCH_COLORS.edge,
+  lightHot: TORCH_COLORS.lightHot,
+  lightLow: TORCH_COLORS.lightLow,
   collect: collectTorches,
   conceal: hideFireQuad,
 };
@@ -177,13 +206,33 @@ const INFERNAL_SPEC: FlameSpec = {
   headOrbit: true,
 };
 
+/** Same torch flame, five times the socket-sized version. */
+const EYE_SPEC: FlameSpec = {
+  pointsName: 'EyeFlame',
+  lightName: 'EyeFlameLight',
+  lightIntensity: 0.22,
+  lightDistance: 0.55,
+  size: 0.75,
+  volume: 0.55,
+  outer: 0,
+  gain: 1.1,
+  renderOrder: 4,
+  pointMax: 60,
+  hot: TORCH_COLORS.hot,
+  mid: TORCH_COLORS.mid,
+  edge: TORCH_COLORS.edge,
+  lightHot: TORCH_COLORS.lightHot,
+  lightLow: TORCH_COLORS.lightLow,
+  collect: collectEyeFlames,
+};
+
 function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): Emitter {
   const positions = new Float32Array(PARTICLE_COUNT * 3);
   const ages = new Float32Array(PARTICLE_COUNT);
   const rng = new Float32Array(PARTICLE_COUNT * 3);
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
-    ages[i] = (i / PARTICLE_COUNT) * LIFE;
+    ages[i] = Math.random() * LIFE;
     const r = i * 3;
     const core = i < 8 ? 1 : 0;
     rng[r] = Math.random();
@@ -223,9 +272,10 @@ function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): 
         vCore = aSeed.z;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mv;
+        float grow = smoothstep(0.0, 0.32, t);
         float lifeScale = vCore > 0.5
-          ? mix(1.2, 0.7, t)
-          : mix(0.85, 0.2, smoothstep(0.15, 1.0, t));
+          ? mix(0.4, 1.05, grow) * mix(1.0, 0.72, smoothstep(0.55, 1.0, t))
+          : mix(0.22, 0.8, grow) * mix(1.0, 0.28, smoothstep(0.4, 1.0, t));
         float world = 0.085 * uSize * aSeed.y * lifeScale;
         gl_PointSize = world * projectionMatrix[1][1] * uViewport * 0.5 / max(0.05, -mv.z);
         gl_PointSize = clamp(gl_PointSize, 2.0, uPointMax);
@@ -254,7 +304,7 @@ function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): 
         vec3 color = mix(uEdge, uMid, smoothstep(0.0, 0.45, heat));
         color = mix(color, uHot, smoothstep(0.45, 1.0, heat));
 
-        float fade = smoothstep(0.0, 0.05, vT) * (1.0 - smoothstep(0.55, 1.0, vT));
+        float fade = smoothstep(0.0, 0.3, vT) * (1.0 - smoothstep(0.62, 1.0, vT));
         float bodyW = mix(0.55, 0.92, uOuter);
         float coreW = mix(0.45, 0.2, uOuter);
         float alpha = body * fade * (bodyW + core * coreW) * (vCore > 0.5 ? 1.0 : 0.8);
@@ -349,7 +399,8 @@ class ProceduralFlame {
       return;
     }
     const time = performance.now() * 0.001;
-    let lit = false;
+    _litSum.set(0, 0, 0);
+    let litCount = 0;
     if (this.liveCore && this.liveMid && this.liveEdge) {
       this.lightLow.copy(this.liveCore);
       this.lightHot.copy(this.liveEdge);
@@ -387,7 +438,7 @@ class ProceduralFlame {
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         ages[i]! += clamped;
         if (ages[i]! >= LIFE) {
-          ages[i]! -= LIFE;
+          ages[i] = Math.random() * LIFE * 0.2;
           const r = i * 3;
           rng[r] = Math.random();
           rng[r + 1] = rng[r + 2]! > 0.5 ? 1.05 + Math.random() * 0.35 : 0.65 + Math.random() * 0.55;
@@ -403,9 +454,9 @@ class ProceduralFlame {
         const lean = LEAN * volume * (core ? 0.3 : t);
         const spread = (seed - 0.5) * (core ? 0.018 : 0.055) * volume * (0.35 + t);
         const flick =
-          Math.sin(time * (core ? 18.0 : 11.0) + seed * 40.0) * (core ? 0.01 : 0.026) * volume * t +
-          Math.sin(time * 27.0 + seed * 13.0) * 0.016 * volume * t;
-        const hop = Math.sin(time * 21.0 + seed * 19.0) * 0.018 * volume * t;
+          Math.sin(time * (core ? 9.0 : 6.5) + seed * 40.0) * (core ? 0.006 : 0.012) * volume * t +
+          Math.sin(time * 13.0 + seed * 17.0) * 0.008 * volume * t;
+        const hop = Math.sin(time * 8.0 + seed * 23.0) * 0.008 * volume * t;
         const o = i * 3;
         pos[o] = _origin.x + _up.x * (h + hop) + _out.x * lean + _side.x * (spread + flick);
         pos[o + 1] = _origin.y + _up.y * (h + hop) + _out.y * lean + _side.y * (spread + flick);
@@ -417,27 +468,29 @@ class ProceduralFlame {
       (g.getAttribute('aAge') as THREE.BufferAttribute).needsUpdate = true;
       (g.getAttribute('aSeed') as THREE.BufferAttribute).needsUpdate = true;
 
-      if (!lit && this.scene && this.spec.lightIntensity > 0) {
-        const light = this.ensureLight(this.scene);
-        light.visible = true;
-        light.position.copy(_origin).addScaledVector(_up, 0.05);
-        this.flickerHold -= clamped;
-        if (this.flickerHold <= 0) {
-          this.flickerHold = 0.03 + Math.random() * 0.08;
-          const roll = Math.random();
-          this.flickerTarget =
-            roll < 0.22 ? 0.32 + Math.random() * 0.28 : 0.72 + Math.random() * 0.7;
-        }
-        this.flicker += (this.flickerTarget - this.flicker) * Math.min(1, clamped * 16);
-        const buzz = 0.94 + 0.06 * Math.sin(time * 53);
-        const level = Math.max(0.2, this.flicker * buzz);
-        light.intensity = this.spec.lightIntensity * level;
-        light.color.copy(this.lightLow).lerp(this.lightHot, Math.min(1, level));
-        lit = true;
+      if (this.scene && this.spec.lightIntensity > 0) {
+        _litSum.add(_origin);
+        litCount++;
       }
     }
 
-    if (!lit) this.setLightOff();
+    if (litCount > 0 && this.scene && this.spec.lightIntensity > 0) {
+      const light = this.ensureLight(this.scene);
+      light.visible = true;
+      light.position.copy(_litSum).multiplyScalar(1 / litCount).addScaledVector(_up, 0.02);
+      this.flickerHold -= clamped;
+      if (this.flickerHold <= 0) {
+        this.flickerHold = 0.22 + Math.random() * 0.4;
+        const roll = Math.random();
+        this.flickerTarget = roll < 0.15 ? 0.78 + Math.random() * 0.1 : 0.9 + Math.random() * 0.16;
+      }
+      this.flicker += (this.flickerTarget - this.flicker) * Math.min(1, clamped * 3.5);
+      const level = Math.max(0.7, this.flicker);
+      light.intensity = this.spec.lightIntensity * level;
+      light.color.copy(this.lightLow).lerp(this.lightHot, Math.min(1, level));
+    } else {
+      this.setLightOff();
+    }
   }
 
   dispose(): void {
@@ -455,6 +508,12 @@ class ProceduralFlame {
 export class TorchFlameManager extends ProceduralFlame {
   constructor() {
     super(TORCH_SPEC);
+  }
+}
+
+export class EyeFlameManager extends ProceduralFlame {
+  constructor() {
+    super(EYE_SPEC);
   }
 }
 
