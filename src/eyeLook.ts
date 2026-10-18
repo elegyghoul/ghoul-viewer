@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Test glance for Dialated eyes only. Held, then a new look. */
-const AMP = (15 * Math.PI) / 180;
+const AMP = (7.5 * Math.PI) / 180;
 
 const GLANCES: ReadonlyArray<readonly [number, number]> = [
   [0, 0],
