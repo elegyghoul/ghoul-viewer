@@ -15,6 +15,7 @@ export class GhoulAnimator {
 
     for (const clip of animations) {
       const key = normalizeClipName(clip.name);
+      if (key === 'Running') trimHeldLoopTail(clip);
       if (key && !this.clips.has(key)) this.clips.set(key, clip);
       this.clips.set(clip.name, clip);
     }
@@ -73,6 +74,45 @@ export class GhoulAnimator {
   listPreferred(): string[] {
     return PREFERRED.filter((n) => this.clips.has(n) || findFuzzy(this.clips, n));
   }
+}
+
+/**
+ * Mixamo's Running bake repeats the loop pose for several frames after the
+ * stride has already closed. Those extra keys hold the body still, so the
+ * cycle pauses before it restarts. Keep the closure frame and drop the hold.
+ */
+const LOOP_HOLD_EPSILON = 1e-4;
+
+function trimHeldLoopTail(clip: THREE.AnimationClip): void {
+  const hips = clip.tracks.find((t) => /Hips\.position$/.test(t.name));
+  if (!hips || hips.times.length < 4) return;
+
+  const times = hips.times;
+  const values = hips.values;
+  const stride = hips.getValueSize();
+  const dist = (i: number, j: number): number => {
+    let sum = 0;
+    for (let k = 0; k < stride; k++) {
+      const d = values[i * stride + k]! - values[j * stride + k]!;
+      sum += d * d;
+    }
+    return Math.sqrt(sum);
+  };
+
+  let tail = 0;
+  for (let i = times.length - 1; i > 0; i--) {
+    if (dist(i, i - 1) > LOOP_HOLD_EPSILON) break;
+    tail++;
+  }
+  // One repeated end frame is the loop closure. Extra copies are the pause.
+  if (tail < 2) return;
+  const loopIndex = times.length - 1 - tail;
+  if (loopIndex < 1) return;
+  if (dist(0, loopIndex) > LOOP_HOLD_EPSILON) return;
+
+  const cut = times[loopIndex]!;
+  for (const track of clip.tracks) track.trim(0, cut);
+  clip.resetDuration();
 }
 
 /** Idle/Walk keep hips at scale 1; crush any leftover bind-scale so parented head stays put. */
