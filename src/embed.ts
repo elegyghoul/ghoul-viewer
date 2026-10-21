@@ -132,6 +132,7 @@ function headerLabel(id: number): string {
 const TOOL_TITLES: Record<string, string> = {
   scene: 'Scene',
   camera: 'Camera',
+  anim: 'Animation',
   lighting: 'Lighting',
   bloom: 'Effects',
 };
@@ -139,6 +140,7 @@ const TOOL_TITLES: Record<string, string> = {
 const TOOL_PANES: Record<string, string> = {
   scene: 'sceneControls',
   camera: 'cameraControls',
+  anim: 'animControls',
   lighting: 'brightnessControls',
   bloom: 'bloomControls',
 };

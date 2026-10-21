@@ -44,23 +44,19 @@
   <body>
     <div class="ghoul-stage-scale">
       <div class="ghoul-stage">
+        <div class="ghoul-banner" aria-label="Ghoul number">
+          <div class="ghoul-id-picker">
+            <button id="ghoulPrev" type="button" aria-label="Previous ghoul" title="Previous">‹</button>
+            <label>
+              #
+              <input id="ghoulId" type="number" min="0" max="6665" step="1" value="0" aria-label="Ghoul number" />
+            </label>
+            <button id="ghoulNext" type="button" aria-label="Next ghoul" title="Next">›</button>
+          </div>
+          <div id="playHintBanner" class="ghoul-id-hint" aria-live="polite"></div>
+        </div>
         <div class="ghoul-stage-row">
         <div class="ghoul-side">
-          <div class="ghoul-mode-tabs" role="tablist" aria-label="View or Play">
-            <button type="button" role="tab" id="appModeViewBtn" aria-selected="true" aria-controls="ghoul-slot">
-              View
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="appModePlayBtn"
-              aria-selected="false"
-              aria-controls="ghoul-slot"
-              title="Tank controls: ← → turn, ↑ walk"
-            >
-              Play
-            </button>
-          </div>
           <div class="ghoul-window">
           <div class="ghoul-window-header">
             <span id="ghoul-window-title" class="ghoul-window-title">Ghoul Viewer - #0</span>
@@ -73,56 +69,6 @@
           </div>
         </div>
         <div class="ghoul-side">
-          <div class="ghoul-tool-tabs" role="tablist" aria-label="Viewer tools">
-            <button
-              type="button"
-              class="ghoul-tool-tab"
-              id="toolTabScene"
-              role="tab"
-              aria-selected="true"
-              aria-controls="sceneControls"
-              data-panel="scene"
-              title="Scene"
-            >
-              <img src="/ui/icon_scene.png" alt="" width="15" height="15" />
-            </button>
-            <button
-              type="button"
-              class="ghoul-tool-tab"
-              id="toolTabCam"
-              role="tab"
-              aria-selected="false"
-              aria-controls="cameraControls"
-              data-panel="camera"
-              title="Camera"
-            >
-              <img src="/ui/icon_cam.png" alt="" width="15" height="15" />
-            </button>
-            <button
-              type="button"
-              class="ghoul-tool-tab"
-              id="toolTabLight"
-              role="tab"
-              aria-selected="false"
-              aria-controls="brightnessControls"
-              data-panel="lighting"
-              title="Lighting"
-            >
-              <img src="/ui/icon_light.png" alt="" width="15" height="15" />
-            </button>
-            <button
-              type="button"
-              class="ghoul-tool-tab"
-              id="toolTabBloom"
-              role="tab"
-              aria-selected="false"
-              aria-controls="bloomControls"
-              data-panel="bloom"
-              title="Effects"
-            >
-              <img src="/ui/icon_bloom.png" alt="" width="15" height="15" />
-            </button>
-          </div>
           <div class="ghoul-window">
             <div class="ghoul-window-header">
               <span id="ghoul-tool-title" class="ghoul-window-title">Scene</span>
@@ -298,6 +244,15 @@
                     </button>
                   </div>
                 </div>
+                <div id="animControls" class="fx-pane" role="tabpanel" aria-label="Animation" hidden>
+                  <div class="anim-buttons" role="group" aria-label="Animation">
+                    <button type="button" class="anim-btn" data-anim="Idle" aria-pressed="true">Idle</button>
+                    <button type="button" class="anim-btn" data-anim="Walking" aria-pressed="false">Walking</button>
+                    <button type="button" class="anim-btn" data-anim="Running" aria-pressed="false">Running</button>
+                    <button type="button" class="anim-btn" data-anim="Praying" aria-pressed="false">Praying</button>
+                    <button type="button" class="anim-btn" data-anim="Dancing" aria-pressed="false">Dancing</button>
+                  </div>
+                </div>
                 <div id="brightnessControls" class="fx-pane" role="tabpanel" hidden>
                   <div class="fx-group-title">Point Lights</div>
                   <label title="Scales ambient, hemi, key, and fill">
@@ -402,16 +357,84 @@
           </div>
         </div>
         </div>
-        <div class="ghoul-banner" aria-label="Ghoul number">
-          <div class="ghoul-id-picker">
-            <button id="ghoulPrev" type="button" aria-label="Previous ghoul" title="Previous">‹</button>
-            <label>
-              #
-              <input id="ghoulId" type="number" min="0" max="6665" step="1" value="0" aria-label="Ghoul number" />
-            </label>
-            <button id="ghoulNext" type="button" aria-label="Next ghoul" title="Next">›</button>
+        <div class="ghoul-tab-row">
+          <div class="ghoul-mode-tabs" role="tablist" aria-label="View or Play">
+            <button type="button" role="tab" id="appModeViewBtn" aria-selected="true" aria-controls="ghoul-slot">
+              View
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="appModePlayBtn"
+              aria-selected="false"
+              aria-controls="ghoul-slot"
+              title="Tank controls: ← → turn, ↑ walk"
+            >
+              Play
+            </button>
           </div>
-          <div id="playHintBanner" class="ghoul-id-hint" aria-live="polite"></div>
+          <div class="ghoul-tool-tabs" role="tablist" aria-label="Viewer tools">
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabScene"
+              role="tab"
+              aria-selected="true"
+              aria-controls="sceneControls"
+              data-panel="scene"
+              title="Scene"
+            >
+              <img src="/ui/icon_scene.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabCam"
+              role="tab"
+              aria-selected="false"
+              aria-controls="cameraControls"
+              data-panel="camera"
+              title="Camera"
+            >
+              <img src="/ui/icon_cam.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabAnim"
+              role="tab"
+              aria-selected="false"
+              aria-controls="animControls"
+              data-panel="anim"
+              title="Animation"
+            >
+              <img src="/ui/icon_anim.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabLight"
+              role="tab"
+              aria-selected="false"
+              aria-controls="brightnessControls"
+              data-panel="lighting"
+              title="Lighting"
+            >
+              <img src="/ui/icon_light.png" alt="" width="15" height="15" />
+            </button>
+            <button
+              type="button"
+              class="ghoul-tool-tab"
+              id="toolTabBloom"
+              role="tab"
+              aria-selected="false"
+              aria-controls="bloomControls"
+              data-panel="bloom"
+              title="Effects"
+            >
+              <img src="/ui/icon_bloom.png" alt="" width="15" height="15" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

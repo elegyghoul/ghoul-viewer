@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { BLOOM_LAYER } from './materials';
+import { BLOOM_LAYER, SKY_LIGHT_LAYER } from './materials';
 
 export const PIXEL_SIZE = 155;
 export const PIXEL_SCALE = 3;
@@ -329,6 +329,7 @@ export class DitherComposer {
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     camera.layers.enable(0);
     camera.layers.enable(BLOOM_LAYER);
+    camera.layers.enable(SKY_LIGHT_LAYER);
 
     const prevShadowAuto = renderer.shadowMap.autoUpdate;
     renderer.shadowMap.autoUpdate = false;

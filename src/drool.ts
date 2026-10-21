@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /**
  * Occasional globs falling off a mouth piece. One DroolManager can run several
- * sources at once (sludge now; blood and spit use the same path later).
+ * sources at once (sludge and blood now; spit uses the same path later).
  * Globs are lit meshes in the main pass, so dither and the palette treat them
  * like the rest of the ghoul.
  */

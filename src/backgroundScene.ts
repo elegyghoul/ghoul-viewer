@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { BackgroundOceanMat, BackgroundRipple } from './materials';
 import { backgroundColumnMat } from './materials';
-import { enableSkyBloom } from './materials';
+import { enableSkyBloom, SKY_LIGHT_LAYER } from './materials';
 
 const gltfLoader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
@@ -27,6 +27,11 @@ const SKYBOX_FILE_BY_KEY: Record<string, string> = {
 
 function skyboxRadius(name: string): number {
   return SKYBOX_RADIUS_BY_KEY[name] ?? SKYBOX_RADIUS;
+}
+
+/** Drop layer 0 so ambient / hemi / key / fill cannot light the dome. */
+function isolateSkyFromPointLights(mesh: THREE.Object3D): void {
+  mesh.layers.set(SKY_LIGHT_LAYER);
 }
 
 /**
@@ -629,6 +634,7 @@ export class BackgroundSceneManager {
     );
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(SKYBOX_RADIUS, 64, 32), mat);
     mesh.name = `GradientSky_${name}`;
+    isolateSkyFromPointLights(mesh);
     mesh.renderOrder = -10;
     mesh.frustumCulled = false;
     mesh.visible = false;
@@ -1030,6 +1036,7 @@ export class BackgroundSceneManager {
             mesh.visible = false;
             // Clipped sky bloom (masked to dome) — not halo bloom.
             if (name === 'Retro_Palms' || name === 'Neon_Sunset') enableSkyBloom(mesh);
+            isolateSkyFromPointLights(mesh);
             this.root.add(mesh);
             this.skyCache.set(name, mesh);
             this.skyInflight.delete(name);
@@ -1088,6 +1095,7 @@ export class BackgroundSceneManager {
           attachPoolCenterLight(mat, pool.color, pool.intensity);
           const mesh = new THREE.Mesh(geometry, mat);
           mesh.name = `Skybox_${name}`;
+          isolateSkyFromPointLights(mesh);
           mesh.renderOrder = -10;
           mesh.frustumCulled = false;
           mesh.visible = false;

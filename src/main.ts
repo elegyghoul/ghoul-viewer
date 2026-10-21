@@ -44,6 +44,7 @@ import {
   updateXeDisplayScroll,
   cssToHex,
   enableBloomLayer,
+  SKY_LIGHT_LAYER,
   hexToCss,
   DEFAULT_DIR_LIGHT,
   DEFAULT_GRADIENT_DISTANCE,
@@ -223,6 +224,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(35, 1, 0.05, SKYBOX_CLIP_FAR);
+camera.layers.enable(SKY_LIGHT_LAYER);
 camera.position.set(0, 1.1, 2.8);
 const _camOff = new THREE.Vector3();
 const _camSph = new THREE.Spherical();
@@ -266,6 +268,7 @@ fill.position.copy(FILL_LIGHT_OFFSET);
 hemi.position.copy(HEMI_LIGHT_OFFSET);
 const dirLight = new THREE.DirectionalLight(0xfff2d0, 0);
 dirLight.name = 'TraitSun';
+dirLight.layers.enable(SKY_LIGHT_LAYER);
 dirLight.position.set(4, 8, 6);
 dirLight.target.position.set(0, 1, 0);
 dirLight.castShadow = true;
@@ -476,6 +479,19 @@ function applyLights(mix: LightMix): void {
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const mat of mats) {
         if (!mat) continue;
+        const skyMesh = mesh.name.startsWith('Skybox') || mesh.name.startsWith('GradientSky');
+        if (skyMesh) {
+          // Trait BG domes are not part of the point-light rig. Restore a full
+          // colour if an earlier pass already stored a dimmed base.
+          if (mat instanceof THREE.MeshBasicMaterial) {
+            const base = unlitColorBase.get(mat);
+            if (base) {
+              mat.color.copy(base);
+              unlitColorBase.delete(mat);
+            }
+          }
+          continue;
+        }
         if (mat instanceof THREE.MeshBasicMaterial) {
           let base = unlitColorBase.get(mat);
           if (!base) {
@@ -1029,6 +1045,7 @@ const TRAIT_COVER_IDS: readonly number[] = [
 ];
 let traitCoverIndex = 0;
 const animSelect = q<HTMLSelectElement>('#animSelect');
+const animButtons = [...document.querySelectorAll<HTMLButtonElement>('.anim-btn')];
 const colliderDebugBtn = q<HTMLButtonElement>('#colliderDebugBtn');
 const particleDebugBtn = q<HTMLButtonElement>('#particleDebugBtn');
 const particlePickHud = q<HTMLSpanElement>('#particlePickHud');
@@ -2336,6 +2353,15 @@ function selectedAnim(): AnimName {
   return (animSelect.value || 'Idle') as AnimName;
 }
 
+function syncAnimButtons(): void {
+  const current = selectedAnim();
+  const locked = appMode === 'play';
+  for (const btn of animButtons) {
+    btn.disabled = locked;
+    btn.setAttribute('aria-pressed', btn.dataset.anim === current ? 'true' : 'false');
+  }
+}
+
 function playSelectedAnim(): void {
   if (playMode.active) return;
   animator.play(selectedAnim());
@@ -2357,6 +2383,7 @@ function setAppMode(next: AppMode): void {
   appModeViewBtn.setAttribute('aria-selected', next === 'view' ? 'true' : 'false');
   appModePlayBtn.setAttribute('aria-selected', next === 'play' ? 'true' : 'false');
   animSelect.disabled = next === 'play';
+  syncAnimButtons();
   syncPlayBanner();
 
   if (next === 'play') {
@@ -2684,6 +2711,7 @@ function doLoad(id?: number): void {
     cloakCloth.sync();
     drool.sync(assembler.root, scene, [
       { anchorNames: ['Sludge Mouth', 'Sludge_Mouth'], style: DROOL_PRESETS.sludge },
+      { anchorNames: ['Blood Mouth', 'Blood_Mouth'], style: DROOL_PRESETS.blood },
     ]);
     cigSmoke.sync(assembler.root, scene);
     torchFlame.sync(assembler.root, scene);
@@ -2766,8 +2794,17 @@ traitCoverNextBtn.addEventListener('click', () => {
 syncTraitCoverPicker();
 
 animSelect.addEventListener('change', () => {
+  syncAnimButtons();
   playSelectedAnim();
 });
+
+for (const btn of animButtons) {
+  btn.addEventListener('click', () => {
+    const name = btn.dataset.anim as AnimName | undefined;
+    if (!name || appMode === 'play') return;
+    setAnim(name);
+  });
+}
 
 colliderDebugBtn.addEventListener('click', () => {
   const next = !cloakCloth.showingColliders;
@@ -2883,6 +2920,7 @@ function setBgMode(next: BgMode): void {
         appModeViewBtn.setAttribute('aria-selected', 'true');
         appModePlayBtn.setAttribute('aria-selected', 'false');
         animSelect.disabled = false;
+        syncAnimButtons();
         playMode.setEnabled(false, null, null, camera, controls!);
         animator.snapTo('Idle');
         syncPlayBanner();
@@ -3742,7 +3780,9 @@ async function boot(): Promise<void> {
 }
 
 function setAnim(name: AnimName): void {
+  if (appMode === 'play') return;
   animSelect.value = name;
+  syncAnimButtons();
   playSelectedAnim();
 }
 

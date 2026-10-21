@@ -78,6 +78,18 @@
   gap: var(--gv-gap);
   width: 100%;
 }
+.ghoul-tab-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--gv-gap);
+  width: 100%;
+  height: var(--gv-icon);
+}
+.ghoul-tab-row > .ghoul-mode-tabs,
+.ghoul-tab-row > .ghoul-tool-tabs {
+  width: var(--gv-window-width);
+}
 .ghoul-banner {
   width: 100%;
   height: var(--gv-banner);
@@ -310,6 +322,30 @@
   line-height: 1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.anim-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.anim-btn {
+  height: 15px;
+  padding: 0 4px;
+  border: 1px solid var(--gv-accent);
+  background: var(--gv-surface);
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: 13px;
+  cursor: pointer;
+}
+.anim-btn[aria-pressed='true'] {
+  background: var(--gv-accent);
+  color: var(--gv-ink);
+}
+.anim-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 #brightnessControls {
   gap: 1px;

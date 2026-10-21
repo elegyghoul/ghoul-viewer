@@ -71,7 +71,7 @@ const ACCENT: Record<
   BMGHalo: { color: 0xff3d9a },
   MowhawkRed: { color: 0xdb0000, roughness: 0.64, metalness: 0.36 },
   MowhawkTeal: { color: 0x138174, roughness: 0.85, metalness: 0.02 },
-  RagGreen: { color: 0x1c4a1c, roughness: 0.85, metalness: 0.02 },
+  RagGreen: { color: 0x29570a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.87, metalness: 0.17 },
   RagBlue: { color: 0x3a5aaa },
   RoseRed: { color: 0xcc2244 },
   RosePink: { color: 0xf5a8bf, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.39, metalness: 0.1 },
@@ -154,6 +154,7 @@ const ACCENT: Record<
   nightcap_1: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   vaporwaveTea_2: { color: 0xffd642, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.13 },
   mouthSludge_0: { color: 0x2dc016, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.39, metalness: 0.753 },
+  rag_1: { color: 0xe7e7e7, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.5, metalness: 0 },
 
 };
 
@@ -442,6 +443,12 @@ export function eyeColor(materialName: string): THREE.Color {
 
 /** Layer used for selective bloom (halo). Halo also stays on layer 0 for correct depth. */
 export const BLOOM_LAYER = 1;
+
+/**
+ * Trait BG sky only. The sun shares this layer; point lights, ambient, and hemi stay
+ * on layer 0 so the Point Lights Master slider cannot black out the skybox.
+ */
+export const SKY_LIGHT_LAYER = 2;
 
 /** Mark a hierarchy for bloom while keeping it in the main depth pass. */
 export function enableBloomLayer(root: THREE.Object3D): void {
