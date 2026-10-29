@@ -36,6 +36,9 @@ export type SaveMaterialsPayload = {
       columnsColor?: number;
       columnsRoughness?: number;
       columnsMetalness?: number;
+      palmsColor?: number;
+      palmsRoughness?: number;
+      palmsMetalness?: number;
     }
   >;
   backgroundFog?: Record<
@@ -302,6 +305,19 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
         'BACKGROUND_COLUMN_MAT',
         key,
         `{ color: ${hexLiteral(vals.columnsColor)}, roughness: ${Number(vals.columnsRoughness.toFixed(3))}, metalness: ${Number(vals.columnsMetalness.toFixed(3))} }`,
+      );
+    }
+    if (
+      vals.palmsColor != null &&
+      vals.palmsRoughness != null &&
+      vals.palmsMetalness != null
+    ) {
+      // Key is the trait (Neon_Palms or Retro_Palms). One save cannot replace the other.
+      next = upsertInConstObject(
+        next,
+        'BACKGROUND_PALM_MAT',
+        key,
+        `{ color: ${hexLiteral(vals.palmsColor)}, roughness: ${Number(vals.palmsRoughness.toFixed(3))}, metalness: ${Number(vals.palmsMetalness.toFixed(3))} }`,
       );
     }
   }

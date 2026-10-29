@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { BackgroundOceanMat, BackgroundRipple } from './materials';
-import { backgroundColumnMat } from './materials';
-import { enableSkyBloom, SKY_LIGHT_LAYER } from './materials';
+import { backgroundColumnMat, backgroundPalmMat, enableBloomLayer } from './materials';
+import { enableSkyBloom, SKY_BLOOM_EXTRACT, SKY_LIGHT_LAYER } from './materials';
 
 const gltfLoader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
@@ -13,16 +13,24 @@ const SKYBOX_RADIUS = 80;
 /** Per-trait skybox radius overrides (default: `SKYBOX_RADIUS`). */
 const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
   Retro_Palms: 10_000,
+  Neon_Palms: 10_000,
 };
 
 /** Per-trait vertical shift (negative = lower horizon). */
 const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Palms: -25,
+  Neon_Palms: -25,
 };
 
 /** Traits that reuse another background's sky photo. */
 const SKYBOX_FILE_BY_KEY: Record<string, string> = {
   Vaporwave_Columns: 'Vaporwave_Palms',
+  Neon_Palms: 'Retro_Palms',
+};
+
+/** Traits that reuse another background's floor GLB. Palm materials stay per trait. */
+const FLOOR_FILE_BY_KEY: Record<string, string> = {
+  Neon_Palms: 'Retro_Palms',
 };
 
 function skyboxRadius(name: string): number {
@@ -71,12 +79,15 @@ function attachPoolCenterLight(
     color: { value: new THREE.Color(color) },
     intensity: { value: intensity },
   };
+  const bloomExtract = { value: 0 };
   poolLightUniforms.set(mat, uniforms);
+  mat.userData[SKY_BLOOM_EXTRACT] = bloomExtract;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uPoolLightColor = uniforms.color;
     shader.uniforms.uPoolLightIntensity = uniforms.intensity;
+    shader.uniforms.uBloomExtract = bloomExtract;
     shader.fragmentShader =
-      'uniform vec3 uPoolLightColor;\nuniform float uPoolLightIntensity;\n' +
+      'uniform vec3 uPoolLightColor;\nuniform float uPoolLightIntensity;\nuniform float uBloomExtract;\n' +
       shader.fragmentShader.replace(
         '#include <opaque_fragment>',
         /* glsl */ `
@@ -102,10 +113,11 @@ function attachPoolCenterLight(
             outgoingLight += (diffuse + specular) * uPoolLightColor * atten * ndotl;
           }
           #include <opaque_fragment>
+          if (uBloomExtract > 0.5) gl_FragColor.a = 1.0;
         `,
       );
   };
-  mat.customProgramCacheKey = () => 'pool-center-light-pbr';
+  mat.customProgramCacheKey = () => 'pool-center-light-pbr-bloom';
   mat.needsUpdate = true;
 }
 
@@ -172,6 +184,86 @@ function isFloorGrid(mesh: THREE.Mesh): boolean {
 
 /** Column meshes in a columns background share one lit material. The ground grid stays separate. */
 const COLUMN_BG_KEYS = new Set(['Vaporwave_Columns']);
+
+/** Palm backgrounds share one lit tree material per trait key. */
+const PALM_BG_KEYS = new Set(['Retro_Palms', 'Neon_Palms']);
+
+/** GLTFLoader strips '.' from node names, so "palm.012" arrives as "palm012". */
+function isPalmNodeName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  if (n === 'palm' || n.startsWith('palm.') || n.startsWith('palm_')) return true;
+  return /^palm\d+$/.test(n);
+}
+
+function isPalmMaterialName(name: string): boolean {
+  const n = name.trim().toLowerCase().replace(/[\s_-]/g, '');
+  return n === 'palmtree' || n.startsWith('palmtree');
+}
+
+function isPalmMesh(mesh: THREE.Mesh): boolean {
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  if (mats.some((mat) => mat && isPalmMaterialName(mat.name))) return true;
+  let o: THREE.Object3D | null = mesh;
+  while (o) {
+    if (isPalmNodeName(o.name)) return true;
+    o = o.parent;
+  }
+  return false;
+}
+
+function collectPalmMeshes(root: THREE.Object3D): THREE.Mesh[] {
+  const palms: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || !isPalmMesh(mesh)) return;
+    palms.push(mesh);
+  });
+  return palms;
+}
+
+/** Copy the floor, but give this trait its own palm material so edits cannot leak. */
+function cloneFloorWithOwnPalmMaterial(source: THREE.Object3D, traitKey: string): THREE.Object3D {
+  const root = source.clone(true);
+  let shared: THREE.Material | null = null;
+  for (const mesh of collectPalmMeshes(root)) {
+    if (!shared) {
+      const srcMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      shared = srcMat.clone();
+      shared.name = `PalmTree_${traitKey}`;
+    }
+    mesh.material = shared;
+  }
+  return root;
+}
+
+function unifyPalmMaterial(root: THREE.Object3D, bgKey: string): void {
+  if (!PALM_BG_KEYS.has(bgKey)) return;
+  const palms = collectPalmMeshes(root);
+  let shared: THREE.MeshStandardMaterial | null = null;
+  for (const mesh of palms) {
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        shared = mat;
+        break;
+      }
+    }
+    if (shared) break;
+  }
+  if (!shared) return;
+  const saved = backgroundPalmMat(bgKey);
+  if (saved) {
+    shared.color.setHex(saved.color);
+    shared.roughness = saved.roughness;
+    shared.metalness = saved.metalness;
+    shared.needsUpdate = true;
+  }
+  for (const mesh of palms) mesh.material = shared;
+  // Neon trees join the selective bloom pass. Retro keeps the unmarked GLB meshes.
+  if (bgKey === 'Neon_Palms') {
+    for (const mesh of palms) enableBloomLayer(mesh);
+  }
+}
 
 function collectColumnMeshes(root: THREE.Object3D): THREE.Mesh[] {
   const columns: THREE.Mesh[] = [];
@@ -457,6 +549,24 @@ export class BackgroundSceneManager {
     const seen = new Set<THREE.Material>();
     const out: THREE.MeshStandardMaterial[] = [];
     for (const mesh of collectColumnMeshes(root)) {
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of mats) {
+        if (!(mat instanceof THREE.MeshStandardMaterial) || seen.has(mat)) continue;
+        seen.add(mat);
+        out.push(mat);
+      }
+    }
+    return out;
+  }
+
+  /** The one material driving every palm. Empty until that background has loaded. */
+  palmMaterials(key: string | null | undefined): THREE.MeshStandardMaterial[] {
+    if (!key || !PALM_BG_KEYS.has(key)) return [];
+    const root = this.floorCache.get(key);
+    if (!root) return [];
+    const seen = new Set<THREE.Material>();
+    const out: THREE.MeshStandardMaterial[] = [];
+    for (const mesh of collectPalmMeshes(root)) {
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const mat of mats) {
         if (!(mat instanceof THREE.MeshStandardMaterial) || seen.has(mat)) continue;
@@ -939,6 +1049,34 @@ export class BackgroundSceneManager {
     }
     if (this.floorMissing.has(name)) return null;
 
+    const sourceKey = FLOOR_FILE_BY_KEY[name];
+    if (sourceKey && sourceKey !== name) {
+      let aliasPending = this.floorInflight.get(name);
+      if (!aliasPending) {
+        aliasPending = (async () => {
+          try {
+            const source = await this.loadFloor(sourceKey);
+            if (!source) {
+              this.floorMissing.add(name);
+              return null;
+            }
+            const root = cloneFloorWithOwnPalmMaterial(source, name);
+            root.name = `Background_${name}`;
+            root.visible = false;
+            this.collectWaterPlanes(root, name);
+            unifyPalmMaterial(root, name);
+            this.root.add(root);
+            this.floorCache.set(name, root);
+            return root;
+          } finally {
+            this.floorInflight.delete(name);
+          }
+        })();
+        this.floorInflight.set(name, aliasPending);
+      }
+      return aliasPending;
+    }
+
     let pending = this.floorInflight.get(name);
     if (!pending) {
       pending = (async () => {
@@ -962,6 +1100,7 @@ export class BackgroundSceneManager {
           });
           this.collectWaterPlanes(root, name);
           unifyColumnMaterial(root, name);
+          unifyPalmMaterial(root, name);
           this.root.add(root);
           this.floorCache.set(name, root);
           return root;
@@ -1035,7 +1174,7 @@ export class BackgroundSceneManager {
             mesh.frustumCulled = false;
             mesh.visible = false;
             // Clipped sky bloom (masked to dome) — not halo bloom.
-            if (name === 'Retro_Palms' || name === 'Neon_Sunset') enableSkyBloom(mesh);
+            if (name === 'Retro_Palms' || name === 'Neon_Palms' || name === 'Neon_Sunset') enableSkyBloom(mesh);
             isolateSkyFromPointLights(mesh);
             this.root.add(mesh);
             this.skyCache.set(name, mesh);
@@ -1095,6 +1234,8 @@ export class BackgroundSceneManager {
           attachPoolCenterLight(mat, pool.color, pool.intensity);
           const mesh = new THREE.Mesh(geometry, mat);
           mesh.name = `Skybox_${name}`;
+          // Clipped sky bloom (masked to the sphere) — not halo bloom.
+          enableSkyBloom(mesh);
           isolateSkyFromPointLights(mesh);
           mesh.renderOrder = -10;
           mesh.frustumCulled = false;

@@ -7,7 +7,7 @@ import {
   forEachMaterialSlot,
   partAccentKey,
   paintBeams,
-  beamColorForPowerful,
+  beamAccentKey,
   paintBlack,
   paintDischarge,
   paintEyes,
@@ -32,6 +32,16 @@ import {
 import { hideInfernalPlaceholderMeshes } from './torchFlame';
 
 const UNITY_GLB = '/models/ghoul-avatar.glb';
+
+/**
+ * Local +Y points out of the face, but the cup is authored on -Y (pivot sits on the
+ * face, strap runs back). Cyclops eyes bulge through that cup. Scale Y about the
+ * strap tip so the cup moves forward and the strap stays put. Idle clips key a flat
+ * scale and position, so this is reapplied after the mixer.
+ */
+const PATCH_CYCLOPS_FORWARD_SCALE = 1.07;
+const PATCH_STRAP_LOCAL_Y = -8.512597;
+const _patchShift = new THREE.Vector3();
 
 const loader = new GLTFLoader();
 
@@ -146,7 +156,7 @@ export type MaterialSaveTarget =
   | { kind: 'skin'; key: string; slot: 'light' | 'dark' }
   | { kind: 'accent'; key: string }
   | { kind: 'eye'; key: string }
-  | { kind: 'background'; key: string; slot: 'top' | 'bottom' | 'clouds' | 'tint' | 'point' | 'columns' };
+  | { kind: 'background'; key: string; slot: 'top' | 'bottom' | 'clouds' | 'tint' | 'point' | 'columns' | 'palms' };
 
 export type EditableMaterial = {
   label: string;
@@ -350,6 +360,10 @@ export class GhoulAssembler {
     fangs: [],
     flesh: [],
   };
+  private eyepatchRest: { node: THREE.Object3D; position: THREE.Vector3; scale: THREE.Vector3 } | null =
+    null;
+  private eyepatchForward = false;
+  private eyepatchForwardApplied = false;
 
   async init(_attachmentMap: unknown, rules: TraitRules): Promise<void> {
     this.rules = rules;
@@ -394,6 +408,15 @@ export class GhoulAssembler {
       light.intensity = 0;
       light.visible = false;
     });
+
+    const patch = resolvePart(this.bodyRoot, 'patch')[0];
+    if (patch) {
+      this.eyepatchRest = {
+        node: patch,
+        position: patch.position.clone(),
+        scale: patch.scale.clone(),
+      };
+    }
 
     this.hideAllTraits();
 
@@ -637,7 +660,7 @@ export class GhoulAssembler {
       }
     }
     // Re-apply saved part accents (topEyeAcc etc. have no materials[] rule).
-    // Skip beams — opaque ACCENT saves override Unity's additive gradient fade.
+    // Beams are painted afterwards so a save keeps the additive gradient.
     for (const id of rule.show ?? []) {
       if (id === 'beams') continue;
       if (!this.bodyRoot) continue;
@@ -729,9 +752,8 @@ export class GhoulAssembler {
 
     // Unity BeamMaterials: eye shafts additive+gradient fade; nose/balls solid.
     if (traits.powerful.includes('Beams') && this.bodyRoot) {
-      const hex = beamColorForPowerful(traits.powerful);
       for (const obj of resolvePart(this.bodyRoot, 'beams')) {
-        paintBeams(obj, hex);
+        paintBeams(obj, traits.powerful);
       }
     }
 
@@ -796,6 +818,35 @@ export class GhoulAssembler {
     this.skinLightHex = skinColor(skinName).getHex();
     this.skinDarkHex = skinDarkColor(skinName).getHex();
     bindGhoulLightBone(this.bodyRoot);
+
+    const eyeGroup = unique?.forcedEyes ?? eyeRule?.groupChild ?? '';
+    this.eyepatchForward =
+      traits.lowerEyeAcc === 'Patch' &&
+      (eyeGroup === 'CyclopsEyes' || eyeGroup === 'CyclopsStareEyes');
+    this.syncEyepatch();
+  }
+
+  /**
+   * Push the eyepatch cup in front of a cyclops eye, or restore the authored
+   * scale. Call after the animation mixer — clips rewrite this node's TRS.
+   */
+  syncEyepatch(): void {
+    const rest = this.eyepatchRest;
+    if (!rest) return;
+    const node = rest.node;
+    if (!this.eyepatchForward) {
+      if (!this.eyepatchForwardApplied) return;
+      node.position.copy(rest.position);
+      node.scale.copy(rest.scale);
+      this.eyepatchForwardApplied = false;
+      return;
+    }
+    const k = PATCH_CYCLOPS_FORWARD_SCALE;
+    node.scale.set(rest.scale.x, rest.scale.y * k, rest.scale.z);
+    _patchShift.set(0, PATCH_STRAP_LOCAL_Y * rest.scale.y * (1 - k), 0);
+    _patchShift.applyQuaternion(node.quaternion);
+    node.position.copy(rest.position).add(_patchShift);
+    this.eyepatchForwardApplied = true;
   }
 
   /** Live-update body/head light + dark skin slots without reassembling traits. */
@@ -952,10 +1003,10 @@ export class GhoulAssembler {
       for (const obj of roots) {
         if (!obj.visible) continue;
         ensureUniqueMeshMaterials(obj);
-        forEachMaterialSlot(obj, (slot, mat) => {
+        forEachMaterialSlot(obj, (slot, mat, mesh) => {
           if (seen.has(mat)) return;
           seen.add(mat);
-          const key = partAccentKey(id, slot);
+          const key = id === 'beams' ? beamAccentKey(value, mesh.name) : partAccentKey(id, slot);
           out.push({
             label: key,
             material: mat,

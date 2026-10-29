@@ -142,11 +142,6 @@ const ACCENT: Record<
   nc69r_0: { color: 0x9a9a9a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.103, metalness: 0.92 },
   nc69r_1: { color: 0x1a1a1a, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.195, metalness: 0.739 },
   nc69r_2: { color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5, roughness: 1, metalness: 0.38 },
-  beams_0: { color: 0x37ff00 },
-  beams_1: { color: 0x66e943 },
-  beams_2: { color: 0x87fb2e },
-  beams_3: { color: 0x66e943 },
-  beams_4: { color: 0x66e943 },
   InfernalCore: { color: 0x0c000f },
   InfernalMid: { color: 0x000000 },
   InfernalEdge: { color: 0xa84e8d },
@@ -155,6 +150,11 @@ const ACCENT: Record<
   vaporwaveTea_2: { color: 0xffd642, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0.13 },
   mouthSludge_0: { color: 0x2dc016, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.39, metalness: 0.753 },
   rag_1: { color: 0xe7e7e7, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.5, metalness: 0 },
+  White_Beams_BeamBallLeft: { color: 0xa1a1a1 },
+  White_Beams_Beam_Left: { color: 0xa1a1a1 },
+  White_Beams_BeamBallRight: { color: 0xa1a1a1 },
+  White_Beams_Beam_Right: { color: 0xa1a1a1 },
+  White_Beams_BeamNose: { color: 0xa1a1a1 },
 
 };
 
@@ -184,14 +184,14 @@ const BACKGROUND: Record<string, number> = {
   Vaporwave_Palms: 0x000000,
   Vaporwave_Columns: 0x000000,
   Neon_Sunset: 0x000000,
-  Neon_Palms: 0x000000,
+  Neon_Palms: 0x15000f,
   Vaporwave_Dreams: 0x000000,
   Chipwave: 0x000000,
   Rad: 0x000000,
   Moonbased: 0x000000,
   Based_Loans: 0x637ca1,
   Rebase_Radio: 0x000000,
-  Pool_1: 0x4770b3,
+  Pool_1: 0x35517e,
 
 };
 
@@ -208,8 +208,9 @@ export const DEFAULT_GRADIENT_DISTANCE = 1;
 const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Loans: { top: 0x2a4b89, bottom: 0x637ca1 },
   Retro_Palms: { top: 0x15000f, bottom: 0x15000f },
+  Neon_Palms: { top: 0x15000f, bottom: 0x15000f, distance: 1 },
   Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
-  Pool_1: { top: 0x009ceb, bottom: 0x4770b3, distance: 0.81 },
+  Pool_1: { top: 0x009ceb, bottom: 0x35517e, distance: 0.81 },
   Based_Ghoul_Blue: { top: 0x2572b6, bottom: 0x2572b6, distance: 0.97 },
   Vaporwave_Columns: { top: 0x000000, bottom: 0x000000, distance: 1 },
 
@@ -233,7 +234,7 @@ export type BackgroundPointLight = {
 };
 
 const BACKGROUND_POINT_LIGHT: Record<string, BackgroundPointLight> = {
-  Pool_1: { color: 0xffffff, intensity: 34400 },
+  Pool_1: { color: 0xffffff, intensity: 22700 },
 
 };
 
@@ -247,6 +248,7 @@ export type BackgroundFog = {
 
 const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Retro_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
+  Neon_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Sunset: { enabled: true, color: 0xce397e, near: 3.95, far: 80 },
   Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Columns: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
@@ -340,6 +342,7 @@ export const DEFAULT_DIR_LIGHT: BackgroundDirLight = {
 
 const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset: { enabled: true, color: 0x742a44, intensity: 12.8, azimuth: 160, elevation: 32 },
   Retro_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
+  Neon_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Vaporwave_Palms: { enabled: true, color: 0xfff2d0, intensity: 4.05, azimuth: 360, elevation: 55 },
   Pool_1: { enabled: false, color: 0xffffff, intensity: 3.05, azimuth: 312, elevation: 57 },
 
@@ -362,6 +365,7 @@ export type BackgroundRipple = {
 const BACKGROUND_RIPPLE: Record<string, BackgroundRipple> = {
   // Ocean disabled for now — re-enable via FX → Ocean when ready.
   Retro_Palms: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
+  Neon_Palms: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
   Neon_Sunset: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
   Pool_1: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
 
@@ -419,6 +423,29 @@ export function backgroundColumnMat(name: string): BackgroundColumnMat | null {
   return { color: saved.color, roughness: saved.roughness, metalness: saved.metalness };
 }
 
+/**
+ * Lit finish for palm trees, keyed by background trait.
+ * Neon_Palms reuses the Retro_Palms scene but keeps its own entry, so saving
+ * one never writes the other. Retro_Palms is omitted until its own save, and
+ * until then the GLB PalmTree material is left alone.
+ */
+export type BackgroundPalmMat = {
+  color: number;
+  roughness: number;
+  metalness: number;
+};
+
+const BACKGROUND_PALM_MAT: Record<string, BackgroundPalmMat> = {
+  Neon_Palms: { color: 0x61e5ff, roughness: 0, metalness: 0 },
+
+};
+
+export function backgroundPalmMat(name: string): BackgroundPalmMat | null {
+  const saved = BACKGROUND_PALM_MAT[name];
+  if (!saved) return null;
+  return { color: saved.color, roughness: saved.roughness, metalness: saved.metalness };
+}
+
 export function backgroundOceanMat(name: string): BackgroundOceanMat | null {
   const saved = BACKGROUND_OCEAN_MAT[name];
   if (!saved) return null;
@@ -458,6 +485,13 @@ export function enableBloomLayer(root: THREE.Object3D): void {
     o.layers.enable(BLOOM_LAYER);
   });
 }
+
+/**
+ * Optional `{ value: number }` on a sky-bloom material.
+ * The bloom pass sets it to 1 so a transparent sky writes its full colour
+ * into the glow buffer, then back to 0 for the normal view.
+ */
+export const SKY_BLOOM_EXTRACT = 'skyBloomExtract';
 
 /** Skybox bloom — extracted separately and masked to the dome silhouette. */
 export function enableSkyBloom(root: THREE.Object3D): void {
@@ -611,19 +645,20 @@ export function applyPartAccentOverrides(root: THREE.Object3D, partId: string): 
 
 export function forEachMaterialSlot(
   root: THREE.Object3D,
-  fn: (slot: number, material: THREE.Material) => void,
+  fn: (slot: number, material: THREE.Material, mesh: THREE.Mesh) => void,
 ): void {
   const meshes = collectMeshes(root);
   if (meshes.length === 0) return;
   if (meshes.length > 1) {
     meshes.forEach((mesh, slot) => {
       const mat = Array.isArray(mesh.material) ? mesh.material[0]! : mesh.material;
-      fn(slot, mat);
+      fn(slot, mat, mesh);
     });
     return;
   }
-  const mats = Array.isArray(meshes[0]!.material) ? meshes[0]!.material : [meshes[0]!.material];
-  mats.forEach((mat, slot) => fn(slot, mat));
+  const mesh = meshes[0]!;
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  mats.forEach((mat, slot) => fn(slot, mat, mesh));
 }
 
 /**
@@ -1027,6 +1062,11 @@ export function beamColorForPowerful(powerful: string): number {
   return BEAM_COLORS[powerful] ?? 0xff000a;
 }
 
+/** ACCENT key for one beam mesh of one Powerful trait, e.g. Red_Beams_Beam_Left. */
+export function beamAccentKey(powerful: string, meshName: string): string {
+  return `${powerful}_${meshName.replace(/\s+/g, '_')}`;
+}
+
 let beamGradientMap: THREE.Texture | null = null;
 
 function getBeamGradientMap(): THREE.Texture {
@@ -1057,14 +1097,15 @@ function isBeamGradientMesh(mesh: THREE.Object3D): boolean {
  * Unity RedBeamGradient: transparent additive + white→black fade map.
  * Solids (nose/balls): unlit opaque color. Bloom so they read through dither.
  */
-export function paintBeams(root: THREE.Object3D, hex: number): void {
+export function paintBeams(root: THREE.Object3D, powerful: string): void {
   enableBloomLayer(root);
-  const color = new THREE.Color(hex);
+  const fallback = beamColorForPowerful(powerful);
   const gradientMap = getBeamGradientMap();
 
-  root.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
+  for (const mesh of collectMeshes(root)) {
+    // Saved per-mesh colour. Missing keys keep the trait default (red, gold, …).
+    const saved = ACCENT[beamAccentKey(powerful, mesh.name)]?.color;
+    const color = new THREE.Color(saved ?? fallback);
     const gradient = isBeamGradientMesh(mesh);
     mesh.renderOrder = 2;
     if (gradient) {
@@ -1093,7 +1134,7 @@ export function paintBeams(root: THREE.Object3D, hex: number): void {
         vertexColors: false,
       });
     }
-  });
+  }
 }
 
 /**

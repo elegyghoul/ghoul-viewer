@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { MAGICA_COLLIDERS, magicaGltfName } from './magicaCloakColliders';
 import { MAGICA_PAINT, type MagicaPaint } from './magicaCloakPaint';
+import { DREAMER_SUIT_PAINT } from './dreamerClothPaint';
 
-const CLOAK_MESH_PREFIXES = ['tatteredcloak_webgl', 'innercloak_webgl'];
+const CLOAK_MESH_PREFIXES = ['tatteredcloak_webgl', 'innercloak_webgl', 'dreamersuit'];
 
 function isCloakSimMesh(name: string): boolean {
   const n = normalizeName(name);
@@ -20,14 +21,21 @@ function cloakFamilyKey(name: string): string {
 function paintKeyForFamily(familyKey: string): string | null {
   if (familyKey.startsWith('tatteredcloak')) return 'tattered';
   if (familyKey.startsWith('innercloak')) return 'inner';
+  if (familyKey.startsWith('dreamersuit')) return 'dreamer';
   return null;
+}
+
+function paintForFamily(familyKey: string): MagicaPaint | null {
+  const key = paintKeyForFamily(familyKey);
+  if (key === 'dreamer') return DREAMER_SUIT_PAINT;
+  return key ? MAGICA_PAINT[key] ?? null : null;
 }
 
 function isMagicaClothName(name: string): boolean {
   const n = normalizeName(name);
   // "Magica Cloth" plus a Blender/Unity duplicate suffix. GLTFLoader strips
   // the dot, so "Magica Cloth.001" arrives as "Magica_Cloth001".
-  return n === 'magica_cloth' || /^magica_cloth(?:_|\d)/.test(n);
+  return n === 'magica_cloth' || /^magica_cloth[_.]?\d/.test(n);
 }
 
 /**
@@ -235,6 +243,20 @@ export const DEFAULT_CLOTH_PARAMS: ClothParams = {
 const DEFAULT_PARAMS = DEFAULT_CLOTH_PARAMS;
 
 /**
+ * Dreamer suit, the dreamer_10 material slot. Magica Fixed is the collar.
+ * The rest is loose enough to hang off that line instead of holding the
+ * authored tilt.
+ */
+const DREAMER_SUIT_CLOTH: Partial<ClothParams> = {
+  pinDepth: 0,
+  softStartDepth: 0.05,
+  softEndDepth: 0.4,
+  maxDriftRoot: 0.02,
+  maxDriftTip: 0.28,
+  boneBindPerArm: 0,
+};
+
+/**
  * Verlet cloth over a static Mesh parented to an animated hierarchy (head cloak).
  * Pinned verts track the mesh rest pose in world space; free verts integrate in world space.
  */
@@ -368,7 +390,6 @@ export class MeshClothSim {
   private applyMagicaPaint(paint: MagicaPaint): void {
     const maxD = paint.maxConnectionDistance;
     const maxD2 = maxD * maxD;
-    const isFixedRoot = new Uint8Array(this.count);
     const toPaint = magicaPaintSpaceMatrix(this.mesh);
 
     for (let i = 0; i < this.count; i++) {
@@ -396,14 +417,50 @@ export class MeshClothSim {
       if (near && bestA === 1) {
         this.pinned[i] = 1;
         this.soft[i] = 0;
-        isFixedRoot[i] = 1;
       } else {
         this.pinned[i] = 0;
         this.soft[i] = 1; // filled by BFS below
       }
     }
 
-    // Depth = normalized graph distance from Fixed roots (Magica-style).
+    this.spreadSoftnessFromPins();
+  }
+
+  /**
+   * Hold the whole collar: the highest particle in every direction around
+   * local up. Magica Fixed on the dreamer suit only dots that ring, so the
+   * edge around the helmet sagged in patches.
+   */
+  pinCollarRing(): void {
+    const bins = 36;
+    const bestY = new Float32Array(bins);
+    bestY.fill(-Infinity);
+    const binOf = new Int16Array(this.count);
+    for (let i = 0; i < this.count; i++) {
+      const x = this.restLocal[i * 3]!;
+      const y = this.restLocal[i * 3 + 1]!;
+      const z = this.restLocal[i * 3 + 2]!;
+      const u = (Math.atan2(z, x) + Math.PI) / (Math.PI * 2);
+      const bi = Math.min(bins - 1, Math.max(0, Math.floor(u * bins)));
+      binOf[i] = bi;
+      if (y > bestY[bi]!) bestY[bi] = y;
+    }
+    // Same row as that peak, including the second shell sitting on it.
+    // The next course of the suit is farther down than this.
+    const row = 0.015;
+    for (let i = 0; i < this.count; i++) {
+      const y = this.restLocal[i * 3 + 1]!;
+      const peak = bestY[binOf[i]!]!;
+      const onRing = peak > -Infinity && y >= peak - row;
+      this.pinned[i] = onRing ? 1 : 0;
+      this.soft[i] = onRing ? 0 : 1;
+    }
+    this.spreadSoftnessFromPins();
+    this.captureAuthoredHold();
+  }
+
+  /** Graph distance from pinned particles. Near the pins stays stiff; the hem goes loose. */
+  private spreadSoftnessFromPins(): void {
     const adj: number[][] = Array.from({ length: this.count }, () => []);
     for (let i = 0; i < this.springCount; i++) {
       const a = this.springs[i * 2]!;
@@ -415,17 +472,9 @@ export class MeshClothSim {
     dist.fill(-1);
     const queue: number[] = [];
     for (let i = 0; i < this.count; i++) {
-      if (!isFixedRoot[i]) continue;
+      if (!this.pinned[i]) continue;
       dist[i] = 0;
       queue.push(i);
-    }
-    // If paint Fixed didn't land on any vert, use pinned verts as roots.
-    if (queue.length === 0) {
-      for (let i = 0; i < this.count; i++) {
-        if (!this.pinned[i]) continue;
-        dist[i] = 0;
-        queue.push(i);
-      }
     }
     let qi = 0;
     let maxDist = 0;
@@ -446,7 +495,6 @@ export class MeshClothSim {
     for (let i = 0; i < this.count; i++) {
       const d = dist[i]!;
       const raw = d < 0 ? 1 : d * inv;
-      // Expand Magica Fixed into a rigid hood shell (rim + shoulders).
       if (this.pinned[i] || raw <= pinDepth) {
         this.pinned[i] = 1;
         this.soft[i] = 0;
@@ -2527,14 +2575,20 @@ export class CloakClothManager {
       )[0]!;
       const trimMeshes = meshes.filter((m) => m !== primaryMesh);
 
-      const paintKey = paintKeyForFamily(key);
-      const paint = paintKey ? MAGICA_PAINT[paintKey] ?? null : null;
+      const paint = paintForFamily(key);
+      const suit = key.startsWith('dreamersuit');
       const primary = new MeshClothSim(
         primaryMesh,
-        this.params,
+        suit ? { ...this.params, ...DREAMER_SUIT_CLOTH } : this.params,
         trimMeshes.map((m) => m.geometry),
         paint,
       );
+      if (suit) {
+        primary.pinCollarRing();
+        primaryMesh.frustumCulled = false;
+        const mats = Array.isArray(primaryMesh.material) ? primaryMesh.material : [primaryMesh.material];
+        for (const mat of mats) mat.side = THREE.DoubleSide;
+      }
       primary.bindFollowBones(this.armSegments);
       const stored = this.weightOverrides.get(key);
       if (stored && stored.size > 0) primary.applyHoldOverrides(stored);

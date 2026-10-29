@@ -666,8 +666,11 @@ const GRID_CLEAR = 0x000000;
 /** 1/1 Ghoul Pegs (#0207) has no Background trait. Trait BG is this flat clear. */
 const GHOUL_PEGS_ID = 207;
 const GHOUL_PEGS_BG = 0xf6e2b4;
+/** 1/1 Crayola (#2181) has no Background trait. Trait BG is Based Loans. */
+const CRAYOLA_BG = 'Based_Loans';
 
 function liveBackgroundKey(): string | null {
+  if (currentTraits?.unique === 'Crayola') return CRAYOLA_BG;
   const name = currentTraits?.background;
   return name && name !== 'None' ? name : null;
 }
@@ -972,6 +975,15 @@ function syncGridAndBackground(): void {
       ) {
         appendColumnMaterialCard(key);
       }
+      if (
+        selectedTraitKey === 'background' &&
+        currentTraits?.background === key &&
+        !editorEntries.some(
+          (e) => e.saveTarget?.kind === 'background' && e.saveTarget.slot === 'palms' && e.saveTarget.key === key,
+        )
+      ) {
+        appendPalmMaterialCard(key);
+      }
     }
     syncOceanControls();
   });
@@ -1246,10 +1258,21 @@ function sameSaveTarget(a?: MaterialSaveTarget, b?: MaterialSaveTarget): boolean
   return saveTargetKey(a) === saveTargetKey(b);
 }
 
-function colorFromMaterial(mat: THREE.Material): string {
+/**
+ * Colour to show and save. Unlit materials (beams, eyes) are dimmed in place by
+ * the light rig; the authored colour lives in unlitColorBase.
+ */
+function authoredColorHex(mat: THREE.Material): number | null {
+  const stored = unlitColorBase.get(mat as THREE.MeshBasicMaterial);
+  if (stored) return stored.getHex() & 0xffffff;
   const withColor = mat as THREE.Material & { color?: THREE.Color };
-  if (withColor.color && withColor.color.isColor) return hexToCss(withColor.color.getHex());
-  return '#000000';
+  if (withColor.color?.isColor) return withColor.color.getHex() & 0xffffff;
+  return null;
+}
+
+function colorFromMaterial(mat: THREE.Material): string {
+  const hex = authoredColorHex(mat);
+  return hex == null ? '#000000' : hexToCss(hex);
 }
 
 function setMaterialColor(mat: THREE.Material, css: string, label?: string): void {
@@ -1338,6 +1361,9 @@ function buildSavePayload(): {
       columnsColor?: number;
       columnsRoughness?: number;
       columnsMetalness?: number;
+      palmsColor?: number;
+      palmsRoughness?: number;
+      palmsMetalness?: number;
     }
   >;
 } {
@@ -1370,6 +1396,9 @@ function buildSavePayload(): {
       columnsColor?: number;
       columnsRoughness?: number;
       columnsMetalness?: number;
+      palmsColor?: number;
+      palmsRoughness?: number;
+      palmsMetalness?: number;
     }
   > = {};
   const seen = new Set<string>();
@@ -1382,9 +1411,8 @@ function buildSavePayload(): {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const withColor = entry.material as THREE.Material & { color?: THREE.Color };
-    if (!withColor.color?.isColor) continue;
-    const color = withColor.color.getHex() & 0xffffff;
+    const color = authoredColorHex(entry.material);
+    if (color == null) continue;
 
     if (target.kind === 'skin') {
       const row = (skin[target.key] ??= {});
@@ -1438,6 +1466,11 @@ function buildSavePayload(): {
         row.columnsColor = color;
         row.columnsRoughness = std.roughness;
         row.columnsMetalness = std.metalness;
+      } else if (target.slot === 'palms') {
+        const std = entry.material as THREE.MeshStandardMaterial;
+        row.palmsColor = color;
+        row.palmsRoughness = std.roughness;
+        row.palmsMetalness = std.metalness;
       }
       const g = gradientForKey(target.key);
       row.distance = g.distance ?? DEFAULT_GRADIENT_DISTANCE;
@@ -1474,6 +1507,7 @@ function summarizePayload(payload: ReturnType<typeof buildSavePayload>): string 
     if (v.tint != null) bits.push(`${k} tint ${hexToCss(v.tint)}`);
     if (v.pointColor != null) bits.push(`${k} point ${hexToCss(v.pointColor)} ×${v.pointIntensity ?? ''}`);
     if (v.columnsColor != null) bits.push(`${k} columns ${hexToCss(v.columnsColor)}`);
+    if (v.palmsColor != null) bits.push(`${k} trees ${hexToCss(v.palmsColor)}`);
   }
   return bits.join(', ') || 'materials.ts';
 }
@@ -1619,6 +1653,99 @@ function appendColumnMaterialCard(key: string): void {
   materialList.append(card);
   if (!materialHint.textContent.includes('columns')) {
     materialHint.textContent = `${materialHint.textContent} · columns`;
+  }
+  syncSaveButton();
+}
+
+/** One card for every palm in a background. They share a single material, keyed by trait. */
+function appendPalmMaterialCard(key: string): void {
+  const mats = bgScenes.palmMaterials(key);
+  const mat = mats[0];
+  if (!mat) return;
+  if (
+    editorEntries.some(
+      (e) => e.saveTarget?.kind === 'background' && e.saveTarget.slot === 'palms' && e.saveTarget.key === key,
+    )
+  ) {
+    return;
+  }
+  // Trait key, not the shared Retro_Palms file. Saving Neon_Palms must not write Retro_Palms.
+  const entry: EditableMaterial = {
+    label: `${key} · Trees`,
+    material: mat,
+    lit: true,
+    saveTarget: { kind: 'background', key, slot: 'palms' },
+  };
+  editorEntries.push(entry);
+  for (const extra of mats.slice(1)) {
+    editorEntries.push({ ...entry, material: extra });
+  }
+
+  const card = document.createElement('div');
+  card.className = 'mat-card';
+  const title = document.createElement('div');
+  title.className = 'mat-card-title';
+  title.textContent = 'Trees';
+  const meta = document.createElement('div');
+  meta.className = 'mat-card-meta';
+  meta.textContent = 'Lit · every palm · savable';
+  card.append(title, meta);
+
+  const colorRow = document.createElement('label');
+  colorRow.className = 'mat-color-row';
+  colorRow.append('Colour');
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  colorInput.value = colorFromMaterial(mat);
+  const colorVal = document.createElement('span');
+  colorVal.className = 'mat-val';
+  colorVal.textContent = colorInput.value;
+  colorInput.addEventListener('input', () => {
+    applyColorToGroup(entry, colorInput.value);
+    colorVal.textContent = hexToCss(cssToHex(colorInput.value));
+  });
+  colorRow.append(colorInput, colorVal);
+
+  const roughRow = document.createElement('label');
+  roughRow.append('Roughness');
+  const roughInput = document.createElement('input');
+  roughInput.type = 'range';
+  roughInput.min = '0';
+  roughInput.max = '1';
+  roughInput.step = '0.01';
+  roughInput.value = String(mat.roughness);
+  const roughVal = document.createElement('span');
+  roughVal.className = 'mat-val';
+  roughVal.textContent = mat.roughness.toFixed(2);
+  roughInput.addEventListener('input', () => {
+    const v = Number(roughInput.value);
+    applyFinishToGroup(entry, 'roughness', v);
+    roughVal.textContent = v.toFixed(2);
+  });
+  roughRow.append(roughInput, roughVal);
+
+  const metalRow = document.createElement('label');
+  metalRow.append('Metallic');
+  const metalInput = document.createElement('input');
+  metalInput.type = 'range';
+  metalInput.min = '0';
+  metalInput.max = '1';
+  metalInput.step = '0.01';
+  metalInput.value = String(mat.metalness);
+  const metalVal = document.createElement('span');
+  metalVal.className = 'mat-val';
+  metalVal.textContent = mat.metalness.toFixed(2);
+  metalInput.addEventListener('input', () => {
+    const v = Number(metalInput.value);
+    applyFinishToGroup(entry, 'metalness', v);
+    metalVal.textContent = v.toFixed(2);
+  });
+  metalRow.append(metalInput, metalVal);
+
+  card.append(colorRow, roughRow, metalRow);
+  materialList.append(card);
+  if (!materialHint.textContent.includes('trees')) {
+    materialHint.textContent = `${materialHint.textContent} · trees`;
   }
   syncSaveButton();
 }
@@ -1849,6 +1976,7 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
     }
     materialList.append(card);
     appendColumnMaterialCard(key);
+    appendPalmMaterialCard(key);
     syncSaveButton();
     syncGridAndBackground();
     return;
@@ -1898,7 +2026,9 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
             ? 'Bottom'
             : entry.saveTarget.slot === 'columns'
               ? 'Columns'
-              : 'Clouds';
+              : entry.saveTarget.slot === 'palms'
+                ? 'Trees'
+                : 'Clouds';
       title.textContent = `${entry.saveTarget.key} · ${slot}`;
     } else {
       title.textContent = entry.label;
@@ -3365,6 +3495,7 @@ function doLoad(id?: number): void {
     positronicLights.sync(assembler.root);
     void cudiParticles.sync(assembler.root, scene);
     playSelectedAnim();
+    assembler.syncEyepatch();
     // New materials (eyes/emissive) need the current light scale applied.
     // Seed Lights sun from the Background trait when it changes.
     syncLightSunFromTraitBg();
@@ -4449,6 +4580,7 @@ function animate(): void {
   const dt = clock.getDelta();
   if (!ghoulball.frozen) {
     animator.update(dt);
+    assembler?.syncEyepatch();
     eyeLook.update(dt, camera);
     cloakCloth.update(dt);
     cigSmoke.update(dt);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { BLOOM_LAYER, SKY_LIGHT_LAYER } from './materials';
+import { BLOOM_LAYER, SKY_BLOOM_EXTRACT, SKY_LIGHT_LAYER } from './materials';
 
 export const PIXEL_SIZE = 155;
 export const PIXEL_SCALE = 3;
@@ -303,6 +303,23 @@ export class DitherComposer {
     this.savedMaterials.delete(obj.id);
   };
 
+  /** Uniforms that force a transparent sky to write opaque colour during sky bloom. */
+  private collectSkyBloomExtract(scene: THREE.Scene): { value: number }[] {
+    const found: { value: number }[] = [];
+    scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!obj.userData.skyBloom || !mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of mats) {
+        const u = (mat as THREE.Material & { userData: Record<string, { value: number }> }).userData[
+          SKY_BLOOM_EXTRACT
+        ];
+        if (u && typeof u.value === 'number') found.push(u);
+      }
+    });
+    return found;
+  }
+
   private bloomOutputTexture(): THREE.Texture {
     return (
       this.bloomPass as UnrealBloomPass & {
@@ -358,14 +375,22 @@ export class DitherComposer {
       scene.traverse(this.restoreMaterial);
       this.blitTo(renderer, this.bloomOutputTexture(), this.haloBloomTarget);
 
-      // 3) Skybox bloom + hard silhouette mask (no bleed onto foreground)
-      scene.traverse(this.darkenUnless('skyBloom'));
-      renderer.setRenderTarget(this.skyMaskTarget);
-      renderer.clear();
-      renderer.render(scene, camera);
-      this.bloomComposer.render();
-      scene.traverse(this.restoreMaterial);
-      scene.background = prevBg;
+      // 3) Skybox bloom + hard silhouette mask (no bleed onto foreground).
+      // Transparent skies (Pool 1) write full colour into this pass only,
+      // so the glow is the water itself and not the colour blended over black.
+      const bloomExtracts = this.collectSkyBloomExtract(scene);
+      for (const u of bloomExtracts) u.value = 1;
+      try {
+        scene.traverse(this.darkenUnless('skyBloom'));
+        renderer.setRenderTarget(this.skyMaskTarget);
+        renderer.clear();
+        renderer.render(scene, camera);
+        this.bloomComposer.render();
+      } finally {
+        scene.traverse(this.restoreMaterial);
+        for (const u of bloomExtracts) u.value = 0;
+        scene.background = prevBg;
+      }
 
       this.combineMaterial.uniforms.uSkyBloom!.value = 1;
       this.combineMaterial.uniforms.tSkyBloom!.value = this.bloomOutputTexture();
