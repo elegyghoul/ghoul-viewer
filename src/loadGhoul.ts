@@ -1,5 +1,6 @@
 import type { GhoulTraits, TraitRules } from './types';
 import { GhoulAssembler } from './assembleGhoul';
+import { assetUrl } from './assetUrl';
 
 let traitsList: GhoulTraits[] | null = null;
 let traitsById: Map<number, GhoulTraits> | null = null;
@@ -7,8 +8,8 @@ let rules: TraitRules | null = null;
 
 export async function loadTraitData(): Promise<void> {
   const [traitsRes, rulesRes] = await Promise.all([
-    fetch('/data/traits.json'),
-    fetch('/data/trait-rules.json'),
+    fetch(assetUrl('/data/traits.json')),
+    fetch(assetUrl('/data/trait-rules.json')),
   ]);
   if (!traitsRes.ok) throw new Error('traits.json missing');
   if (!rulesRes.ok) throw new Error('trait-rules.json missing');

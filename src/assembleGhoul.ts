@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './assetUrl';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GhoulTraits, TraitRuleCase, TraitRules } from './types';
 import {
@@ -31,7 +32,7 @@ import {
 } from './unityNames';
 import { hideInfernalPlaceholderMeshes } from './torchFlame';
 
-const UNITY_GLB = '/models/ghoul-avatar.glb';
+const UNITY_GLB = assetUrl('/models/ghoul-avatar.glb');
 
 /**
  * Local +Y points out of the face, but the cup is authored on -Y (pivot sits on the

@@ -9,7 +9,19 @@
   - Do not rely on html/body styles from this file (page shell stays in the host)
 
   Tokens live on .ghoul-stage-scale so they do not collide with a host :root.
+  The embed script loads this file inside a shadow root.
 */
+
+:host {
+  color: #cc8329;
+  font-family: 'BMAS Pixel Console', monospace;
+  font-size: 10px;
+  line-height: normal;
+  letter-spacing: normal;
+  font-weight: normal;
+  font-style: normal;
+  text-transform: none;
+}
 
 .ghoul-stage-scale {
   --gv-scale: 1;
@@ -28,20 +40,25 @@
   --gv-title-left: 2px;
   --gv-title-height: 7px;
   --gv-title-size: 10px;
-  --gv-banner: 15px;
   --gv-window-width: calc(var(--gv-view) + var(--gv-border) * 2);
   --gv-window-height: calc(
     var(--gv-header) + var(--gv-rule-black) + var(--gv-rule-gold) + var(--gv-view) +
       var(--gv-border)
   );
   --gv-stage-width: calc(var(--gv-window-width) * 2 + var(--gv-gap));
-  --gv-stage-height: calc(
-    var(--gv-icon) + var(--gv-gap) + var(--gv-window-height) + var(--gv-gap) + var(--gv-banner)
-  );
+  --gv-stage-height: calc(var(--gv-icon) + var(--gv-gap) + var(--gv-window-height));
   width: calc(var(--gv-stage-width) * var(--gv-scale));
   height: calc(var(--gv-stage-height) * var(--gv-scale));
   display: grid;
   place-items: center;
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: normal;
+  letter-spacing: normal;
+  font-weight: normal;
+  font-style: normal;
+  text-transform: none;
 }
 
 .ghoul-stage-scale,
@@ -68,8 +85,10 @@
   flex-direction: column;
   align-items: stretch;
   gap: var(--gv-gap);
-  transform: scale(var(--gv-scale));
   transform-origin: center center;
+}
+.ghoul-stage-scale.is-scaled .ghoul-stage {
+  transform: scale(var(--gv-scale));
 }
 .ghoul-stage-row {
   display: flex;
@@ -89,91 +108,6 @@
 .ghoul-tab-row > .ghoul-mode-tabs,
 .ghoul-tab-row > .ghoul-tool-tabs {
   width: var(--gv-window-width);
-}
-.ghoul-banner {
-  width: 100%;
-  height: var(--gv-banner);
-  box-sizing: border-box;
-  border: 1px solid var(--gv-accent);
-  background: var(--gv-surface);
-  color: var(--gv-accent);
-  font-family: var(--gv-font);
-  font-size: var(--gv-title-size);
-  line-height: calc(var(--gv-banner) - 2px);
-  padding: 0 var(--gv-title-left);
-  overflow: hidden;
-  white-space: nowrap;
-  text-align: right;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-}
-.ghoul-id-picker {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1px;
-  height: 13px;
-  flex-shrink: 0;
-}
-.ghoul-id-picker button {
-  width: 13px;
-  height: 13px;
-  padding: 0;
-  margin: 0;
-  border: 1px solid var(--gv-accent);
-  background: var(--gv-surface);
-  color: var(--gv-accent);
-  font-family: var(--gv-font);
-  font-size: var(--gv-title-size);
-  line-height: 11px;
-  cursor: pointer;
-}
-.ghoul-id-picker button:active {
-  background: var(--gv-accent);
-  color: var(--gv-ink);
-}
-.ghoul-id-picker label {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  height: 13px;
-  padding: 0 2px 0 3px;
-  border: 1px solid var(--gv-accent);
-  color: var(--gv-accent);
-  font-family: var(--gv-font);
-  font-size: var(--gv-title-size);
-  line-height: 11px;
-}
-.ghoul-id-picker input {
-  width: 28px;
-  height: 11px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: var(--gv-surface);
-  color: var(--gv-accent);
-  font-family: var(--gv-font);
-  font-size: var(--gv-title-size);
-  line-height: 11px;
-  text-align: right;
-  user-select: text;
-  -webkit-user-select: text;
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-.ghoul-id-picker input::-webkit-outer-spin-button,
-.ghoul-id-picker input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.ghoul-id-hint {
-  min-width: 0;
-  overflow: hidden;
-  text-align: right;
-  flex: 1;
 }
 .ghoul-window {
   width: var(--gv-window-width);

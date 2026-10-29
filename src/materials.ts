@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './assetUrl';
 
 /** Unity Resources/GhoulMaterials/Real/*.mat _BaseColor (style Real). */
 const SKIN: Record<string, number> = {
@@ -788,7 +789,7 @@ let cigTexture: THREE.Texture | null = null;
  */
 export function restoreCigTexture(root: THREE.Object3D): void {
   if (!cigTexture) {
-    cigTexture = new THREE.TextureLoader().load('/textures/cig-texture.jpg');
+    cigTexture = new THREE.TextureLoader().load(assetUrl('/textures/cig-texture.jpg'));
     cigTexture.colorSpace = THREE.SRGBColorSpace;
     cigTexture.flipY = false;
     cigTexture.wrapS = THREE.RepeatWrapping;
@@ -1071,7 +1072,7 @@ let beamGradientMap: THREE.Texture | null = null;
 
 function getBeamGradientMap(): THREE.Texture {
   if (beamGradientMap) return beamGradientMap;
-  const tex = new THREE.TextureLoader().load('/textures/whiteGradient.png');
+  const tex = new THREE.TextureLoader().load(assetUrl('/textures/whiteGradient.png'));
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -1277,7 +1278,7 @@ let nc69Gradient: THREE.Texture | null = null;
 /** Live Unity file, not the JPEG baked into ghoul-avatar.glb. */
 function nc69DisplayTexture(): THREE.Texture {
   if (nc69Gradient) return nc69Gradient;
-  const tex = new THREE.TextureLoader().load(`/textures/redgradient.png?v=${Date.now()}`);
+  const tex = new THREE.TextureLoader().load(`${assetUrl('/textures/redgradient.png')}?v=${Date.now()}`);
   tex.name = 'redgradient';
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.flipY = false;

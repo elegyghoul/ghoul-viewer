@@ -56,10 +56,15 @@ import {
   type BackgroundOceanMat,
   type BackgroundRipple,
 } from './materials';
+import { assetUrl, shellRoot } from './assetUrl';
 
 /** Studio controls, or a detached dummy so embed pages need no UI shell panels. */
 function q<T extends HTMLElement>(sel: string): T {
-  return (document.querySelector(sel) as T | null) ?? (document.createElement('div') as unknown as T);
+  return (shellRoot().querySelector(sel) as T | null) ?? (document.createElement('div') as unknown as T);
+}
+
+function byId<T extends HTMLElement = HTMLElement>(id: string): T | null {
+  return shellRoot().querySelector<T>('#' + CSS.escape(id));
 }
 
 export type { FollowCamParams } from './playMode';
@@ -194,8 +199,8 @@ export type GhoulViewer = {
 };
 
 const canvas =
-  document.querySelector<HTMLCanvasElement>('#c') ?? document.createElement('canvas');
-const cleanCanvas = document.querySelector<HTMLCanvasElement>('#cClean');
+  shellRoot().querySelector<HTMLCanvasElement>('#c') ?? document.createElement('canvas');
+const cleanCanvas = shellRoot().querySelector<HTMLCanvasElement>('#cClean');
 
 let renderer: THREE.WebGLRenderer | null = null;
 let cleanRenderer: THREE.WebGLRenderer | null = null;
@@ -256,7 +261,7 @@ const CAMERA_NEAR = 0.05;
 const CAMERA_NEAR_CLOSE = 0.01;
 
 function closeZoomEnabled(): boolean {
-  const box = document.getElementById('closeZoom');
+  const box = byId('closeZoom');
   return box instanceof HTMLInputElement && box.checked;
 }
 
@@ -1016,7 +1021,7 @@ let assembler: GhoulAssembler | null = null;
 let dither: DitherComposer | null = null;
 let cleanDither: DitherComposer | null = null;
 let currentId = 0;
-let updateUrlFlag = !!document.getElementById('workspace');
+let updateUrlFlag = !!byId('workspace');
 let bootPromise: Promise<void> | null = null;
 
 const bloomStrengthInput = q<HTMLInputElement>('#bloomStrength');
@@ -1117,8 +1122,8 @@ const TRAIT_COVER_IDS: readonly number[] = [
 ];
 let traitCoverIndex = 0;
 const animSelect = q<HTMLSelectElement>('#animSelect');
-const animButtons = [...document.querySelectorAll<HTMLButtonElement>('.anim-btn[data-anim]')];
-const eyeMoveButtons = [...document.querySelectorAll<HTMLButtonElement>('.eye-move-btn')];
+const animButtons = [...shellRoot().querySelectorAll<HTMLButtonElement>('.anim-btn[data-anim]')];
+const eyeMoveButtons = [...shellRoot().querySelectorAll<HTMLButtonElement>('.eye-move-btn')];
 const colliderDebugBtn = q<HTMLButtonElement>('#colliderDebugBtn');
 const particleDebugBtn = q<HTMLButtonElement>('#particleDebugBtn');
 const pinDebugBtn = q<HTMLButtonElement>('#pinDebugBtn');
@@ -2311,7 +2316,7 @@ function showReferencePng(id: number): void {
   refImage.classList.remove('is-missing');
   refImage.onload = () => refImage.classList.remove('is-missing');
   refImage.onerror = () => refImage.classList.add('is-missing');
-  refImage.src = `/Ghouls/${padded}.png`;
+  refImage.src = assetUrl(`/Ghouls/${padded}.png`);
   refImage.alt = `Ghoul #${padded} reference`;
 }
 
@@ -2817,7 +2822,7 @@ async function saveClothGroups(): Promise<boolean> {
 
 async function loadClothGroups(): Promise<void> {
   try {
-    const res = await fetch('/data/cloth-particle-groups.json', { cache: 'no-store' });
+    const res = await fetch(assetUrl('/data/cloth-particle-groups.json'), { cache: 'no-store' });
     if (!res.ok) return;
     const data = (await res.json()) as { groups?: ClothParticleGroup[] };
     if (!Array.isArray(data.groups)) return;
@@ -3004,7 +3009,7 @@ function frameCamera(asm: GhoulAssembler): void {
     target.y += height * 0.55;
   }
   controls.target.copy(target);
-  camera.position.set(target.x + dist * 0.2, target.y + height * 0.05, target.z + dist);
+  camera.position.set(target.x - dist * 0.2, target.y + height * 0.05, target.z + dist);
   applyCameraNear();
   camera.far = Math.max(SKYBOX_CLIP_FAR, dist * 20);
   camera.updateProjectionMatrix();
@@ -3074,7 +3079,7 @@ function resetGhoulAndCamera(): void {
       bgModeTraitBtn.setAttribute('aria-pressed', 'false');
       bgModeTraitBtn.setAttribute('aria-selected', 'false');
       bgModeGhoulballBtn.setAttribute('aria-pressed', 'false');
-      const ballRotPane = document.getElementById('ghoulballRotControls');
+      const ballRotPane = byId('ghoulballRotControls');
       if (ballRotPane) ballRotPane.hidden = true;
       if (restore) setLights(restore);
       syncCameraChromeForBg();
@@ -3179,8 +3184,8 @@ function setCamMode(next: PlayCameraMode): void {
   playMode.setCameraMode(next);
   camModeFixedBtn.setAttribute('aria-selected', next === 'fixed' ? 'true' : 'false');
   camModeFollowBtn.setAttribute('aria-selected', next === 'follow' ? 'true' : 'false');
-  const fixedPane = document.getElementById('camFixedControls');
-  const followPane = document.getElementById('camFollowControls');
+  const fixedPane = byId('camFixedControls');
+  const followPane = byId('camFollowControls');
   if (fixedPane) fixedPane.hidden = next === 'follow';
   if (followPane) followPane.hidden = next !== 'follow';
   if (next === 'follow') syncFollowCamUi();
@@ -3190,20 +3195,20 @@ function setCamMode(next: PlayCameraMode): void {
 
 function syncCameraChromeForBg(): void {
   const ball = bgMode === 'ghoulball';
-  const modeTabs = document.getElementById('camModeTabs');
-  const rotPane = document.getElementById('camRotControls');
-  const followPane = document.getElementById('camFollowControls');
+  const modeTabs = byId('camModeTabs');
+  const rotPane = byId('camRotControls');
+  const followPane = byId('camFollowControls');
   // Fixed/Follow tabs only in Play (and never during Ghoulball).
   if (modeTabs) modeTabs.hidden = ball || appMode !== 'play';
   if (rotPane) rotPane.hidden = ball;
   if (ball) {
     if (followPane) followPane.hidden = true;
-    const fixedPane = document.getElementById('camFixedControls');
+    const fixedPane = byId('camFixedControls');
     if (fixedPane) fixedPane.hidden = false;
   } else if (appMode === 'view') {
     // View is always the Fixed control set; Follow pane stays tucked away.
     if (followPane) followPane.hidden = true;
-    const fixedPane = document.getElementById('camFixedControls');
+    const fixedPane = byId('camFixedControls');
     if (fixedPane) fixedPane.hidden = false;
   }
   if (controls) {
@@ -3511,7 +3516,7 @@ function doLoad(id?: number): void {
         if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame') || pts.name.startsWith('CandleFlame')) extras.push(pts);
       });
       const refUrl =
-        refImage.src || `/Ghouls/${String(n).padStart(4, '0')}.png`;
+        refImage.src || assetUrl(`/Ghouls/${String(n).padStart(4, '0')}.png`);
       ghoulball.start(assembler.root, scene, refUrl, extras);
       reapplyStoredBall();
     }
@@ -3710,7 +3715,7 @@ function showParticleSelection(hits: ClothParticleHit[]): void {
   if (hits.length > 1 && clothWeightHint instanceof HTMLElement && clothWeightHint.isConnected) {
     clothWeightHint.textContent = `${hits.length} highlighted · Arm bone, Distance, and Follow apply to each one`;
   }
-  document.querySelector('#clothPanel')?.scrollIntoView({ block: 'nearest' });
+  shellRoot().querySelector('#clothPanel')?.scrollIntoView({ block: 'nearest' });
   refreshClothGroupUi();
   if (hits.length === 1) {
     refreshParticleAngle();
@@ -3807,7 +3812,7 @@ function setBgMode(next: BgMode): void {
   bgModeTraitBtn.setAttribute('aria-pressed', traitOn ? 'true' : 'false');
   bgModeTraitBtn.setAttribute('aria-selected', traitOn ? 'true' : 'false');
   bgModeGhoulballBtn.setAttribute('aria-pressed', next === 'ghoulball' ? 'true' : 'false');
-  const ballRotPane = document.getElementById('ghoulballRotControls');
+  const ballRotPane = byId('ghoulballRotControls');
   if (ballRotPane) ballRotPane.hidden = next !== 'ghoulball';
   if (next === 'ghoulball') syncBallRotUi();
   if (next === 'ghoulball' && playMode.cameraMode === 'follow') setCamMode('fixed');
@@ -3854,7 +3859,7 @@ function setBgMode(next: BgMode): void {
         if (!pts.isPoints) return;
         if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame') || pts.name.startsWith('CandleFlame')) extras.push(pts);
       });
-      const refUrl = refImage.src || `/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`;
+      const refUrl = refImage.src || assetUrl(`/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`);
       ghoulball.start(asm.root, scene, refUrl, extras);
       reapplyStoredBall();
     }, 50);
@@ -4811,7 +4816,7 @@ declare global {
 
 window.GhoulViewer = { mount: mountGhoulViewer };
 
-if (document.querySelector('#c')) {
+if (shellRoot().querySelector('#c')) {
   updateUrlFlag = true;
   currentId = ghoulIdFromUrl();
   bootPromise = boot();

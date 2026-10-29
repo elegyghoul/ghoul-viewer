@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './assetUrl';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 
 /**
@@ -81,10 +82,10 @@ const SPECS: EmitterSpec[] = [
 ];
 
 const SPRITE_URL: Record<SpriteId, string> = {
-  basketball: '/textures/cudi/emoji-basketball.png',
-  banana: '/textures/cudi/emoji-banana.png',
-  x: '/textures/cudi/emoji-x.png',
-  skull: '/textures/cudi/emoji-skull.png',
+  basketball: assetUrl('/textures/cudi/emoji-basketball.png'),
+  banana: assetUrl('/textures/cudi/emoji-banana.png'),
+  x: assetUrl('/textures/cudi/emoji-x.png'),
+  skull: assetUrl('/textures/cudi/emoji-skull.png'),
 };
 
 /** Unity instance transform of CudiChain under Cudi Group.
@@ -97,7 +98,7 @@ const CUDI_CHAIN_LOCAL = {
   scale: 0.10220031 * 0.01,
 };
 
-const CUDI_CHAIN_URL = '/models/cudi/CudiChain.fbx';
+const CUDI_CHAIN_URL = assetUrl('/models/cudi/CudiChain.fbx');
 const fbxLoader = new FBXLoader();
 let chainTemplate: THREE.Group | null = null;
 let chainTemplatePromise: Promise<THREE.Group | null> | null = null;

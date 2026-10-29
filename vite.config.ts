@@ -613,7 +613,8 @@ function saveMaterialsPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? './' : '/',
   plugins: [redgradientPlugin(), saveMaterialsPlugin(), saveClothWeightsPlugin(), saveClothGroupsPlugin()],
   server: {
     // Keep material writes local-dev only; plugin is serve-only anyway.
@@ -627,7 +628,15 @@ export default defineConfig({
       input: {
         main: path.join(rootDir, 'index.html'),
         embed: path.join(rootDir, 'embed.html'),
+        embedScaled: path.join(rootDir, 'embedScaled.html'),
+      },
+      output: {
+        entryFileNames(chunk) {
+          return chunk.name === 'embed' ? 'embed.js' : 'assets/[name]-[hash].js';
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
   },
-});
+}));

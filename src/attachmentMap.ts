@@ -1,10 +1,11 @@
 import type { AttachmentMap, AttachmentPart } from './types';
+import { assetUrl } from './assetUrl';
 
 let cached: AttachmentMap | null = null;
 
 export async function loadAttachmentMap(): Promise<AttachmentMap> {
   if (cached) return cached;
-  const res = await fetch('/data/attachment-map.json');
+  const res = await fetch(assetUrl('/data/attachment-map.json'));
   if (!res.ok) throw new Error(`Failed to load attachment-map.json: ${res.status}`);
   cached = (await res.json()) as AttachmentMap;
   return cached;

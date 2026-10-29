@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './assetUrl';
 import { MAGICA_COLLIDERS, magicaGltfName } from './magicaCloakColliders';
 import { MAGICA_PAINT, type MagicaPaint } from './magicaCloakPaint';
 import { DREAMER_SUIT_PAINT } from './dreamerClothPaint';
@@ -2676,7 +2677,7 @@ export class CloakClothManager {
   /** Saved weights from `public/data/cloth-particle-weights.json`. */
   async loadWeightOverrides(): Promise<void> {
     try {
-      const res = await fetch('/data/cloth-particle-weights.json', { cache: 'no-store' });
+      const res = await fetch(assetUrl('/data/cloth-particle-weights.json'), { cache: 'no-store' });
       if (!res.ok) return;
       const data = (await res.json()) as ClothLibrary;
       this.ingestWeightOverrides(data);

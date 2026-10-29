@@ -15,6 +15,7 @@ import {
 import type { BloomMode } from './dither';
 import type { PlayCameraMode } from './playMode';
 import fontUrl from './assets/BMAS_Pixel_Console.otf?url';
+import { ghoulLaunch, shellRoot } from './assetUrl';
 
 export {
   mountGhoulViewer,
@@ -145,16 +146,47 @@ const TOOL_PANES: Record<string, string> = {
   bloom: 'bloomControls',
 };
 
+function shellEl<T extends HTMLElement>(id: string): T | null {
+  return shellRoot().querySelector<T>('#' + CSS.escape(id));
+}
+
+function focusedInShell(): Element | null {
+  const root = shellRoot();
+  if (root instanceof ShadowRoot) return root.activeElement;
+  return document.activeElement;
+}
+
+function bindScaleFit(host: HTMLElement): void {
+  const stage = shellRoot().querySelector<HTMLElement>('.ghoul-stage-scale');
+  if (!stage) return;
+  const apply = (): void => {
+    stage.style.setProperty('--gv-scale', '1');
+    stage.classList.remove('is-scaled');
+    const nativeW = stage.offsetWidth;
+    const nativeH = stage.offsetHeight;
+    if (nativeW < 1 || nativeH < 1) return;
+    const scale = Math.min(3, host.clientWidth / nativeW, host.clientHeight / nativeH);
+    if (!Number.isFinite(scale) || scale <= 0 || Math.abs(scale - 1) < 0.001) {
+      stage.style.removeProperty('--gv-scale');
+      return;
+    }
+    stage.style.setProperty('--gv-scale', String(scale));
+    stage.classList.add('is-scaled');
+  };
+  apply();
+  new ResizeObserver(apply).observe(host);
+}
+
 function bindToolTabs(): void {
-  const title = document.getElementById('ghoul-tool-title');
-  const tabs = [...document.querySelectorAll<HTMLButtonElement>('.ghoul-tool-tab')];
+  const title = shellEl<HTMLElement>('ghoul-tool-title');
+  const tabs = [...shellRoot().querySelectorAll<HTMLButtonElement>('.ghoul-tool-tab')];
   const show = (panel: string): void => {
     if (title) title.textContent = TOOL_TITLES[panel] ?? panel;
     for (const tab of tabs) {
       tab.setAttribute('aria-selected', tab.dataset.panel === panel ? 'true' : 'false');
     }
     for (const [key, id] of Object.entries(TOOL_PANES)) {
-      const pane = document.getElementById(id);
+      const pane = shellEl<HTMLElement>(id);
       if (pane) pane.hidden = key !== panel;
     }
   };
@@ -163,28 +195,36 @@ function bindToolTabs(): void {
   }
 }
 
-const slot = document.getElementById('ghoul-slot');
+function startingId(): number {
+  const launched = ghoulLaunch().id;
+  if (launched != null && Number.isFinite(launched)) return launched;
+  const raw = new URLSearchParams(window.location.search).get('id');
+  return raw != null && raw !== '' ? Number(raw) : 0;
+}
+
+const slot = shellEl<HTMLElement>('ghoul-slot');
 if (slot) {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('id');
-  const startId = raw != null && raw !== '' ? Number(raw) : 0;
-  const header = document.getElementById('ghoul-window-title');
+  const startId = startingId();
+  const header = shellEl<HTMLElement>('ghoul-window-title');
   const setHeader = (id: number): void => {
     if (header) header.textContent = headerLabel(id);
   };
   setHeader(startId);
   bindToolTabs();
-  document.querySelector('.ghoul-stage')?.addEventListener('pointerup', () => {
-    const el = document.activeElement;
+  const launch = ghoulLaunch();
+  if (launch.scale === 'fit' && launch.host) bindScaleFit(launch.host);
+  shellRoot().querySelector('.ghoul-stage')?.addEventListener('pointerup', () => {
+    const el = focusedInShell();
     if (!(el instanceof HTMLElement)) return;
     if (el instanceof HTMLInputElement) return;
     if (el.closest('.ghoul-controls, .ghoul-mode-tabs, .ghoul-tool-tabs, .ghoul-id-picker')) {
       el.blur();
     }
   });
-  mountGhoulViewer(slot, {
+  const viewer = mountGhoulViewer(slot, {
     id: startId,
     updateUrl: false,
     onLoad: setHeader,
   });
+  if (launch.host) (launch.host as HTMLElement & { viewer: GhoulViewer }).viewer = viewer;
 }

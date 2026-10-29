@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhoulViewer embed scaled</title>
+    <style>
+      /* Demo page shell only. The viewer UI and its CSS live in the div. */
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* Screen width, up to the 3× cap (945×552), at the native 315×184 ratio. */
+      #ghoul {
+        width: min(100%, 945px);
+        aspect-ratio: 315 / 184;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ghoul"></div>
+    <script
+      type="module"
+      src="/src/embed-boot.ts"
+      data-target="#ghoul"
+      data-scale="fit"
+    ></script>
+  </body>
+</html>

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from './assetUrl';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { BackgroundOceanMat, BackgroundRipple } from './materials';
 import { backgroundColumnMat, backgroundPalmMat, enableBloomLayer } from './materials';
@@ -175,7 +176,7 @@ type CloudPuff = {
   bobPhase: number;
 };
 
-const OCEAN_MAP_URL = '/models/backgrounds/ocean.jpg';
+const OCEAN_MAP_URL = assetUrl('/models/backgrounds/ocean.jpg');
 
 function isFloorGrid(mesh: THREE.Mesh): boolean {
   const n = mesh.name.trim().toLowerCase();
@@ -1082,7 +1083,7 @@ export class BackgroundSceneManager {
       pending = (async () => {
         try {
           if (this.ripple.enabled) await this.ensureOceanMap();
-          const gltf = await gltfLoader.loadAsync(`/models/backgrounds/${name}.glb`);
+          const gltf = await gltfLoader.loadAsync(assetUrl(`/models/backgrounds/${name}.glb`));
           const root = gltf.scene;
           root.name = `Background_${name}`;
           root.visible = false;
@@ -1126,7 +1127,7 @@ export class BackgroundSceneManager {
     if (!pending) {
       pending = new Promise<THREE.Object3D | null>((resolve) => {
         texLoader.load(
-          `/models/skybox/${SKYBOX_FILE_BY_KEY[name] ?? name}.jpg`,
+          assetUrl(`/models/skybox/${SKYBOX_FILE_BY_KEY[name] ?? name}.jpg`),
           (tex) => {
             tex.colorSpace = THREE.SRGBColorSpace;
             tex.flipY = true;

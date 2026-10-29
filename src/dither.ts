@@ -3,12 +3,13 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { BLOOM_LAYER, SKY_BLOOM_EXTRACT, SKY_LIGHT_LAYER } from './materials';
+import { assetUrl } from './assetUrl';
 
 export const PIXEL_SIZE = 155;
 export const PIXEL_SCALE = 3;
 export const DISPLAY_SIZE = PIXEL_SIZE * PIXEL_SCALE;
 
-const CALM_PALETTE_URL = '/Palette/dither-calm-48-1x.png';
+const CALM_PALETTE_URL = assetUrl('/Palette/dither-calm-48-1x.png');
 
 const MAX_PALETTE = 64;
 

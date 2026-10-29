@@ -1,32 +1,30 @@
 ---
-description: Keep embed UI shell CSS drop-in friendly for other projects
-globs: embed.html,ghoul-viewer.css
+description: Keep embed UI shell CSS inside the viewer shadow root
+globs: embed.html,ghoul-viewer.css,src/embed-boot.ts,src/shell.html
 alwaysApply: false
 ---
 
-# Drop-in embed UI shell CSS
+# Embed UI shell
 
-`ghoul-viewer.css` is the drop-in UI shell stylesheet. `embed.html` is markup + a tiny demo page shell.
+`embed-boot.ts` fills a host div with `shell.html` inside a shadow root and loads `ghoul-viewer.css` there. `embed.html` is only the demo page (black background, a 400×206 div, one script line).
 
 ## Do
 
 - Put UI shell styles in `ghoul-viewer.css`, not inline in `embed.html`
-- Scope tokens and resets on `.ghoul-stage-scale` (never host `:root` / `html` / `body`)
-- Keep class prefixes (`ghoul-`, `fx-`, `pane-`) and `--gv-*` tokens
-- Theme via tokens (`--gv-accent`, `--gv-ink`, `--gv-surface`, `--gv-font`, `--gv-scale`)
+- Keep tokens on `.ghoul-stage-scale` (`--gv-*`), never on the host `:root`
+- Reset inherited font, color, and line-height on `:host` and `.ghoul-stage-scale`
 - Leave page layout (full-viewport black, centering) in `embed.html` only
+- Default to native 1×. Scaling is only `data-scale="fit"`
 
 ## Don't
 
 - Style bare `html` / `body` / global `*` inside `ghoul-viewer.css`
-- Hardcode accent/font when a `--gv-*` token exists
-- Split the UI shell across multiple CSS files without a clear host-safe entrypoint
+- Link `ghoul-viewer.css` from the host page
+- Copy the shell markup into the host page
+- Scale the stage from the window width
 
-## Host drop-in
+## Host line
 
 ```html
-<link rel="stylesheet" href="ghoul-viewer.css" />
-<!-- markup: .ghoul-stage-scale > .ghoul-stage ... -->
-<!-- load BMAS Pixel Console, or override --gv-font -->
-<!-- set --gv-scale on .ghoul-stage-scale (1–3) -->
+<script type="module" src="ghoul-viewer/embed.js" data-target="#ghoul" data-ghoul="469"></script>
 ```
