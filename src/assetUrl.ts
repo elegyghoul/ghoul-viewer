@@ -16,7 +16,25 @@ export function setAssetBase(base: string): void {
   g.__GHOUL_ASSET_BASE__ = base.endsWith('/') ? base : `${base}/`;
 }
 
-/** Public file URL. Root-absolute on the studio server, otherwise next to embed.js. */
+/**
+ * Folder that holds public files in a production build.
+ * The boot script is emitted under assets/, one level below those files.
+ * A script placed directly in that folder (embed.js) uses its own directory.
+ */
+export function viewerPublicBase(moduleUrl: string): string {
+  const url = new URL(moduleUrl);
+  const marker = '/assets/';
+  const at = url.pathname.lastIndexOf(marker);
+  url.pathname =
+    at === -1
+      ? url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1)
+      : url.pathname.slice(0, at + 1);
+  url.search = '';
+  url.hash = '';
+  return url.href;
+}
+
+/** Public file URL. Root-absolute on the studio server, otherwise next to the built viewer. */
 export function assetUrl(path: string): string {
   const rel = path.replace(/^\//, '');
   const base = g.__GHOUL_ASSET_BASE__;

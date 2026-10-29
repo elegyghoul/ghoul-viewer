@@ -1,6 +1,6 @@
 import shellHtml from './shell.html?raw';
 import cssUrl from '../ghoul-viewer.css?url';
-import { assetUrl, setAssetBase, setLaunch, setShellRoot } from './assetUrl';
+import { assetUrl, setAssetBase, setLaunch, setShellRoot, viewerPublicBase } from './assetUrl';
 
 function thisScript(): HTMLScriptElement | null {
   const me = import.meta.url;
@@ -13,7 +13,7 @@ function thisScript(): HTMLScriptElement | null {
 function boot(): void {
   const base = import.meta.env.DEV
     ? new URL('/', window.location.origin).href
-    : new URL('.', import.meta.url).href;
+    : viewerPublicBase(import.meta.url);
   setAssetBase(base);
 
   const script = thisScript();

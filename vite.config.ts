@@ -632,9 +632,15 @@ export default defineConfig(({ command }) => ({
       },
       output: {
         entryFileNames(chunk) {
-          return chunk.name === 'embed' ? 'embed.js' : 'assets/[name]-[hash].js';
+          const id = (chunk.facadeModuleId ?? '').replace(/\\/g, '/');
+          if (id.endsWith('/src/embed-boot.ts') || chunk.name === 'embed-boot') return 'embed.js';
+          return 'assets/[name]-[hash].js';
         },
-        chunkFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames(chunk) {
+          const id = (chunk.facadeModuleId ?? '').replace(/\\/g, '/');
+          if (id.endsWith('/src/embed-boot.ts') || chunk.name === 'embed-boot') return 'embed.js';
+          return 'assets/[name]-[hash].js';
+        },
         assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
