@@ -364,6 +364,204 @@ function redgradientPlugin(): Plugin {
   };
 }
 
+function sanitizeClothWeights(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('expected an object');
+  }
+  const hitchBones = new Set([
+    'mixamorigLeftArm',
+    'mixamorigLeftForeArm',
+    'mixamorigLeftHand',
+    'mixamorigRightArm',
+    'mixamorigRightForeArm',
+    'mixamorigRightHand',
+  ]);
+  const out: Record<string, unknown> = {};
+  for (const [family, entries] of Object.entries(payload as Record<string, unknown>)) {
+    if (!/^[a-z0-9_]+$/i.test(family)) continue;
+    if (!entries || typeof entries !== 'object' || Array.isArray(entries)) continue;
+    if (family === 'hitches') {
+      const hitches: Record<string, Record<string, string | null>> = {};
+      for (const [cloak, bones] of Object.entries(entries as Record<string, unknown>)) {
+        if (!/^[a-z0-9_]+$/i.test(cloak)) continue;
+        if (!bones || typeof bones !== 'object' || Array.isArray(bones)) continue;
+        const bucket: Record<string, string | null> = {};
+        for (const [id, raw] of Object.entries(bones as Record<string, unknown>)) {
+          if (!/^\d+$/.test(id)) continue;
+          if (raw == null || raw === '') {
+            bucket[id] = null;
+            continue;
+          }
+          if (typeof raw === 'string' && hitchBones.has(raw)) bucket[id] = raw;
+        }
+        if (Object.keys(bucket).length > 0) hitches[cloak] = bucket;
+      }
+      if (Object.keys(hitches).length > 0) out.hitches = hitches;
+      continue;
+    }
+    if (family === 'hitchDist') {
+      const dists: Record<string, Record<string, number>> = {};
+      for (const [cloak, perCloak] of Object.entries(entries as Record<string, unknown>)) {
+        if (!/^[a-z0-9_]+$/i.test(cloak)) continue;
+        if (!perCloak || typeof perCloak !== 'object' || Array.isArray(perCloak)) continue;
+        const bucket: Record<string, number> = {};
+        for (const [id, raw] of Object.entries(perCloak as Record<string, unknown>)) {
+          if (!/^\d+$/.test(id)) continue;
+          const n = typeof raw === 'number' ? raw : Number(raw);
+          if (!Number.isFinite(n)) continue;
+          bucket[id] = Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
+        }
+        if (Object.keys(bucket).length > 0) dists[cloak] = bucket;
+      }
+      if (Object.keys(dists).length > 0) out.hitchDist = dists;
+      continue;
+    }
+    if (family === 'hitchFollow') {
+      const follows: Record<string, Record<string, number>> = {};
+      for (const [cloak, perCloak] of Object.entries(entries as Record<string, unknown>)) {
+        if (!/^[a-z0-9_]+$/i.test(cloak)) continue;
+        if (!perCloak || typeof perCloak !== 'object' || Array.isArray(perCloak)) continue;
+        const bucket: Record<string, number> = {};
+        for (const [id, raw] of Object.entries(perCloak as Record<string, unknown>)) {
+          if (!/^\d+$/.test(id)) continue;
+          const n = typeof raw === 'number' ? raw : Number(raw);
+          if (!Number.isFinite(n)) continue;
+          bucket[id] = Math.round(Math.min(1, Math.max(0, n)) * 100) / 100;
+        }
+        if (Object.keys(bucket).length > 0) follows[cloak] = bucket;
+      }
+      if (Object.keys(follows).length > 0) out.hitchFollow = follows;
+      continue;
+    }
+    const bucket: Record<string, number> = {};
+    for (const [id, raw] of Object.entries(entries as Record<string, unknown>)) {
+      if (!/^\d+$/.test(id)) continue;
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      if (!Number.isFinite(n)) continue;
+      bucket[id] = Math.round(Math.min(1, Math.max(0, n)) * 100) / 100;
+    }
+    if (Object.keys(bucket).length > 0) out[family] = bucket;
+  }
+  return out;
+}
+
+type ClothGroupFile = {
+  groups?: {
+    id?: unknown;
+    name?: unknown;
+    members?: unknown;
+  }[];
+};
+
+/** Dev-only group lists. The live site never receives this route. */
+function sanitizeClothGroups(data: unknown): { groups: { id: string; name: string; members: Record<string, number[]> }[] } {
+  const groups: { id: string; name: string; members: Record<string, number[]> }[] = [];
+  const raw = data && typeof data === 'object' ? (data as ClothGroupFile).groups : null;
+  if (!Array.isArray(raw)) return { groups };
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (groups.length >= 80) break;
+    const id = typeof entry.id === 'string' ? entry.id : '';
+    if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(id) || seen.has(id)) continue;
+    const nameRaw = typeof entry.name === 'string' ? entry.name : '';
+    const name = nameRaw.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40);
+    if (!name) continue;
+    const members: Record<string, number[]> = {};
+    if (entry.members && typeof entry.members === 'object' && !Array.isArray(entry.members)) {
+      for (const [family, ids] of Object.entries(entry.members as Record<string, unknown>)) {
+        if (!/^[a-z0-9_]+$/i.test(family)) continue;
+        if (!Array.isArray(ids)) continue;
+        const clean: number[] = [];
+        const have = new Set<number>();
+        for (const idRaw of ids) {
+          const n = typeof idRaw === 'number' ? idRaw : Number(idRaw);
+          if (!Number.isInteger(n) || n < 0 || n > 1_000_000 || have.has(n)) continue;
+          have.add(n);
+          clean.push(n);
+          if (clean.length >= 20000) break;
+        }
+        if (clean.length > 0) members[family] = clean;
+      }
+    }
+    seen.add(id);
+    groups.push({ id, name, members });
+  }
+  return { groups };
+}
+
+/** Writes public/data/cloth-particle-weights.json so a reload and a production build keep it. */
+function saveClothWeightsPlugin(): Plugin {
+  const weightsPath = path.join(rootDir, 'public', 'data', 'cloth-particle-weights.json');
+  return {
+    name: 'save-cloth-weights',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url?.split('?')[0] !== '/__dev/save-cloth-weights') {
+          next();
+          return;
+        }
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: 'POST only' }));
+          return;
+        }
+        try {
+          const raw = await readJsonBody(req);
+          const clean = sanitizeClothWeights(JSON.parse(raw) as unknown);
+          fs.mkdirSync(path.dirname(weightsPath), { recursive: true });
+          fs.writeFileSync(weightsPath, `${JSON.stringify(clean, null, 2)}\n`, 'utf8');
+          console.log('[save-cloth-weights] wrote', weightsPath);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+        }
+      });
+    },
+  };
+}
+
+/** Writes public/data/cloth-particle-groups.json. Registered only on the Vite dev server. */
+function saveClothGroupsPlugin(): Plugin {
+  const groupsPath = path.join(rootDir, 'public', 'data', 'cloth-particle-groups.json');
+  return {
+    name: 'save-cloth-groups',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url?.split('?')[0] !== '/__dev/save-cloth-groups') {
+          next();
+          return;
+        }
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: 'POST only' }));
+          return;
+        }
+        try {
+          const raw = await readJsonBody(req);
+          const clean = sanitizeClothGroups(JSON.parse(raw) as unknown);
+          fs.mkdirSync(path.dirname(groupsPath), { recursive: true });
+          fs.writeFileSync(groupsPath, `${JSON.stringify(clean, null, 2)}\n`, 'utf8');
+          console.log('[save-cloth-groups] wrote', groupsPath);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+        }
+      });
+    },
+  };
+}
+
 function saveMaterialsPlugin(): Plugin {
   return {
     name: 'save-materials',
@@ -400,7 +598,7 @@ function saveMaterialsPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [redgradientPlugin(), saveMaterialsPlugin()],
+  plugins: [redgradientPlugin(), saveMaterialsPlugin(), saveClothWeightsPlugin(), saveClothGroupsPlugin()],
   server: {
     // Keep material writes local-dev only; plugin is serve-only anyway.
     watch: {

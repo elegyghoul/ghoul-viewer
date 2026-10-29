@@ -324,8 +324,8 @@
   text-transform: uppercase;
 }
 .anim-buttons {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1px;
 }
 .anim-btn {

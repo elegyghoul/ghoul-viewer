@@ -10,6 +10,7 @@ import { accentColor } from './materials';
  * The powerful Flames trait uses the same flame, smaller, on the eye-socket empties.
  * The infernal flame uses the same simulation, tinted purple, orbiting
  * the Infernal Flame socket with a downward sine bob.
+ * The Candle trait uses a small teardrop on the centre of the wax top.
  */
 
 const PARTICLE_COUNT = 36;
@@ -22,6 +23,7 @@ const _quat = new THREE.Quaternion();
 const _up = new THREE.Vector3();
 const _out = new THREE.Vector3();
 const _side = new THREE.Vector3();
+const _axis = new THREE.Vector3();
 const _litSum = new THREE.Vector3();
 
 type Anchor = {
@@ -50,6 +52,8 @@ type FlameSpec = {
   volume: number;
   /** 0 = hot core fades at the rim (torch). 1 = rim stays as bright as the body. */
   outer: number;
+  /** 0 = torch tongue (wide base). 1 = candle teardrop (thin wick, pointed tip). */
+  wick: number;
   /** Multiplier on the sprite color. Torch stays hot; infernal stays under the dither whites. */
   gain: number;
   renderOrder: number;
@@ -157,6 +161,74 @@ function collectEyeFlames(root: THREE.Object3D): Anchor[] {
   return anchors;
 }
 
+/**
+ * Centre of the wax top. The candle's long axis is the local axis that
+ * points up once the head is posed; the tip sits on the average of the
+ * vertices in that top band, so drips off the sides do not pull it.
+ */
+function placeOnWaxTop(mesh: THREE.Mesh, tip: THREE.Object3D): void {
+  const attr = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+  if (!attr || attr.count === 0) {
+    tip.position.set(0, 0, 0);
+    return;
+  }
+  mesh.updateWorldMatrix(true, false);
+  mesh.getWorldQuaternion(_quat);
+  let axis = 1;
+  let sign = 1;
+  let best = -1;
+  for (let i = 0; i < 3; i++) {
+    _axis.set(i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0).applyQuaternion(_quat);
+    const align = Math.abs(_axis.y);
+    if (align > best) {
+      best = align;
+      axis = i;
+      sign = _axis.y >= 0 ? 1 : -1;
+    }
+  }
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < attr.count; i++) {
+    const v = attr.getComponent(i, axis);
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  const top = sign > 0 ? max : min;
+  const band = Math.max(max - min, 1e-6) * 0.08;
+  _origin.set(0, 0, 0);
+  let n = 0;
+  for (let i = 0; i < attr.count; i++) {
+    if (Math.abs(attr.getComponent(i, axis) - top) > band) continue;
+    _origin.x += attr.getX(i);
+    _origin.y += attr.getY(i);
+    _origin.z += attr.getZ(i);
+    n++;
+  }
+  if (n === 0) {
+    tip.position.set(0, 0, 0);
+    return;
+  }
+  tip.position.set(_origin.x / n, _origin.y / n, _origin.z / n);
+}
+
+function collectCandles(root: THREE.Object3D): Anchor[] {
+  const anchors: Anchor[] = [];
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || normNode(o.name) !== 'candle' || !chainVisible(o)) return;
+    let tip = o.getObjectByName('CandleFlameTip');
+    if (!tip) {
+      tip = new THREE.Object3D();
+      tip.name = 'CandleFlameTip';
+      o.add(tip);
+    }
+    placeOnWaxTop(mesh, tip);
+    tip.visible = true;
+    anchors.push({ tip, host: o });
+  });
+  return anchors;
+}
+
 const TORCH_COLORS = {
   hot: new THREE.Color(1, 0.96, 0.35),
   mid: new THREE.Color(1, 0.78, 0.08),
@@ -173,6 +245,7 @@ const TORCH_SPEC: FlameSpec = {
   size: 1,
   volume: 1,
   outer: 0,
+  wick: 0,
   gain: 1.1,
   renderOrder: 4,
   pointMax: 32,
@@ -193,6 +266,7 @@ const INFERNAL_SPEC: FlameSpec = {
   size: 3.1,
   volume: 2.5,
   outer: 0.45,
+  wick: 0,
   gain: 0.82,
   renderOrder: 4,
   pointMax: 96,
@@ -215,6 +289,7 @@ const EYE_SPEC: FlameSpec = {
   size: 0.75,
   volume: 0.55,
   outer: 0,
+  wick: 0,
   gain: 1.1,
   renderOrder: 4,
   pointMax: 60,
@@ -224,6 +299,35 @@ const EYE_SPEC: FlameSpec = {
   lightHot: TORCH_COLORS.lightHot,
   lightLow: TORCH_COLORS.lightLow,
   collect: collectEyeFlames,
+};
+
+const CANDLE_COLORS = {
+  hot: new THREE.Color(1, 0.98, 0.78),
+  mid: new THREE.Color(1, 0.74, 0.12),
+  edge: new THREE.Color(1, 0.36, 0.02),
+  lightHot: 0xfff1c2,
+  lightLow: 0xff8618,
+} as const;
+
+/** Small teardrop on the wax. Shorter and tighter than the torch. */
+const CANDLE_SPEC: FlameSpec = {
+  pointsName: 'CandleFlame',
+  lightName: 'CandleFlameLight',
+  lightIntensity: 0.38,
+  lightDistance: 1.05,
+  size: 0.58,
+  volume: 0.32,
+  outer: 0.08,
+  wick: 1,
+  gain: 1.05,
+  renderOrder: 4,
+  pointMax: 20,
+  hot: CANDLE_COLORS.hot,
+  mid: CANDLE_COLORS.mid,
+  edge: CANDLE_COLORS.edge,
+  lightHot: CANDLE_COLORS.lightHot,
+  lightLow: CANDLE_COLORS.lightLow,
+  collect: collectCandles,
 };
 
 function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): Emitter {
@@ -251,6 +355,7 @@ function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): 
       uSize: { value: spec.size },
       uPointMax: { value: spec.pointMax },
       uOuter: { value: spec.outer },
+      uWick: { value: spec.wick },
       uGain: { value: spec.gain },
       uHot: { value: new THREE.Color(spec.hot) },
       uMid: { value: new THREE.Color(spec.mid) },
@@ -286,15 +391,21 @@ function createEmitter(anchor: Anchor, scene: THREE.Object3D, spec: FlameSpec): 
       uniform vec3 uMid;
       uniform vec3 uEdge;
       uniform float uOuter;
+      uniform float uWick;
       uniform float uGain;
       varying float vT;
       varying float vSeed;
       varying float vCore;
       void main() {
         vec2 p = gl_PointCoord * 2.0 - 1.0;
-        // Tongue: wide at the base, pinched at the top.
-        float pinch = mix(1.0, 0.35, clamp(p.y * 0.5 + 0.5, 0.0, 1.0));
-        p.x /= pinch;
+        float y01 = clamp(p.y * 0.5 + 0.5, 0.0, 1.0);
+        // Torch tongue: wide at the base, pinched at the top.
+        float torchPinch = mix(1.0, 0.35, y01);
+        // Candle: thin at the wick, round through the belly, pointed at the tip.
+        float belly = pow(max(sin(clamp(y01 * 1.15, 0.0, 1.0) * 3.14159), 0.0), 0.62);
+        float candlePinch = mix(0.16, 1.0, belly);
+        float pinch = mix(torchPinch, candlePinch, uWick);
+        p.x /= max(pinch, 0.08);
         float d = length(p);
         float body = smoothstep(1.0, 0.15, d);
         float core = smoothstep(0.55, 0.0, d);
@@ -514,6 +625,12 @@ export class TorchFlameManager extends ProceduralFlame {
 export class EyeFlameManager extends ProceduralFlame {
   constructor() {
     super(EYE_SPEC);
+  }
+}
+
+export class CandleFlameManager extends ProceduralFlame {
+  constructor() {
+    super(CANDLE_SPEC);
   }
 }
 

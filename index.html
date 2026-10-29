@@ -22,6 +22,10 @@
             <button id="resetPoseBtn" type="button" title="Reset ghoul pose and camera to start">
               Reset
             </button>
+            <label class="close-zoom-label" title="Dolly in much closer than the usual 1 m limit, down to 12 cm">
+              <input id="closeZoom" type="checkbox" />
+              Close zoom
+            </label>
             <label class="anim-label">
               Anim
               <select id="animSelect" aria-label="Animation">
@@ -35,10 +39,20 @@
             <button id="colliderDebugBtn" type="button" aria-pressed="false" title="Show cloth collider capsules">
               Colliders
             </button>
-            <button id="particleDebugBtn" type="button" aria-pressed="false" title="Show cloth particles — click one to copy its id">
+            <button id="particleDebugBtn" type="button" aria-pressed="false" title="Show cloth particles — click one to set its weight">
               Particles
             </button>
-            <span id="particlePickHud" hidden></span>
+            <button id="particleCullBtn" type="button" aria-pressed="false" title="Hide particles that sit behind the cloak. Off shows every dot, including ones you can see through the cloth.">
+              Cull
+            </button>
+            <button id="pinDebugBtn" type="button" aria-pressed="false" title="Show the cloth pinned to the arms">
+              Pinned
+            </button>
+            <span id="particlePickHud" hidden>
+              <span id="particlePickName"></span>
+              <span id="particlePickAngle" hidden></span>
+              <span id="particlePickHeight" hidden></span>
+            </span>
             <button id="lightDebugBtn" type="button" aria-pressed="false" title="Show light debug helpers">
               Lights
             </button>
@@ -79,6 +93,7 @@
               </dl>
             </aside>
           </div>
+          <div id="viewerStage">
           <div id="centerColumn">
             <div id="viewerPanel" class="panel">
               <div class="viewer-toolbar">
@@ -136,6 +151,7 @@
                 Ghoulball
               </button>
             </div>
+          </div>
             <div id="fxPanel" class="panel" aria-label="Lights Bloom Cloth Fog">
               <div id="fxTabs" role="tablist" aria-label="Lights Bloom Cloth Fog">
                 <button type="button" role="tab" id="fxTabLights" aria-controls="brightnessControls" aria-selected="true">
@@ -144,7 +160,7 @@
                 <button type="button" role="tab" id="fxTabBloom" aria-controls="bloomControls" aria-selected="false">
                   Bloom
                 </button>
-                <button type="button" role="tab" id="fxTabCloth" aria-controls="clothControls" aria-selected="false">
+                <button type="button" role="tab" id="fxTabCloth" aria-controls="clothSimControls" aria-selected="false">
                   Cloth
                 </button>
                 <button type="button" role="tab" id="fxTabFog" aria-controls="fogControls" aria-selected="false">
@@ -206,6 +222,22 @@
                   <input id="lightSunElevation" type="range" min="5" max="85" step="1" value="48" />
                   <span id="lightSunElevationVal">48</span>
                 </label>
+                <div class="fx-group-title">Glasses</div>
+                <label title="Brightness of the point light on Blue Vipers, Riff Raff, and Slaughtermelon">
+                  Strength
+                  <input id="lightGlasses" type="range" min="0" max="0.5" step="0.001" value="0.095" />
+                  <span id="lightGlassesVal">0.095</span>
+                </label>
+                <label title="Meters in front of the glasses">
+                  Distance
+                  <input id="lightGlassesDist" type="range" min="0" max="0.4" step="0.01" value="0" />
+                  <span id="lightGlassesDistVal">0.00</span>
+                </label>
+                <label title="Meters from the light before it fades out. 0 keeps inverse-square falloff only.">
+                  Range
+                  <input id="lightGlassesRange" type="range" min="0" max="1" step="0.01" value="0.53" />
+                  <span id="lightGlassesRangeVal">0.53</span>
+                </label>
               </div>
               <div id="bloomControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabBloom" hidden>
                 <label>
@@ -224,7 +256,7 @@
                   <span id="bloomThresholdVal">0.08</span>
                 </label>
               </div>
-              <div id="clothControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabCloth" hidden>
+              <div id="clothSimControls" class="fx-pane" role="tabpanel" aria-labelledby="fxTabCloth" hidden>
                 <label title="Distance-constraint stiffness near the hood">
                   Hood tension
                   <input id="clothStiffnessRoot" type="range" min="0" max="1" step="0.01" value="1" />
@@ -412,6 +444,13 @@
                 </label>
               </div>
             </div>
+          <div id="cleanViewerPanel" class="panel" aria-label="Same view without bloom or particles">
+            <div class="viewer-toolbar">
+              <span class="clean-viewer-label" title="Same camera and ghoul. Bloom stays off. Particle dots and the mirror line are not drawn.">
+                Plain
+              </span>
+            </div>
+            <canvas id="cClean"></canvas>
           </div>
           <div id="materialPanel" class="panel" aria-label="Trait materials">
             <div class="panel-title">Materials</div>
@@ -421,6 +460,77 @@
               <button id="materialSave" type="button" disabled>Save to materials.ts</button>
               <span id="materialSaveStatus"></span>
             </div>
+          </div>
+          <div id="clothPanel" class="panel" aria-label="Particles">
+            <div class="panel-title">Particles</div>
+            <div id="clothControls">
+              <div class="fx-group-title">Particle weight</div>
+              <div id="clothWeightHint" class="fx-hint">Show Particles, then click or drag across the cloak</div>
+              <div class="fx-hint">Red held, no collision · yellow stiff · blue-green free</div>
+              <label title="Red is held and skips colliders. Yellow is stiff and collides. Blue-green hangs free.">
+                Weight
+                <input id="clothWeight" type="range" min="0" max="1" step="0.01" value="0" disabled />
+                <span id="clothWeightVal">0.00</span>
+              </label>
+              <div id="clothWeightRamp" aria-hidden="true"><span id="clothWeightMark"></span></div>
+              <label class="fx-check" title="Write this weight on the particle across the cloak as well. An arm hitch uses the opposite arm.">
+                <input id="clothWeightMirror" type="checkbox" />
+                Same weight on mirror
+              </label>
+              <label title="Hitch every highlighted cloak point to this arm bone. It keeps its place on the cloth and rides that bone. Save weights stores the hitch for the live site.">
+                Arm bone
+                <select id="clothHitch" disabled>
+                  <option value="">Not hitched</option>
+                  <option value="mixamorigLeftArm">Left upper arm</option>
+                  <option value="mixamorigLeftForeArm">Left forearm</option>
+                  <option value="mixamorigLeftHand">Left hand</option>
+                  <option value="mixamorigRightArm">Right upper arm</option>
+                  <option value="mixamorigRightForeArm">Right forearm</option>
+                  <option value="mixamorigRightHand">Right hand</option>
+                </select>
+                <span></span>
+              </label>
+              <label title="Centimetres from the arm joint along the green line. A drag highlight sets every hitched point in the box. Reset particle puts the first one back.">
+                Distance
+                <input id="clothHitchDist" type="range" min="0" max="0.6" step="0.005" value="0" disabled />
+                <span id="clothHitchDistVal">—</span>
+              </label>
+              <label title="100% locks the point to the hitch pose, including Distance. 0% is ordinary cloth, the same as no hitch, so Distance does nothing. 50% sits halfway between those two. A drag highlight sets every hitched point in the box.">
+                Follow
+                <input id="clothHitchFollow" type="range" min="0" max="1" step="0.01" value="1" disabled />
+                <span id="clothHitchFollowVal">—</span>
+              </label>
+              <div class="fx-group-title">Groups</div>
+              <div class="fx-hint">Name a set, then assign the highlighted particles. Saving groups and weights only works in the local viewer. The live site still runs the saved hitches.</div>
+              <label title="Particle group for this cloak">
+                Group
+                <select id="clothGroup">
+                  <option value="">No groups</option>
+                </select>
+                <span id="clothGroupCount"></span>
+              </label>
+              <label title="Name for a new group">
+                Name
+                <input id="clothGroupName" type="text" maxlength="40" placeholder="Left sleeve" autocomplete="off" />
+                <span></span>
+              </label>
+              <div class="fx-actions">
+                <button id="clothGroupCreateBtn" type="button">Create group</button>
+                <button id="clothGroupDeleteBtn" type="button" disabled>Delete group</button>
+                <button id="clothGroupSelectBtn" type="button" disabled>Select all</button>
+              </div>
+              <div class="fx-actions">
+                <button id="clothGroupAssignBtn" type="button" disabled>Assign selected</button>
+                <button id="clothGroupRemoveBtn" type="button" disabled>Remove selected</button>
+                <span id="clothGroupStatus"></span>
+              </div>
+              <div class="fx-actions">
+                <button id="clothWeightSaveBtn" type="button" title="Writes the hitch, distance, follow, and weight file on this computer. A built site loads that file and hitches the cloak. There is no save route on the live site.">Save weights</button>
+                <button id="clothWeightResetBtn" type="button" disabled>Reset particle</button>
+                <span id="clothWeightSaveStatus"></span>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       </div>

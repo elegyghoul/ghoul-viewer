@@ -13,7 +13,7 @@ const CALM_PALETTE_URL = '/Palette/dither-calm-48-1x.png';
 const MAX_PALETTE = 64;
 
 /** sRGB swatches appended to every loaded palette strip (survives palette URL swaps). */
-const EXTRA_PALETTE_HEX: readonly number[] = [0x567e56, 0x8b6300, 0x7696a7, 0xd2b29c, 0xe5a7c5];
+const EXTRA_PALETTE_HEX: readonly number[] = [0x567e56, 0x8b6300, 0x7696a7, 0xd2b29c, 0xe5a7c5, 0x7dff4a];
 
 function hexToPaletteColor(hex: number): THREE.Vector3 {
   return new THREE.Vector3(
@@ -378,6 +378,40 @@ export class DitherComposer {
 
     // 5) Dither to canvas
     this.ditherMaterial.uniforms.tDiffuse!.value = this.combineTarget.texture;
+    quad.material = this.ditherMaterial;
+    renderer.setRenderTarget(null);
+    renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.render(this.quadScene, this.quadCamera);
+
+    camera.layers.mask = prevMask;
+    renderer.outputColorSpace = prevOutput;
+    renderer.toneMapping = prevTone;
+    renderer.shadowMap.autoUpdate = prevShadowAuto;
+  }
+
+  /** Dithered scene with the bloom passes left out. */
+  renderPlain(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): void {
+    const prevOutput = renderer.outputColorSpace;
+    const prevTone = renderer.toneMapping;
+    const prevMask = camera.layers.mask;
+
+    renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+    camera.layers.enable(0);
+    camera.layers.enable(BLOOM_LAYER);
+    camera.layers.enable(SKY_LIGHT_LAYER);
+
+    const prevShadowAuto = renderer.shadowMap.autoUpdate;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = true;
+
+    renderer.setRenderTarget(this.baseTarget);
+    renderer.clear();
+    renderer.render(scene, camera);
+    renderer.shadowMap.needsUpdate = false;
+
+    const quad = this.quadScene.children[0] as THREE.Mesh;
+    this.ditherMaterial.uniforms.tDiffuse!.value = this.baseTarget.texture;
     quad.material = this.ditherMaterial;
     renderer.setRenderTarget(null);
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;

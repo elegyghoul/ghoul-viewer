@@ -77,6 +77,24 @@ body {
   color: #e8e6e3;
 }
 
+.close-zoom-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #e8e6e3;
+  cursor: pointer;
+  user-select: none;
+}
+
+.close-zoom-label input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #c8c2b0;
+  cursor: pointer;
+}
+
 .trait-cover-label {
   font-size: 13px;
   color: #b8b4ae;
@@ -98,6 +116,8 @@ body {
 #resetPoseBtn,
 #colliderDebugBtn,
 #particleDebugBtn,
+#particleCullBtn,
+#pinDebugBtn,
 #lightDebugBtn {
   font: inherit;
   font-size: 14px;
@@ -128,18 +148,24 @@ body {
 #resetPoseBtn:hover,
 #colliderDebugBtn:hover,
 #particleDebugBtn:hover,
+#particleCullBtn:hover,
+#pinDebugBtn:hover,
 #lightDebugBtn:hover {
   background: #3a3730;
 }
 
 #colliderDebugBtn,
 #particleDebugBtn,
+#particleCullBtn,
+#pinDebugBtn,
 #lightDebugBtn {
   margin-left: 8px;
 }
 
 #colliderDebugBtn[aria-pressed='true'],
 #particleDebugBtn[aria-pressed='true'],
+#particleCullBtn[aria-pressed='true'],
+#pinDebugBtn[aria-pressed='true'],
 #lightDebugBtn[aria-pressed='true'] {
   background: #1e4a38;
   border-color: #33ff99;
@@ -147,12 +173,46 @@ body {
 }
 
 #particlePickHud {
-  margin-left: 8px;
   font: inherit;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   color: #66ff88;
   user-select: all;
+}
+
+#particlePickHud:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 8px;
+  line-height: 1.25;
+}
+
+#particlePickAngle {
+  font-size: 12px;
+}
+
+#particlePickAngle[data-tilt='straight'] {
+  color: #d7ffe6;
+}
+
+#particlePickAngle[data-tilt='diagonal'] {
+  color: #d090ff;
+}
+
+#particleMarquee {
+  position: fixed;
+  z-index: 40;
+  box-sizing: border-box;
+  border: 1px solid #7dff4a;
+  background: rgba(125, 255, 74, 0.18);
+  pointer-events: none;
+}
+
+#particlePickHeight {
+  font-size: 12px;
+  color: #e8e6e3;
+  white-space: pre-line;
 }
 
 .anim-label {
@@ -204,6 +264,68 @@ body {
   flex-shrink: 0;
 }
 
+#viewerStage {
+  display: grid;
+  grid-template-columns: auto auto 220px;
+  grid-template-rows: auto auto;
+  gap: 12px;
+  align-items: start;
+}
+
+#viewerStage > #centerColumn {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#viewerStage > #cleanViewerPanel {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#viewerStage > #materialPanel {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+#viewerStage > #fxPanel {
+  grid-column: 1;
+  grid-row: 2;
+  width: auto;
+}
+
+#clothPanel {
+  grid-column: 2 / span 2;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-height: 560px;
+}
+
+#clothPanel .panel-title {
+  flex-shrink: 0;
+}
+
+#clothPanel #clothControls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  /* Keeps the value column clear of the vertical scrollbar. */
+  padding-right: 16px;
+}
+
+#clothPanel #clothControls > * {
+  min-width: 0;
+}
+
+#clothControls .fx-hint {
+  overflow-wrap: break-word;
+}
+
 .panel {
   background: rgba(20, 20, 22, 0.9);
   border: 1px solid #333;
@@ -227,6 +349,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 34px;
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid #2a2a30;
@@ -270,12 +393,27 @@ body {
   color: #b8ffe0;
 }
 
-#viewerPanel {
+#viewerPanel,
+#cleanViewerPanel {
   padding: 10px 12px 12px;
   flex-shrink: 0;
 }
 
-#c {
+#cleanViewerPanel {
+  align-self: flex-start;
+}
+
+.clean-viewer-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa3b2;
+  line-height: 22px;
+}
+
+#c,
+#cClean {
   display: block;
   width: 465px; /* 155 × 3 */
   height: 465px;
@@ -651,7 +789,14 @@ body {
 
 #fogSaveBtn,
 #sunSaveBtn,
-#oceanSaveBtn {
+#oceanSaveBtn,
+#clothWeightSaveBtn,
+#clothWeightResetBtn,
+#clothGroupCreateBtn,
+#clothGroupDeleteBtn,
+#clothGroupSelectBtn,
+#clothGroupAssignBtn,
+#clothGroupRemoveBtn {
   font: inherit;
   font-size: 13px;
   padding: 4px 12px;
@@ -664,33 +809,40 @@ body {
 
 #fogSaveBtn:hover:not(:disabled),
 #sunSaveBtn:hover:not(:disabled),
-#oceanSaveBtn:hover:not(:disabled) {
+#oceanSaveBtn:hover:not(:disabled),
+#clothWeightSaveBtn:hover:not(:disabled),
+#clothWeightResetBtn:hover:not(:disabled) {
   background: #3a3730;
 }
 
 #fogSaveBtn:disabled,
 #sunSaveBtn:disabled,
-#oceanSaveBtn:disabled {
+#oceanSaveBtn:disabled,
+#clothWeightSaveBtn:disabled,
+#clothWeightResetBtn:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
 #fogSaveStatus,
 #sunSaveStatus,
-#oceanSaveStatus {
+#oceanSaveStatus,
+#clothWeightSaveStatus {
   font-size: 12px;
   color: #888;
 }
 
 #fogSaveStatus.is-ok,
 #sunSaveStatus.is-ok,
-#oceanSaveStatus.is-ok {
+#oceanSaveStatus.is-ok,
+#clothWeightSaveStatus.is-ok {
   color: #7dcea0;
 }
 
 #fogSaveStatus.is-err,
 #sunSaveStatus.is-err,
-#oceanSaveStatus.is-err {
+#oceanSaveStatus.is-err,
+#clothWeightSaveStatus.is-err {
   color: #e07474;
 }
 
@@ -708,6 +860,7 @@ body {
 
 #brightnessControls label,
 #bloomControls label,
+#clothSimControls label,
 #clothControls label,
 #fogControls label:not(.fx-check),
 #sunControls label:not(.fx-check),
@@ -723,6 +876,7 @@ body {
 
 #brightnessControls input[type="range"],
 #bloomControls input[type="range"],
+#clothSimControls input[type="range"],
 #clothControls input[type="range"],
 #fogControls input[type="range"],
 #sunControls input[type="range"],
@@ -736,6 +890,7 @@ body {
 
 #brightnessControls span,
 #bloomControls span,
+#clothSimControls span,
 #clothControls span,
 #fogControls span,
 #sunControls span,
@@ -746,6 +901,56 @@ body {
   opacity: 0.85;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+#clothWeightRamp {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff2824 0%, #ffd614 50%, #2eb894 100%);
+}
+
+#clothControls #clothWeightMark {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 2px;
+  height: 18px;
+  transform: translateX(-50%);
+  background: #fff;
+  box-shadow: 0 0 0 1px #1a1a1e;
+  opacity: 1;
+  font-size: 0;
+  text-align: left;
+}
+
+#clothHitch,
+#clothGroup,
+#clothGroupName {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: #e8e6e3;
+  background: #2e2c28;
+  border: 1px solid #5a5346;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+#clothControls .fx-actions {
+  flex-wrap: wrap;
+}
+
+#clothHitch:disabled,
+#clothHitchDist:disabled,
+#clothHitchFollow:disabled,
+#clothGroupCreateBtn:disabled,
+#clothGroupDeleteBtn:disabled,
+#clothGroupSelectBtn:disabled,
+#clothGroupAssignBtn:disabled,
+#clothGroupRemoveBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 #refCard {

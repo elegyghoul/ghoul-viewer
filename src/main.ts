@@ -11,13 +11,14 @@ import {
   loadCalmPalette,
   type BloomMode,
 } from './dither';
-import { CloakClothManager, DEFAULT_CLOTH_PARAMS } from './cloth';
+import { CloakClothManager, DEFAULT_CLOTH_PARAMS, holdWeightRgb, type ClothParticleHit } from './cloth';
 import { CigSmokeManager } from './cigSmoke';
 import { SpecialOrbitManager } from './headOrbit';
 import { IdolTrailManager } from './idolTrail';
-import { EyeLookManager } from './eyeLook';
-import { EyeFlameManager, InfernalFlameManager, TorchFlameManager } from './torchFlame';
+import { EyeLookManager, type EyeMoveMode } from './eyeLook';
+import { CandleFlameManager, EyeFlameManager, InfernalFlameManager, TorchFlameManager } from './torchFlame';
 import { HaloLightManager } from './haloLight';
+import { GlassesLightManager } from './glassesLight';
 import { PositronicLights } from './positronicLights';
 import { bindToxicSlime, updateToxicSlime } from './toxicSlime';
 import { bindToxicMist, updateToxicMist } from './toxicMist';
@@ -194,8 +195,10 @@ export type GhoulViewer = {
 
 const canvas =
   document.querySelector<HTMLCanvasElement>('#c') ?? document.createElement('canvas');
+const cleanCanvas = document.querySelector<HTMLCanvasElement>('#cClean');
 
 let renderer: THREE.WebGLRenderer | null = null;
+let cleanRenderer: THREE.WebGLRenderer | null = null;
 let controls: OrbitControls | null = null;
 
 function attachEngine(): void {
@@ -209,10 +212,22 @@ function attachEngine(): void {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.BasicShadowMap;
   renderer.shadowMap.autoUpdate = false;
+  if (cleanCanvas && !cleanRenderer) {
+    cleanRenderer = new THREE.WebGLRenderer({ canvas: cleanCanvas, antialias: false, alpha: false });
+    cleanRenderer.setPixelRatio(1);
+    cleanRenderer.setSize(PIXEL_SIZE, PIXEL_SIZE, false);
+    cleanRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    cleanRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    cleanRenderer.toneMappingExposure = 1;
+    cleanRenderer.shadowMap.enabled = true;
+    cleanRenderer.shadowMap.type = THREE.BasicShadowMap;
+    cleanRenderer.shadowMap.autoUpdate = false;
+  }
   controls = new OrbitControls(camera, canvas);
   controls.target.set(0, 1.0, 0);
   controls.enableDamping = true;
-  controls.minDistance = 1;
+  controls.minDistance = orbitMinDistance();
+  applyCameraNear();
   controls.maxDistance = 10;
   controls.maxPolarAngle = Math.PI / 2;
   controls.addEventListener('change', syncCamUiFromCamera);
@@ -233,6 +248,26 @@ const _camFwd = new THREE.Vector3();
 /** World floor plane. Camera stays this far above it (also > near clip). */
 const FLOOR_Y = 0;
 const CAMERA_FLOOR_CLEARANCE = 0.12;
+/** Usual orbit dolly limit, in metres from the look target. */
+const ORBIT_MIN_DISTANCE = 1;
+/** Close-zoom dolly limit. Near clip drops with it so the mesh is not cut off. */
+const ORBIT_CLOSE_DISTANCE = 0.12;
+const CAMERA_NEAR = 0.05;
+const CAMERA_NEAR_CLOSE = 0.01;
+
+function closeZoomEnabled(): boolean {
+  const box = document.getElementById('closeZoom');
+  return box instanceof HTMLInputElement && box.checked;
+}
+
+function orbitMinDistance(): number {
+  return closeZoomEnabled() ? ORBIT_CLOSE_DISTANCE : ORBIT_MIN_DISTANCE;
+}
+
+function applyCameraNear(): void {
+  camera.near = closeZoomEnabled() ? CAMERA_NEAR_CLOSE : CAMERA_NEAR;
+  camera.updateProjectionMatrix();
+}
 
 function cameraFloorMinY(): number {
   return FLOOR_Y + CAMERA_FLOOR_CLEARANCE;
@@ -462,6 +497,7 @@ function applyLights(mix: LightMix): void {
       light.name === 'TorchFlameLight' ||
       light.name === 'EyeFlameLight' ||
       light.name === 'InfernalFlameLight' ||
+      light.name === 'CandleFlameLight' ||
       light.name === 'HaloPointLight'
     )
       return;
@@ -947,14 +983,18 @@ function syncGridAndBackground(): void {
 const clock = new THREE.Clock();
 const animator = new GhoulAnimator();
 const cloakCloth = new CloakClothManager();
+void cloakCloth.loadWeightOverrides();
 const cigSmoke = new CigSmokeManager();
 const torchFlame = new TorchFlameManager();
 const eyeFlame = new EyeFlameManager();
+const candleFlame = new CandleFlameManager();
 const eyeLook = new EyeLookManager();
+eyeLook.attach(canvas);
 const infernalFlame = new InfernalFlameManager();
 const specialOrbit = new SpecialOrbitManager();
 const idolTrail = new IdolTrailManager();
 const haloLight = new HaloLightManager();
+const glassesLight = new GlassesLightManager();
 const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
 const drool = new DroolManager();
@@ -962,6 +1002,7 @@ const ghoulball = new GhoulballController();
 const playMode = new PlayController();
 let assembler: GhoulAssembler | null = null;
 let dither: DitherComposer | null = null;
+let cleanDither: DitherComposer | null = null;
 let currentId = 0;
 let updateUrlFlag = !!document.getElementById('workspace');
 let bootPromise: Promise<void> | null = null;
@@ -990,6 +1031,12 @@ const lightSunElevationInput = q<HTMLInputElement>('#lightSunElevation');
 const lightSunVal = q<HTMLSpanElement>('#lightSunVal');
 const lightSunAzimuthVal = q<HTMLSpanElement>('#lightSunAzimuthVal');
 const lightSunElevationVal = q<HTMLSpanElement>('#lightSunElevationVal');
+const lightGlassesInput = q<HTMLInputElement>('#lightGlasses');
+const lightGlassesDistInput = q<HTMLInputElement>('#lightGlassesDist');
+const lightGlassesRangeInput = q<HTMLInputElement>('#lightGlassesRange');
+const lightGlassesVal = q<HTMLSpanElement>('#lightGlassesVal');
+const lightGlassesDistVal = q<HTMLSpanElement>('#lightGlassesDistVal');
+const lightGlassesRangeVal = q<HTMLSpanElement>('#lightGlassesRangeVal');
 
 function applySunLevelsToLights(
   sun: Pick<LightLevels, 'sun' | 'sunAzimuth' | 'sunElevation'>,
@@ -1024,6 +1071,19 @@ const clothStiffnessTipVal = q<HTMLSpanElement>('#clothStiffnessTipVal');
 const clothRestBlendVal = q<HTMLSpanElement>('#clothRestBlendVal');
 const clothGravityVal = q<HTMLSpanElement>('#clothGravityVal');
 const clothDampingVal = q<HTMLSpanElement>('#clothDampingVal');
+const clothWeightHint = q<HTMLElement>('#clothWeightHint');
+const clothWeightInput = q<HTMLInputElement>('#clothWeight');
+const clothWeightVal = q<HTMLSpanElement>('#clothWeightVal');
+const clothWeightMark = q<HTMLElement>('#clothWeightMark');
+const clothWeightMirrorInput = q<HTMLInputElement>('#clothWeightMirror');
+const clothHitchSelect = q<HTMLSelectElement>('#clothHitch');
+const clothHitchDistInput = q<HTMLInputElement>('#clothHitchDist');
+const clothHitchDistVal = q<HTMLSpanElement>('#clothHitchDistVal');
+const clothHitchFollowInput = q<HTMLInputElement>('#clothHitchFollow');
+const clothHitchFollowVal = q<HTMLSpanElement>('#clothHitchFollowVal');
+const clothWeightSaveBtn = q<HTMLButtonElement>('#clothWeightSaveBtn');
+const clothWeightResetBtn = q<HTMLButtonElement>('#clothWeightResetBtn');
+const clothWeightSaveStatus = q<HTMLElement>('#clothWeightSaveStatus');
 const refImage = q<HTMLImageElement>('#refImage');
 const refLabel = q<HTMLSpanElement>('#refLabel');
 const ghoulIdInput = q<HTMLInputElement>('#ghoulId');
@@ -1045,10 +1105,15 @@ const TRAIT_COVER_IDS: readonly number[] = [
 ];
 let traitCoverIndex = 0;
 const animSelect = q<HTMLSelectElement>('#animSelect');
-const animButtons = [...document.querySelectorAll<HTMLButtonElement>('.anim-btn')];
+const animButtons = [...document.querySelectorAll<HTMLButtonElement>('.anim-btn[data-anim]')];
+const eyeMoveButtons = [...document.querySelectorAll<HTMLButtonElement>('.eye-move-btn')];
 const colliderDebugBtn = q<HTMLButtonElement>('#colliderDebugBtn');
 const particleDebugBtn = q<HTMLButtonElement>('#particleDebugBtn');
+const pinDebugBtn = q<HTMLButtonElement>('#pinDebugBtn');
 const particlePickHud = q<HTMLSpanElement>('#particlePickHud');
+const particlePickName = q<HTMLSpanElement>('#particlePickName');
+const particlePickAngle = q<HTMLSpanElement>('#particlePickAngle');
+const particlePickHeight = q<HTMLSpanElement>('#particlePickHeight');
 const lightDebugBtn = q<HTMLButtonElement>('#lightDebugBtn');
 const bgModeGridBtn = q<HTMLButtonElement>('#bgModeGridBtn');
 const bgModeTraitBtn = q<HTMLButtonElement>('#bgModeTraitBtn');
@@ -2025,6 +2090,30 @@ for (const input of [
 initLightControls();
 lightResetBtn.addEventListener('click', resetLights);
 
+function syncGlassesLight(): void {
+  if (lightGlassesInput instanceof HTMLInputElement) {
+    glassesLight.setStrength(Number(lightGlassesInput.value));
+    if (lightGlassesVal.isConnected) lightGlassesVal.textContent = Number(lightGlassesInput.value).toFixed(3);
+  }
+  if (lightGlassesDistInput instanceof HTMLInputElement) {
+    glassesLight.setDistance(Number(lightGlassesDistInput.value));
+    if (lightGlassesDistVal.isConnected) {
+      lightGlassesDistVal.textContent = Number(lightGlassesDistInput.value).toFixed(2);
+    }
+  }
+  if (lightGlassesRangeInput instanceof HTMLInputElement) {
+    glassesLight.setRange(Number(lightGlassesRangeInput.value));
+    if (lightGlassesRangeVal.isConnected) {
+      lightGlassesRangeVal.textContent = Number(lightGlassesRangeInput.value).toFixed(2);
+    }
+  }
+}
+
+lightGlassesInput.addEventListener('input', syncGlassesLight);
+lightGlassesDistInput.addEventListener('input', syncGlassesLight);
+lightGlassesRangeInput.addEventListener('input', syncGlassesLight);
+syncGlassesLight();
+
 const TRAIT_LABELS: { key: keyof GhoulTraits; label: string }[] = [
   { key: 'ghoul', label: 'Ghoul' },
   { key: 'background', label: 'Background' },
@@ -2169,6 +2258,552 @@ for (const input of [
 }
 initClothControls();
 
+let clothWeightSyncing = false;
+let clothWeightPick: { family: string; id: number; mirrorId: number } | null = null;
+
+function setClothWeightStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {
+  if (!(clothWeightSaveStatus instanceof HTMLElement) || !clothWeightSaveStatus.isConnected) return;
+  clothWeightSaveStatus.textContent = text;
+  clothWeightSaveStatus.classList.toggle('is-ok', kind === 'ok');
+  clothWeightSaveStatus.classList.toggle('is-err', kind === 'err');
+}
+
+function refreshPinnedButton(): void {
+  if (!(pinDebugBtn instanceof HTMLButtonElement) || !pinDebugBtn.isConnected) return;
+  if (pinDebugBtn.getAttribute('aria-pressed') !== 'true') return;
+  pinDebugBtn.textContent = `Pinned (${cloakCloth.pinnedCount})`;
+}
+
+function syncClothHitchSelect(family: string | null, id: number): void {
+  if (!(clothHitchSelect instanceof HTMLSelectElement) || !clothHitchSelect.isConnected) return;
+  if (!family) {
+    clothHitchSelect.value = '';
+    clothHitchSelect.disabled = true;
+    syncClothHitchDistance();
+    syncClothHitchFollow();
+    return;
+  }
+  clothHitchSelect.disabled = false;
+  clothHitchSelect.value = cloakCloth.particleHitchName(family, id) ?? '';
+  syncClothHitchDistance();
+  syncClothHitchFollow();
+}
+
+function syncClothHitchDistance(): void {
+  const hasSlider = clothHitchDistInput instanceof HTMLInputElement && clothHitchDistInput.isConnected;
+  if (!hasSlider) return;
+  const dists = cloakCloth.selectionHitchDistances();
+  if (dists.length === 0) {
+    clothHitchDistInput.disabled = true;
+    clothHitchDistInput.value = '0';
+    if (clothHitchDistVal instanceof HTMLElement && clothHitchDistVal.isConnected) {
+      clothHitchDistVal.textContent = '—';
+    }
+    return;
+  }
+  const first = dists[0]!;
+  const same = dists.every((d) => Math.abs(d - first) <= 0.001);
+  const shown = same ? first : dists.reduce((sum, d) => sum + d, 0) / dists.length;
+  clothHitchDistInput.disabled = false;
+  clothHitchDistInput.max = String(Math.max(0.6, ...dists, shown));
+  clothHitchDistInput.value = String(shown);
+  if (clothHitchDistVal instanceof HTMLElement && clothHitchDistVal.isConnected) {
+    clothHitchDistVal.textContent = same ? (shown * 100).toFixed(1) : 'mix';
+  }
+}
+
+function syncClothHitchFollow(): void {
+  const hasSlider = clothHitchFollowInput instanceof HTMLInputElement && clothHitchFollowInput.isConnected;
+  if (!hasSlider) return;
+  const amounts = cloakCloth.selectionHitchFollows();
+  if (amounts.length === 0) {
+    clothHitchFollowInput.disabled = true;
+    clothHitchFollowInput.value = '1';
+    if (clothHitchFollowVal instanceof HTMLElement && clothHitchFollowVal.isConnected) {
+      clothHitchFollowVal.textContent = '—';
+    }
+    return;
+  }
+  const first = amounts[0]!;
+  const same = amounts.every((amount) => Math.abs(amount - first) <= 0.005);
+  const shown = same ? first : amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
+  clothHitchFollowInput.disabled = false;
+  clothHitchFollowInput.value = String(shown);
+  if (clothHitchFollowVal instanceof HTMLElement && clothHitchFollowVal.isConnected) {
+    clothHitchFollowVal.textContent = same ? String(Math.round(shown * 100)) : 'mix';
+  }
+}
+
+function paintClothWeightReadout(weight: number): void {
+  if (clothWeightVal instanceof HTMLElement && clothWeightVal.isConnected) {
+    clothWeightVal.textContent = weight.toFixed(2);
+    const [r, g, b] = holdWeightRgb(weight);
+    clothWeightVal.style.color = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+  }
+  if (clothWeightMark instanceof HTMLElement && clothWeightMark.isConnected) {
+    clothWeightMark.style.left = `${Math.min(1, Math.max(0, weight)) * 100}%`;
+  }
+}
+
+function particleWeightLabel(family: string, id: number, weight: number, mirrorId: number): string {
+  const mirror = mirrorId >= 0 ? ` · mirror #${mirrorId}` : '';
+  return `${family} #${id} · weight ${weight.toFixed(2)}${mirror}`;
+}
+
+function syncClothWeightPanel(hit: ClothParticleHit | null): void {
+  clothWeightSyncing = true;
+  const hasSlider = clothWeightInput instanceof HTMLInputElement && clothWeightInput.isConnected;
+  if (!hit || !hasSlider) {
+    clothWeightPick = hit
+      ? { family: hit.family, id: hit.id, mirrorId: hit.mirrorId }
+      : clothWeightPick;
+    if (!hit) clothWeightPick = null;
+    if (clothWeightHint instanceof HTMLElement && clothWeightHint.isConnected) {
+      clothWeightHint.textContent = hit
+        ? `${hit.family} #${hit.id}`
+        : 'Show Particles, then click one on the cloak';
+    }
+    if (hasSlider && !hit) clothWeightInput.disabled = true;
+    if (clothWeightResetBtn instanceof HTMLButtonElement && clothWeightResetBtn.isConnected) {
+      clothWeightResetBtn.disabled = !hit;
+    }
+    if (hit) paintClothWeightReadout(hit.weight);
+    syncClothHitchSelect(hit ? hit.family : null, hit ? hit.id : -1);
+    clothWeightSyncing = false;
+    return;
+  }
+  clothWeightPick = { family: hit.family, id: hit.id, mirrorId: hit.mirrorId };
+  if (clothWeightHint instanceof HTMLElement && clothWeightHint.isConnected) {
+    clothWeightHint.textContent = `${hit.family} #${hit.id}`;
+  }
+  clothWeightInput.disabled = false;
+  clothWeightInput.value = (Math.round(hit.weight * 100) / 100).toFixed(2);
+  if (clothWeightResetBtn instanceof HTMLButtonElement && clothWeightResetBtn.isConnected) {
+    clothWeightResetBtn.disabled = false;
+  }
+  paintClothWeightReadout(hit.weight);
+  syncClothHitchSelect(hit.family, hit.id);
+  clothWeightSyncing = false;
+}
+
+function applyClothWeightFromUi(): void {
+  if (clothWeightSyncing || !clothWeightPick) return;
+  if (!(clothWeightInput instanceof HTMLInputElement)) return;
+  const weight = Number(clothWeightInput.value);
+  const mirror = clothWeightMirrorInput instanceof HTMLInputElement && clothWeightMirrorInput.checked;
+  cloakCloth.setParticleWeight(clothWeightPick.family, clothWeightPick.id, weight, mirror);
+  if (clothHitchSelect instanceof HTMLSelectElement && clothHitchSelect.isConnected) {
+    clothHitchSelect.value = '';
+  }
+  syncClothHitchDistance();
+  refreshPinnedButton();
+  paintClothWeightReadout(weight);
+  if (particlePickName.isConnected) {
+    particlePickName.textContent = particleWeightLabel(
+      clothWeightPick.family,
+      clothWeightPick.id,
+      weight,
+      clothWeightPick.mirrorId,
+    );
+  }
+  setClothWeightStatus('Unsaved');
+}
+
+function resetClothWeightFromUi(): void {
+  if (!clothWeightPick) return;
+  const mirror = clothWeightMirrorInput instanceof HTMLInputElement && clothWeightMirrorInput.checked;
+  cloakCloth.resetParticleWeight(clothWeightPick.family, clothWeightPick.id, mirror);
+  const weight = cloakCloth.particleHold(clothWeightPick.family, clothWeightPick.id) ?? 0;
+  clothWeightSyncing = true;
+  if (clothWeightInput instanceof HTMLInputElement && clothWeightInput.isConnected) {
+    clothWeightInput.value = (Math.round(weight * 100) / 100).toFixed(2);
+  }
+  clothWeightSyncing = false;
+  paintClothWeightReadout(weight);
+  syncClothHitchSelect(clothWeightPick.family, clothWeightPick.id);
+  refreshPinnedButton();
+  if (particlePickName.isConnected) {
+    particlePickName.textContent = particleWeightLabel(
+      clothWeightPick.family,
+      clothWeightPick.id,
+      weight,
+      clothWeightPick.mirrorId,
+    );
+  }
+  setClothWeightStatus('Unsaved');
+}
+
+async function saveClothWeights(): Promise<void> {
+  if (!(clothWeightSaveBtn instanceof HTMLButtonElement) || !clothWeightSaveBtn.isConnected) return;
+  clothWeightSaveBtn.disabled = true;
+  setClothWeightStatus('Saving…');
+  try {
+    const res = await fetch('/__dev/save-cloth-weights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cloakCloth.exportWeightOverrides()),
+    });
+    const json = await readDevSaveJson(res);
+    if (!json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    setClothWeightStatus('Saved', 'ok');
+  } catch (e) {
+    setClothWeightStatus(devSaveError(e), 'err');
+  } finally {
+    clothWeightSaveBtn.disabled = false;
+  }
+}
+
+if (clothWeightInput instanceof HTMLInputElement && clothWeightInput.isConnected) {
+  clothWeightInput.addEventListener('input', applyClothWeightFromUi);
+}
+if (clothWeightMirrorInput instanceof HTMLInputElement && clothWeightMirrorInput.isConnected) {
+  clothWeightMirrorInput.addEventListener('change', () => {
+    if (!clothWeightMirrorInput.checked || !clothWeightPick) return;
+    const bone =
+      clothHitchSelect instanceof HTMLSelectElement && clothHitchSelect.isConnected
+        ? clothHitchSelect.value
+        : '';
+    const dist =
+      clothHitchDistInput instanceof HTMLInputElement && clothHitchDistInput.isConnected
+        ? Number(clothHitchDistInput.value)
+        : 0;
+    const follow =
+      clothHitchFollowInput instanceof HTMLInputElement && clothHitchFollowInput.isConnected
+        ? Number(clothHitchFollowInput.value)
+        : 1;
+    applyClothWeightFromUi();
+    if (!bone) return;
+    cloakCloth.setSelectionHitch(bone, true);
+    if (Number.isFinite(dist)) {
+      cloakCloth.setSelectionHitchDistance(dist, true);
+    }
+    if (Number.isFinite(follow)) {
+      cloakCloth.setSelectionHitchFollow(follow, true);
+    }
+    clothWeightSyncing = true;
+    syncClothHitchSelect(clothWeightPick.family, clothWeightPick.id);
+    clothWeightSyncing = false;
+    refreshPinnedButton();
+  });
+}
+if (clothHitchSelect instanceof HTMLSelectElement && clothHitchSelect.isConnected) {
+  clothHitchSelect.addEventListener('change', () => {
+    if (clothWeightSyncing || !clothWeightPick) return;
+    const bone = clothHitchSelect.value === '' ? null : clothHitchSelect.value;
+    const mirror = clothWeightMirrorInput instanceof HTMLInputElement && clothWeightMirrorInput.checked;
+    if (cloakCloth.selectionCount === 0) {
+      cloakCloth.setParticleHitch(clothWeightPick.family, clothWeightPick.id, bone, mirror);
+    } else {
+      cloakCloth.setSelectionHitch(bone, mirror);
+    }
+    clothWeightSyncing = true;
+    syncClothHitchDistance();
+    syncClothHitchFollow();
+    clothWeightSyncing = false;
+    setClothWeightStatus('Unsaved');
+    refreshPinnedButton();
+  });
+}
+if (clothHitchDistInput instanceof HTMLInputElement && clothHitchDistInput.isConnected) {
+  clothHitchDistInput.addEventListener('input', () => {
+    if (clothWeightSyncing || !clothWeightPick) return;
+    if (clothHitchDistInput.disabled) return;
+    const meters = Number(clothHitchDistInput.value);
+    if (!Number.isFinite(meters)) return;
+    const mirror = clothWeightMirrorInput instanceof HTMLInputElement && clothWeightMirrorInput.checked;
+    cloakCloth.setSelectionHitchDistance(meters, mirror);
+    if (clothHitchDistVal instanceof HTMLElement && clothHitchDistVal.isConnected) {
+      clothHitchDistVal.textContent = (meters * 100).toFixed(1);
+    }
+    setClothWeightStatus('Unsaved');
+  });
+}
+if (clothHitchFollowInput instanceof HTMLInputElement && clothHitchFollowInput.isConnected) {
+  clothHitchFollowInput.addEventListener('input', () => {
+    if (clothWeightSyncing || !clothWeightPick) return;
+    if (clothHitchFollowInput.disabled) return;
+    const amount = Number(clothHitchFollowInput.value);
+    if (!Number.isFinite(amount)) return;
+    const mirror = clothWeightMirrorInput instanceof HTMLInputElement && clothWeightMirrorInput.checked;
+    cloakCloth.setSelectionHitchFollow(amount, mirror);
+    if (clothHitchFollowVal instanceof HTMLElement && clothHitchFollowVal.isConnected) {
+      clothHitchFollowVal.textContent = String(Math.round(amount * 100));
+    }
+    setClothWeightStatus('Unsaved');
+  });
+}
+if (clothWeightResetBtn instanceof HTMLButtonElement && clothWeightResetBtn.isConnected) {
+  clothWeightResetBtn.addEventListener('click', resetClothWeightFromUi);
+}
+if (clothWeightSaveBtn instanceof HTMLButtonElement && clothWeightSaveBtn.isConnected) {
+  clothWeightSaveBtn.addEventListener('click', () => {
+    void saveClothWeights();
+  });
+}
+
+type ClothParticleGroup = {
+  id: string;
+  name: string;
+  members: Record<string, number[]>;
+};
+
+const clothGroupSelect = q<HTMLSelectElement>('#clothGroup');
+const clothGroupCount = q<HTMLElement>('#clothGroupCount');
+const clothGroupNameInput = q<HTMLInputElement>('#clothGroupName');
+const clothGroupCreateBtn = q<HTMLButtonElement>('#clothGroupCreateBtn');
+const clothGroupDeleteBtn = q<HTMLButtonElement>('#clothGroupDeleteBtn');
+const clothGroupSelectBtn = q<HTMLButtonElement>('#clothGroupSelectBtn');
+const clothGroupAssignBtn = q<HTMLButtonElement>('#clothGroupAssignBtn');
+const clothGroupRemoveBtn = q<HTMLButtonElement>('#clothGroupRemoveBtn');
+const clothGroupStatus = q<HTMLElement>('#clothGroupStatus');
+
+let clothGroups: ClothParticleGroup[] = [];
+
+function setClothGroupStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {
+  if (!(clothGroupStatus instanceof HTMLElement) || !clothGroupStatus.isConnected) return;
+  clothGroupStatus.textContent = text;
+  clothGroupStatus.classList.toggle('is-ok', kind === 'ok');
+  clothGroupStatus.classList.toggle('is-err', kind === 'err');
+}
+
+function clothGroupById(id: string): ClothParticleGroup | undefined {
+  return clothGroups.find((group) => group.id === id);
+}
+
+function clothGroupMemberTotal(group: ClothParticleGroup): number {
+  let n = 0;
+  for (const ids of Object.values(group.members)) n += ids.length;
+  return n;
+}
+
+function refreshClothGroupUi(): void {
+  if (!(clothGroupSelect instanceof HTMLSelectElement) || !clothGroupSelect.isConnected) return;
+  const current = clothGroupSelect.value;
+  clothGroupSelect.replaceChildren();
+  if (clothGroups.length === 0) {
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = 'No groups';
+    clothGroupSelect.append(empty);
+  } else {
+    for (const group of clothGroups) {
+      const option = document.createElement('option');
+      option.value = group.id;
+      option.textContent = group.name;
+      clothGroupSelect.append(option);
+    }
+    if (clothGroups.some((group) => group.id === current)) clothGroupSelect.value = current;
+  }
+  const group = clothGroupById(clothGroupSelect.value);
+  const total = group ? clothGroupMemberTotal(group) : 0;
+  if (clothGroupCount instanceof HTMLElement && clothGroupCount.isConnected) {
+    clothGroupCount.textContent = group ? String(total) : '';
+  }
+  const hasGroup = group != null;
+  const hasSelection = cloakCloth.selectionCount > 0;
+  if (clothGroupDeleteBtn instanceof HTMLButtonElement) clothGroupDeleteBtn.disabled = !hasGroup;
+  if (clothGroupSelectBtn instanceof HTMLButtonElement) clothGroupSelectBtn.disabled = !hasGroup || total === 0;
+  if (clothGroupAssignBtn instanceof HTMLButtonElement) clothGroupAssignBtn.disabled = !hasGroup || !hasSelection;
+  if (clothGroupRemoveBtn instanceof HTMLButtonElement) clothGroupRemoveBtn.disabled = !hasGroup || !hasSelection;
+}
+
+function clothGroupIdFromName(name: string): string {
+  const base = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  const root = base || 'group';
+  const taken = new Set(clothGroups.map((group) => group.id));
+  let id = root;
+  let n = 2;
+  while (taken.has(id)) {
+    const suffix = `-${n}`;
+    id = `${root.slice(0, 40 - suffix.length)}${suffix}`;
+    n++;
+  }
+  return id;
+}
+
+function addGroupMembers(group: ClothParticleGroup, particles: readonly { family: string; id: number }[]): number {
+  let added = 0;
+  for (const particle of particles) {
+    const list = group.members[particle.family] ?? [];
+    if (list.includes(particle.id)) continue;
+    list.push(particle.id);
+    list.sort((a, b) => a - b);
+    group.members[particle.family] = list;
+    added++;
+  }
+  return added;
+}
+
+function removeGroupMembers(group: ClothParticleGroup, particles: readonly { family: string; id: number }[]): number {
+  let removed = 0;
+  for (const particle of particles) {
+    const list = group.members[particle.family];
+    if (!list) continue;
+    const next = list.filter((id) => id !== particle.id);
+    removed += list.length - next.length;
+    if (next.length === 0) delete group.members[particle.family];
+    else group.members[particle.family] = next;
+  }
+  return removed;
+}
+
+async function readDevSaveJson(res: Response): Promise<{ ok?: boolean; error?: string }> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as { ok?: boolean; error?: string };
+  } catch {
+    throw new Error('LOCAL_ONLY');
+  }
+}
+
+function devSaveError(e: unknown): string {
+  const message = e instanceof Error ? e.message : String(e);
+  if (message === 'LOCAL_ONLY' || message === 'Failed to fetch') {
+    return 'Saving only works in the local viewer';
+  }
+  return message;
+}
+
+async function saveClothGroups(): Promise<boolean> {
+  try {
+    const res = await fetch('/__dev/save-cloth-groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groups: clothGroups }),
+    });
+    const json = await readDevSaveJson(res);
+    if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    return true;
+  } catch (e) {
+    setClothGroupStatus(devSaveError(e), 'err');
+    return false;
+  }
+}
+
+async function loadClothGroups(): Promise<void> {
+  try {
+    const res = await fetch('/data/cloth-particle-groups.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = (await res.json()) as { groups?: ClothParticleGroup[] };
+    if (!Array.isArray(data.groups)) return;
+    clothGroups = data.groups.flatMap((group) => {
+      if (!group || typeof group.id !== 'string' || typeof group.name !== 'string' || !group.members) return [];
+      const members: Record<string, number[]> = {};
+      for (const [family, ids] of Object.entries(group.members)) {
+        if (!Array.isArray(ids)) continue;
+        const clean = ids.filter((id) => Number.isInteger(id) && id >= 0);
+        if (clean.length > 0) members[family] = clean;
+      }
+      return [{ id: group.id, name: group.name, members }];
+    });
+  } catch {
+    clothGroups = [];
+  }
+  refreshClothGroupUi();
+}
+
+if (clothGroupSelect instanceof HTMLSelectElement && clothGroupSelect.isConnected) {
+  clothGroupSelect.addEventListener('change', () => {
+    refreshClothGroupUi();
+    setClothGroupStatus('');
+  });
+}
+
+if (clothGroupNameInput instanceof HTMLInputElement && clothGroupNameInput.isConnected) {
+  clothGroupNameInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (clothGroupCreateBtn instanceof HTMLButtonElement) clothGroupCreateBtn.click();
+  });
+}
+
+if (clothGroupCreateBtn instanceof HTMLButtonElement && clothGroupCreateBtn.isConnected) {
+  clothGroupCreateBtn.addEventListener('click', () => {
+    const name = clothGroupNameInput instanceof HTMLInputElement ? clothGroupNameInput.value.trim() : '';
+    if (!name) {
+      setClothGroupStatus('Name the group first', 'err');
+      return;
+    }
+    const group: ClothParticleGroup = { id: clothGroupIdFromName(name), name: name.slice(0, 40), members: {} };
+    clothGroups.push(group);
+    if (clothGroupNameInput instanceof HTMLInputElement) clothGroupNameInput.value = '';
+    refreshClothGroupUi();
+    if (clothGroupSelect instanceof HTMLSelectElement) clothGroupSelect.value = group.id;
+    refreshClothGroupUi();
+    setClothGroupStatus('Saving…');
+    void saveClothGroups().then((ok) => {
+      if (ok) setClothGroupStatus(`Saved “${group.name}”`, 'ok');
+    });
+  });
+}
+
+if (clothGroupDeleteBtn instanceof HTMLButtonElement && clothGroupDeleteBtn.isConnected) {
+  clothGroupDeleteBtn.addEventListener('click', () => {
+    if (!(clothGroupSelect instanceof HTMLSelectElement)) return;
+    const group = clothGroupById(clothGroupSelect.value);
+    if (!group) return;
+    clothGroups = clothGroups.filter((entry) => entry.id !== group.id);
+    refreshClothGroupUi();
+    setClothGroupStatus('Saving…');
+    void saveClothGroups().then((ok) => {
+      if (ok) setClothGroupStatus(`Deleted “${group.name}”`, 'ok');
+    });
+  });
+}
+
+if (clothGroupSelectBtn instanceof HTMLButtonElement && clothGroupSelectBtn.isConnected) {
+  clothGroupSelectBtn.addEventListener('click', () => {
+    if (!(clothGroupSelect instanceof HTMLSelectElement)) return;
+    const group = clothGroupById(clothGroupSelect.value);
+    if (!group) return;
+    const hits = cloakCloth.hitsForMembers(group.members);
+    const absent = cloakCloth.absentMemberCount(group.members);
+    showParticleSelection(hits);
+    if (hits.length === 0 && absent === 0) {
+      setClothGroupStatus(`“${group.name}” is empty`, 'err');
+      return;
+    }
+    const extra = absent > 0 ? ` · ${absent} on another cloak` : '';
+    const see = cloakCloth.showingParticles ? '' : ' · turn Particles on to see them';
+    setClothGroupStatus(`Selected ${hits.length}${extra}${see}`, 'ok');
+  });
+}
+
+if (clothGroupAssignBtn instanceof HTMLButtonElement && clothGroupAssignBtn.isConnected) {
+  clothGroupAssignBtn.addEventListener('click', () => {
+    if (!(clothGroupSelect instanceof HTMLSelectElement)) return;
+    const group = clothGroupById(clothGroupSelect.value);
+    if (!group) return;
+    const added = addGroupMembers(group, cloakCloth.selectedParticles());
+    refreshClothGroupUi();
+    setClothGroupStatus('Saving…');
+    void saveClothGroups().then((ok) => {
+      if (ok) setClothGroupStatus(added > 0 ? `Assigned ${added} to “${group.name}”` : 'Already in that group', 'ok');
+    });
+  });
+}
+
+if (clothGroupRemoveBtn instanceof HTMLButtonElement && clothGroupRemoveBtn.isConnected) {
+  clothGroupRemoveBtn.addEventListener('click', () => {
+    if (!(clothGroupSelect instanceof HTMLSelectElement)) return;
+    const group = clothGroupById(clothGroupSelect.value);
+    if (!group) return;
+    const removed = removeGroupMembers(group, cloakCloth.selectedParticles());
+    refreshClothGroupUi();
+    setClothGroupStatus('Saving…');
+    void saveClothGroups().then((ok) => {
+      if (ok) setClothGroupStatus(removed > 0 ? `Removed ${removed} from “${group.name}”` : 'None of those were in the group', 'ok');
+    });
+  });
+}
+
+void loadClothGroups();
+
 function clampGhoulId(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.min(6665, Math.max(0, Math.floor(n)));
@@ -2240,7 +2875,7 @@ function frameCamera(asm: GhoulAssembler): void {
   }
   controls.target.copy(target);
   camera.position.set(target.x + dist * 0.2, target.y + height * 0.05, target.z + dist);
-  camera.near = 0.05;
+  applyCameraNear();
   camera.far = Math.max(SKYBOX_CLIP_FAR, dist * 20);
   camera.updateProjectionMatrix();
   controls.update();
@@ -2554,7 +3189,7 @@ function applyCamZoom(zoom: number): void {
   camUiWriting = true;
   _camOff.copy(camera.position).sub(controls.target);
   _camSph.setFromVector3(_camOff);
-  _camSph.radius = Math.min(10, Math.max(1, zoom));
+  _camSph.radius = Math.min(10, Math.max(orbitMinDistance(), zoom));
   camera.position.copy(controls.target).add(_camOff.setFromSpherical(_camSph));
   constrainOrbitToFloor();
   controls.update();
@@ -2702,12 +3337,16 @@ function doLoad(id?: number): void {
     const traits = loadGhoul(assembler, n);
     showTraits(traits);
     frameCharacter(assembler);
-    if (playMode.active) {
-      playMode.syncFloorFromRoot();
-      playMode.refreshLocomotion();
-    }
+    if (playMode.active) playMode.syncFloorFromRoot();
     bindToxicSlime(assembler.root);
     bindToxicMist(assembler.root, scene);
+    // The tattered sim is created once, and sleeve verts are pinned to the
+    // arm pose at that moment. play() does not sample until the next frame,
+    // so a direct load is still on the GLB T-pose: the forearms are out, the
+    // cloak pins an outward offset, and it hangs off the ribs. A later switch
+    // builds the sim after Idle is already playing.
+    animator.snapTo(playMode.active ? 'Idle' : selectedAnim());
+    if (playMode.active) playMode.refreshLocomotion();
     cloakCloth.sync();
     drool.sync(assembler.root, scene, [
       { anchorNames: ['Sludge Mouth', 'Sludge_Mouth'], style: DROOL_PRESETS.sludge },
@@ -2716,11 +3355,13 @@ function doLoad(id?: number): void {
     cigSmoke.sync(assembler.root, scene);
     torchFlame.sync(assembler.root, scene);
     eyeFlame.sync(assembler.root, scene);
+    candleFlame.sync(assembler.root, scene);
     eyeLook.sync(assembler.root);
     infernalFlame.sync(assembler.root, scene);
     specialOrbit.sync(assembler.root);
     idolTrail.sync(assembler.root, scene);
     haloLight.sync(assembler.root);
+    glassesLight.sync(assembler.root);
     positronicLights.sync(assembler.root);
     void cudiParticles.sync(assembler.root, scene);
     playSelectedAnim();
@@ -2736,7 +3377,7 @@ function doLoad(id?: number): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame')) extras.push(pts);
+        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame') || pts.name.startsWith('CandleFlame')) extras.push(pts);
       });
       const refUrl =
         refImage.src || `/Ghouls/${String(n).padStart(4, '0')}.png`;
@@ -2761,6 +3402,20 @@ function loadFromTraitCover(): void {
 
 ghoulLoadBtn.addEventListener('click', loadFromPicker);
 resetPoseBtn.addEventListener('click', () => resetGhoulAndCamera());
+
+const closeZoomInput = q<HTMLInputElement>('#closeZoom');
+if (closeZoomInput instanceof HTMLInputElement && closeZoomInput.isConnected) {
+  closeZoomInput.addEventListener('change', () => {
+    if (!controls) return;
+    controls.minDistance = orbitMinDistance();
+    applyCameraNear();
+    if (!closeZoomEnabled() && controls.getDistance() < ORBIT_MIN_DISTANCE) {
+      applyCamZoom(ORBIT_MIN_DISTANCE);
+    } else {
+      controls.update();
+    }
+  });
+}
 ghoulIdInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -2806,6 +3461,21 @@ for (const btn of animButtons) {
   });
 }
 
+function setEyeMove(mode: EyeMoveMode): void {
+  eyeLook.setMode(mode);
+  for (const btn of eyeMoveButtons) {
+    btn.setAttribute('aria-pressed', btn.dataset.eyeMove === mode ? 'true' : 'false');
+  }
+}
+
+for (const btn of eyeMoveButtons) {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.eyeMove;
+    if (mode !== 'none' && mode !== 'natural' && mode !== 'follow') return;
+    setEyeMove(mode);
+  });
+}
+
 colliderDebugBtn.addEventListener('click', () => {
   const next = !cloakCloth.showingColliders;
   cloakCloth.setShowColliders(next, scene);
@@ -2815,6 +3485,15 @@ colliderDebugBtn.addEventListener('click', () => {
     : 'Colliders';
 });
 
+const particleCullBtn = q<HTMLButtonElement>('#particleCullBtn');
+if (particleCullBtn instanceof HTMLButtonElement && particleCullBtn.isConnected) {
+  particleCullBtn.addEventListener('click', () => {
+    const next = particleCullBtn.getAttribute('aria-pressed') !== 'true';
+    cloakCloth.setParticleCull(next);
+    particleCullBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
+  });
+}
+
 particleDebugBtn.addEventListener('click', () => {
   const next = !cloakCloth.showingParticles;
   cloakCloth.setShowParticles(next, scene);
@@ -2823,47 +3502,159 @@ particleDebugBtn.addEventListener('click', () => {
     ? `Particles (${cloakCloth.particleCount})`
     : 'Particles';
   particlePickHud.hidden = !next;
-  if (!next) particlePickHud.textContent = '';
+  if (!next) {
+    particlePickName.textContent = '';
+    particlePickAngle.textContent = '';
+    particlePickAngle.hidden = true;
+    particlePickHeight.textContent = '';
+    particlePickHeight.hidden = true;
+  }
 });
 
-let particlePointer: { x: number; y: number } | null = null;
-canvas.addEventListener('pointerdown', (e) => {
-  if (!cloakCloth.showingParticles) return;
-  particlePointer = { x: e.clientX, y: e.clientY };
+pinDebugBtn.addEventListener('click', () => {
+  if (!pinDebugBtn.isConnected) return;
+  const next = !cloakCloth.showingPins;
+  cloakCloth.setShowPins(next, scene);
+  pinDebugBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
+  pinDebugBtn.textContent = next ? `Pinned (${cloakCloth.pinnedCount})` : 'Pinned';
 });
-window.addEventListener(
-  'pointerup',
-  (e) => {
-    if (!cloakCloth.showingParticles || !particlePointer) return;
-    const dx = e.clientX - particlePointer.x;
-    const dy = e.clientY - particlePointer.y;
-    particlePointer = null;
-    if (dx * dx + dy * dy > 64) return;
-    const rect = canvas.getBoundingClientRect();
-    if (
-      e.clientX < rect.left ||
-      e.clientX > rect.right ||
-      e.clientY < rect.top ||
-      e.clientY > rect.bottom
-    ) {
-      return;
-    }
-    const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    const maxNdc = 24 / (rect.width * 0.5);
-    const hit = cloakCloth.pickParticle(camera, ndcX, ndcY, maxNdc);
-    particlePickHud.hidden = false;
-    if (!hit) {
-      particlePickHud.textContent = 'no particle';
-      return;
-    }
-    const label = `${hit.family} #${hit.id}${hit.pinned ? ' pinned' : ''}`;
-    particlePickHud.textContent = label;
+
+function refreshParticleAngle(): void {
+  if (particlePickHud.hidden || particlePickName.textContent === '' || particlePickName.textContent === 'no particle') {
+    particlePickAngle.hidden = true;
+    particlePickAngle.textContent = '';
+    particlePickHeight.hidden = true;
+    particlePickHeight.textContent = '';
+    return;
+  }
+  const tilt = cloakCloth.mirrorScreenTilt(camera);
+  const heights = cloakCloth.mirrorHeights();
+  if (!tilt || !heights) {
+    particlePickAngle.hidden = true;
+    particlePickAngle.textContent = '';
+    particlePickHeight.hidden = true;
+    particlePickHeight.textContent = '';
+    return;
+  }
+  const sign = tilt.deg > 0.05 ? '+' : '';
+  particlePickAngle.hidden = false;
+  particlePickAngle.dataset.tilt = tilt.straight ? 'straight' : 'diagonal';
+  particlePickAngle.textContent = `${sign}${tilt.deg.toFixed(1)}° ${tilt.straight ? 'straight line' : 'diagonal'}`;
+  const dyMm = (heights.mirrorY - heights.y) * 1000;
+  const dySign = dyMm > 0.05 ? '+' : '';
+  particlePickHeight.hidden = false;
+  particlePickHeight.textContent =
+    `#${heights.id} height ${heights.y.toFixed(3)} m\n#${heights.mirrorId} height ${heights.mirrorY.toFixed(3)} m\nmirror ${dySign}${dyMm.toFixed(1)} mm`;
+}
+
+const particleMarquee = document.createElement('div');
+particleMarquee.id = 'particleMarquee';
+particleMarquee.hidden = true;
+document.body.appendChild(particleMarquee);
+
+function showParticleSelection(hits: ClothParticleHit[]): void {
+  cloakCloth.setSelection(hits);
+  particlePickHud.hidden = false;
+  if (hits.length === 0) {
+    particlePickName.textContent = 'no particle';
+    particlePickAngle.hidden = true;
+    particlePickAngle.textContent = '';
+    particlePickHeight.hidden = true;
+    particlePickHeight.textContent = '';
+    syncClothWeightPanel(null);
+    refreshClothGroupUi();
+    return;
+  }
+  const hit = hits[0]!;
+  if (hits.length === 1) {
+    particlePickName.textContent = particleWeightLabel(hit.family, hit.id, hit.weight, hit.mirrorId);
+  } else {
+    particlePickName.textContent = `${hits.length} particles`;
+    particlePickAngle.hidden = true;
+    particlePickAngle.textContent = '';
+    particlePickHeight.hidden = true;
+    particlePickHeight.textContent = '';
+  }
+  syncClothWeightPanel(hit);
+  if (hits.length > 1 && clothWeightHint instanceof HTMLElement && clothWeightHint.isConnected) {
+    clothWeightHint.textContent = `${hits.length} highlighted · Arm bone, Distance, and Follow apply to each one`;
+  }
+  document.querySelector('#clothPanel')?.scrollIntoView({ block: 'nearest' });
+  refreshClothGroupUi();
+  if (hits.length === 1) {
+    refreshParticleAngle();
     void navigator.clipboard?.writeText(`${hit.family} ${hit.id}`).catch(() => {});
     console.log('[cloth particle]', hit);
+  }
+}
+
+let particleDrag: { x: number; y: number; pointerId: number; moved: boolean } | null = null;
+
+function hideParticleMarquee(): void {
+  particleMarquee.hidden = true;
+}
+
+canvas.addEventListener(
+  'pointerdown',
+  (e) => {
+    if (!cloakCloth.showingParticles || e.button !== 0) return;
+    e.stopPropagation();
+    particleDrag = { x: e.clientX, y: e.clientY, pointerId: e.pointerId, moved: false };
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // The pointer can already be gone. The move and up listeners still see the drag.
+    }
   },
   true,
 );
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!particleDrag || e.pointerId !== particleDrag.pointerId) return;
+  const dx = e.clientX - particleDrag.x;
+  const dy = e.clientY - particleDrag.y;
+  if (!particleDrag.moved && dx * dx + dy * dy <= 64) return;
+  particleDrag.moved = true;
+  const left = Math.min(particleDrag.x, e.clientX);
+  const top = Math.min(particleDrag.y, e.clientY);
+  particleMarquee.hidden = false;
+  particleMarquee.style.left = `${left}px`;
+  particleMarquee.style.top = `${top}px`;
+  particleMarquee.style.width = `${Math.abs(e.clientX - particleDrag.x)}px`;
+  particleMarquee.style.height = `${Math.abs(e.clientY - particleDrag.y)}px`;
+});
+
+function endParticleDrag(e: PointerEvent): void {
+  if (!particleDrag || e.pointerId !== particleDrag.pointerId) return;
+  const drag = particleDrag;
+  particleDrag = null;
+  hideParticleMarquee();
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  if (!cloakCloth.showingParticles) return;
+  const rect = canvas.getBoundingClientRect();
+  if (drag.moved) {
+    showParticleSelection(
+      cloakCloth.pickParticlesInRect(camera, rect, drag.x, drag.y, e.clientX, e.clientY),
+    );
+    return;
+  }
+  if (
+    e.clientX < rect.left ||
+    e.clientX > rect.right ||
+    e.clientY < rect.top ||
+    e.clientY > rect.bottom
+  ) {
+    return;
+  }
+  const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  const maxNdc = 24 / (rect.width * 0.5);
+  const hit = cloakCloth.pickParticle(camera, ndcX, ndcY, maxNdc);
+  showParticleSelection(hit ? [hit] : []);
+}
+
+canvas.addEventListener('pointerup', endParticleDrag);
+canvas.addEventListener('pointercancel', endParticleDrag);
 
 lightDebugBtn.addEventListener('click', () => {
   const next = !lightDebugVisible;
@@ -2930,7 +3721,7 @@ function setBgMode(next: BgMode): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame')) extras.push(pts);
+        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame') || pts.name.startsWith('CandleFlame')) extras.push(pts);
       });
       const refUrl = refImage.src || `/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`;
       ghoulball.start(asm.root, scene, refUrl, extras);
@@ -3049,7 +3840,7 @@ const fxTabs = [
   },
   {
     btn: q<HTMLButtonElement>('#fxTabCloth'),
-    pane: q<HTMLElement>('#clothControls'),
+    pane: q<HTMLElement>('#clothSimControls'),
   },
   {
     btn: q<HTMLButtonElement>('#fxTabFog'),
@@ -3658,16 +4449,18 @@ function animate(): void {
   const dt = clock.getDelta();
   if (!ghoulball.frozen) {
     animator.update(dt);
-    eyeLook.update(dt);
+    eyeLook.update(dt, camera);
     cloakCloth.update(dt);
     cigSmoke.update(dt);
     drool.update(dt);
     torchFlame.update(dt);
     eyeFlame.update(dt);
+    candleFlame.update(dt);
     infernalFlame.update(dt);
     specialOrbit.update();
     idolTrail.update(dt);
     haloLight.update();
+    glassesLight.update();
     cudiParticles.update(dt);
   }
   positronicLights.update();
@@ -3691,6 +4484,12 @@ function animate(): void {
   clampCameraToFloor();
   if (playMode.cameraMode === 'follow') syncFollowCamUi();
   if (bgMode === 'ghoulball') syncBallRotUi();
+  if (!particlePickHud.hidden) refreshParticleAngle();
+  if (cleanRenderer && cleanDither) {
+    cloakCloth.suppressParticleOverlay(true);
+    cleanDither.renderPlain(cleanRenderer, scene, camera);
+    cloakCloth.suppressParticleOverlay(false);
+  }
   if (dither) dither.render(renderer, scene, camera);
   else renderer.render(scene, camera);
   updateSceneStats();
@@ -3755,6 +4554,7 @@ async function boot(): Promise<void> {
     currentId = clampGhoulId(initialId);
     const palette = await loadCalmPalette();
     dither = new DitherComposer(renderer, palette);
+    if (cleanRenderer) cleanDither = new DitherComposer(cleanRenderer, palette);
     syncBloomControls();
 
     if (updateUrlFlag) document.title = `GhoulViewer · ${DISPLAY_SIZE}px`;

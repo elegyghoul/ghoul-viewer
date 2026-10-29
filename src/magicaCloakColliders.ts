@@ -108,7 +108,9 @@ export const MAGICA_COLLIDERS: MagicaColliderDef[] = [
     name: 'Magica Capsule Collider (mixamorig:LeftArm)',
     center: [0, 0.15, 0],
     radius: 0.085,
-    length: 0.423,
+    // Upper arm is 0.30 along local +Y. Length is the span between end-sphere
+    // centers; with this radius the outer tips sit about 1.5 cm past the shoulder and elbow.
+    length: 0.161,
     direction: 1,
   },
   {
@@ -116,7 +118,7 @@ export const MAGICA_COLLIDERS: MagicaColliderDef[] = [
     name: 'Magica Capsule Collider (mixamorig:RightArm)',
     center: [0, 0.15, 0],
     radius: 0.09,
-    length: 0.423,
+    length: 0.151,
     direction: 1,
   },
   {

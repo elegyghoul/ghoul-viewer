@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "id": "right-hand",
+      "name": "Right Hand",
+      "members": {}
+    },
+    {
+      "id": "right-hand-under",
+      "name": "Right Hand Under",
+      "members": {
+        "innercloak_webgl": [
+          323,
+          325,
+          330,
+          2321,
+          2325,
+          2326,
+          2328,
+          2329,
+          2330
+        ]
+      }
+    }
+  ]
+}
