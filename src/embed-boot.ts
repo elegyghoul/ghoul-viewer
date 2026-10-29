@@ -18,13 +18,21 @@ function boot(): void {
 
   const script = thisScript();
   const targetSel = script?.dataset.target;
-  if (!targetSel) {
+  // Vite's production build deletes the demo page's script tag and injects a
+  // new one, so data-target is gone. The div keeps data-ghoul-viewer.
+  const marked = document.querySelector('[data-ghoul-viewer]');
+  let host: HTMLElement | null = null;
+  if (targetSel) {
+    const found = document.querySelector(targetSel);
+    if (!(found instanceof HTMLElement)) {
+      console.error('[ghoul-viewer] data-target not found:', targetSel);
+      return;
+    }
+    host = found;
+  } else if (marked instanceof HTMLElement) {
+    host = marked;
+  } else {
     console.error('[ghoul-viewer] script is missing data-target');
-    return;
-  }
-  const host = document.querySelector(targetSel);
-  if (!(host instanceof HTMLElement)) {
-    console.error('[ghoul-viewer] data-target not found:', targetSel);
     return;
   }
 
@@ -41,12 +49,13 @@ function boot(): void {
   );
   const holder = document.createElement('template');
   holder.innerHTML = markup;
-  const ghoulAttr = script?.dataset.ghoul;
+  const options = targetSel ? script : host;
+  const ghoulAttr = options?.dataset.ghoul;
   const id = ghoulAttr != null && ghoulAttr !== '' ? Number(ghoulAttr) : undefined;
   setShellRoot(shadow);
   setLaunch({
     id: id != null && Number.isFinite(id) ? id : undefined,
-    scale: script?.dataset.scale === 'fit' ? 'fit' : 'off',
+    scale: options?.dataset.scale === 'fit' ? 'fit' : 'off',
     host,
   });
 
