@@ -13,12 +13,41 @@ dist-ssr
 *.local
 
 # Editor directories and files
+.cursor/
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Blender working files and autosaves
+*.blend
+*.blend1
+
+# Local authoring and dumps. The viewer does not load these.
+public/models/parts/
+public/models/heads/
+public/models/export/
+public/models/based-ghoul.glb
+public/models/band.fbx
+public/data/attachment-map-raw.json
+public/data/three-scene-names.json
+public/data/unity-export-nodes.json
+public/data/magica-cloak.json
+public/Palette/dither-lospec500-1x.png
+public/textures/can.png
+public/textures/grid.png
+public/textures/lace.png
+public/favicon.svg
+public/icons.svg
+src/assets/typescript.svg
+src/assets/vite.svg
+dump-materials.mjs
+tools/
+COMMANDS.md
