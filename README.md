@@ -23,7 +23,7 @@ npm run build
 <script type="module" src="/ghoul-viewer/dist/embed.js" data-target="#ghoul" data-ghoul="469"></script>
 ```
 
-`data-target` is the div. `data-ghoul` is the ghoul number (0–6665). Add `data-scale="fit"` to the script tag to scale the viewer to the div, up to 3×.
+`data-target` is the div. `data-ghoul` is the ghoul number (0–6665). Add `data-scale="fit"` to the script tag to scale the viewer to the div.
 
 4. To update, in that folder:
 

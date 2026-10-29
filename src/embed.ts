@@ -165,7 +165,7 @@ function bindScaleFit(host: HTMLElement): void {
     const nativeW = stage.offsetWidth;
     const nativeH = stage.offsetHeight;
     if (nativeW < 1 || nativeH < 1) return;
-    const scale = Math.min(3, host.clientWidth / nativeW, host.clientHeight / nativeH);
+    const scale = Math.min(host.clientWidth / nativeW, host.clientHeight / nativeH);
     if (!Number.isFinite(scale) || scale <= 0 || Math.abs(scale - 1) < 0.001) {
       stage.style.removeProperty('--gv-scale');
       return;
