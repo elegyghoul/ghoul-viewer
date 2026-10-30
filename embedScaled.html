@@ -11,6 +11,7 @@
         margin: 0;
         width: 100%;
         height: 100%;
+        overflow: hidden;
         background: #000;
       }
       body {
@@ -18,9 +19,10 @@
         align-items: center;
         justify-content: center;
       }
-      /* Screen width. 315×200 includes the id bar on top of the 315×184 shell. */
+      /* Fit the window. 315×200 includes the id bar above the 315×184 shell. */
       #ghoul {
-        width: 100%;
+        width: min(100%, calc(100svh * 315 / 200));
+        max-height: 100%;
         aspect-ratio: 315 / 200;
       }
     </style>
