@@ -18,20 +18,21 @@
         align-items: center;
         justify-content: center;
       }
-      /* Screen width, at the native 315×184 ratio. */
+      /* Screen width. 315×200 includes the id bar on top of the 315×184 shell. */
       #ghoul {
         width: 100%;
-        aspect-ratio: 315 / 184;
+        aspect-ratio: 315 / 200;
       }
     </style>
   </head>
   <body>
-    <div id="ghoul" data-ghoul-viewer data-scale="fit"></div>
+    <div id="ghoul" data-ghoul-viewer data-scale="fit" data-id-picker></div>
     <script
       type="module"
       src="/src/embed-boot.ts"
       data-target="#ghoul"
       data-scale="fit"
+      data-id-picker
     ></script>
   </body>
 </html>

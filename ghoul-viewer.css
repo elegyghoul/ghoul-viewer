@@ -40,6 +40,7 @@
   --gv-title-left: 2px;
   --gv-title-height: 7px;
   --gv-title-size: 10px;
+  --gv-banner: 15px;
   --gv-window-width: calc(var(--gv-view) + var(--gv-border) * 2);
   --gv-window-height: calc(
     var(--gv-header) + var(--gv-rule-black) + var(--gv-rule-gold) + var(--gv-view) +
@@ -108,6 +109,97 @@
 .ghoul-tab-row > .ghoul-mode-tabs,
 .ghoul-tab-row > .ghoul-tool-tabs {
   width: var(--gv-window-width);
+}
+/* Id bar is optional. Only embedScaled.html inserts .ghoul-banner. */
+.ghoul-stage-scale:has(.ghoul-banner) {
+  --gv-stage-height: calc(
+    var(--gv-icon) + var(--gv-gap) + var(--gv-window-height) + var(--gv-gap) + var(--gv-banner)
+  );
+}
+.ghoul-banner {
+  width: 100%;
+  height: var(--gv-banner);
+  box-sizing: border-box;
+  border: 1px solid var(--gv-accent);
+  background: var(--gv-surface);
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: calc(var(--gv-banner) - 2px);
+  padding: 0 var(--gv-title-left);
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: right;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.ghoul-id-picker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.ghoul-id-picker button {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--gv-accent);
+  background: var(--gv-surface);
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: 11px;
+  cursor: pointer;
+}
+.ghoul-id-picker button:active {
+  background: var(--gv-accent);
+  color: var(--gv-ink);
+}
+.ghoul-id-picker label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 13px;
+  padding: 0 2px 0 3px;
+  border: 1px solid var(--gv-accent);
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: 11px;
+}
+.ghoul-id-picker input {
+  width: 28px;
+  height: 11px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--gv-surface);
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: 11px;
+  text-align: right;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.ghoul-id-picker input::-webkit-outer-spin-button,
+.ghoul-id-picker input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.ghoul-id-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  flex: 1;
 }
 .ghoul-window {
   width: var(--gv-window-width);

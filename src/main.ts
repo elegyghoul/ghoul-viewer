@@ -4611,7 +4611,6 @@ function animate(): void {
   syncLightsToGhoul();
   ghoulball.update(dt);
   updateCubeGrid(dt);
-  bgScenes.update(dt);
   updateLightHelpers();
   if (playMode.orbitDrive) {
     constrainOrbitToFloor();
@@ -4619,6 +4618,7 @@ function animate(): void {
     applyCamRoll();
   }
   clampCameraToFloor();
+  bgScenes.update(dt, camera);
   if (playMode.cameraMode === 'follow') syncFollowCamUi();
   if (bgMode === 'ghoulball') syncBallRotUi();
   if (!particlePickHud.hidden) refreshParticleAngle();

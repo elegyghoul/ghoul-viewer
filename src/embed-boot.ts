@@ -10,6 +10,20 @@ function thisScript(): HTMLScriptElement | null {
   return document.querySelector('script[data-target]');
 }
 
+/** Prev / next / number field. Inserted only when the host sets data-id-picker. */
+const ID_PICKER = `
+        <div class="ghoul-banner" aria-label="Ghoul number">
+          <div class="ghoul-id-picker">
+            <button id="ghoulPrev" type="button" aria-label="Previous ghoul" title="Previous">‹</button>
+            <label>
+              #
+              <input id="ghoulId" type="number" min="0" max="6665" step="1" value="0" aria-label="Ghoul number" />
+            </label>
+            <button id="ghoulNext" type="button" aria-label="Next ghoul" title="Next">›</button>
+          </div>
+          <div id="playHintBanner" class="ghoul-id-hint" aria-live="polite"></div>
+        </div>`;
+
 function boot(): void {
   const base = import.meta.env.DEV
     ? new URL('/', window.location.origin).href
@@ -43,13 +57,19 @@ function boot(): void {
   link.rel = 'stylesheet';
   link.href = new URL(cssUrl, import.meta.url).href;
 
-  const markup = shellHtml.replace(
+  const options = targetSel ? script : host;
+  let markup = shellHtml.replace(
     /(src=")(\/[^"]+)(")/g,
     (_match, open: string, path: string, close: string) => open + assetUrl(path) + close,
   );
+  if (host.hasAttribute('data-id-picker') || script?.hasAttribute('data-id-picker')) {
+    markup = markup.replace(
+      '<div class="ghoul-stage">',
+      `<div class="ghoul-stage">${ID_PICKER}`,
+    );
+  }
   const holder = document.createElement('template');
   holder.innerHTML = markup;
-  const options = targetSel ? script : host;
   const ghoulAttr = options?.dataset.ghoul;
   const id = ghoulAttr != null && ghoulAttr !== '' ? Number(ghoulAttr) : undefined;
   setShellRoot(shadow);

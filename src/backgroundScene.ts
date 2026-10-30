@@ -15,13 +15,24 @@ const SKYBOX_RADIUS = 80;
 const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
   Retro_Palms: 10_000,
   Neon_Palms: 10_000,
+  Neon_Sunset: 10_000,
 };
 
-/** Per-trait vertical shift (negative = lower horizon). */
+/** Horizon drop below the eye. These domes are recentered on the camera each frame. */
 const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Palms: -25,
   Neon_Palms: -25,
+  Neon_Sunset: -25,
 };
+
+/** Upper hemisphere only. The photo stops at the horizon; below that is the level. */
+const DOME_SKY_KEYS = new Set(['Retro_Palms', 'Neon_Palms', 'Neon_Sunset']);
+
+/** Ground disc radius. Reaches the sky and stays inside the camera far plane. */
+const GROUND_HORIZON_RADIUS = 11_000;
+
+/** Floors that get a disc out to the horizon. Neon Sunset extends its water mesh instead. */
+const HORIZON_GROUND_KEYS = new Set(['Retro_Palms', 'Neon_Palms']);
 
 /** Traits that reuse another background's sky photo. */
 const SKYBOX_FILE_BY_KEY: Record<string, string> = {
@@ -38,6 +49,11 @@ function skyboxRadius(name: string): number {
   return SKYBOX_RADIUS_BY_KEY[name] ?? SKYBOX_RADIUS;
 }
 
+/** North pole → equator. `uv.y` is 1 at the zenith and 0 on the horizon. */
+function hemisphereGeometry(radius: number): THREE.SphereGeometry {
+  return new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+}
+
 /** Drop layer 0 so ambient / hemi / key / fill cannot light the dome. */
 function isolateSkyFromPointLights(mesh: THREE.Object3D): void {
   mesh.layers.set(SKY_LIGHT_LAYER);
@@ -48,7 +64,7 @@ function isolateSkyFromPointLights(mesh: THREE.Object3D): void {
  * so the extra strip hangs below the horizon and the bottom edge clamps
  * across the rest of the sphere.
  */
-const SPILL_SKY_KEYS = new Set(['Neon_Sunset']);
+const SPILL_SKY_KEYS = new Set<string>();
 
 /** Full sphere wrapped in the shared ocean map, rippled like the water plane. */
 const OCEAN_SKY_KEYS = new Set(['Pool_1']);
@@ -305,6 +321,110 @@ function isWaterPlaneName(name: string): boolean {
   return n === 'WaterPlane' || n.startsWith('WaterPlane.');
 }
 
+function findNamedMesh(root: THREE.Object3D, name: string): THREE.Mesh | null {
+  const want = name.trim().toLowerCase();
+  let found: THREE.Mesh | null = null;
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (found || !mesh.isMesh) return;
+    if (mesh.name.trim().toLowerCase() !== want) return;
+    found = mesh;
+  });
+  return found;
+}
+
+const WATER_GRID_HALF = 8;
+
+/**
+ * Grow a WaterPlane past the horizon as more of the same grid.
+ * The added vertices ride the ripple, so there is no second surface to clip through.
+ */
+function extendWaterToHorizon(mesh: THREE.Mesh, outerLocal: number): void {
+  const geo = mesh.geometry;
+  const posAttr = geo.getAttribute('position') as THREE.BufferAttribute | undefined;
+  const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute | undefined;
+  const nrmAttr = geo.getAttribute('normal') as THREE.BufferAttribute | undefined;
+  const indexAttr = geo.getIndex();
+  if (!posAttr || !uvAttr || !nrmAttr || !indexAttr) return;
+
+  const edge = WATER_GRID_HALF - 0.2;
+  const top: number[] = [];
+  const right: number[] = [];
+  const bottom: number[] = [];
+  const left: number[] = [];
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i);
+    const z = posAttr.getZ(i);
+    if (Math.max(Math.abs(x), Math.abs(z)) <= edge) continue;
+    if (z > edge && x < edge) top.push(i);
+    else if (x > edge && z > -edge) right.push(i);
+    else if (z < -edge && x > -edge) bottom.push(i);
+    else left.push(i);
+  }
+  top.sort((a, b) => posAttr.getX(a) - posAttr.getX(b));
+  right.sort((a, b) => posAttr.getZ(b) - posAttr.getZ(a));
+  bottom.sort((a, b) => posAttr.getX(b) - posAttr.getX(a));
+  left.sort((a, b) => posAttr.getZ(a) - posAttr.getZ(b));
+  const loop = [...top, ...right, ...bottom, ...left];
+  if (loop.length < 8) return;
+
+  const radii: number[] = [];
+  for (let r = WATER_GRID_HALF + 0.5; r <= WATER_GRID_HALF + 16.001; r += 0.5) radii.push(r);
+  let grown = radii[radii.length - 1] ?? WATER_GRID_HALF;
+  while (grown < outerLocal - 1e-3) {
+    grown = Math.min(outerLocal, grown * 1.55);
+    radii.push(grown);
+  }
+
+  const oldCount = posAttr.count;
+  const total = oldCount + radii.length * loop.length;
+  const positions = new Float32Array(total * 3);
+  const normals = new Float32Array(total * 3);
+  const uvs = new Float32Array(total * 2);
+  positions.set(posAttr.array as Float32Array);
+  normals.set(nrmAttr.array as Float32Array);
+  uvs.set(uvAttr.array as Float32Array);
+  const indices = Array.from(indexAttr.array);
+
+  let cursor = oldCount;
+  let inner = loop;
+  for (const radius of radii) {
+    const ring: number[] = [];
+    for (const vi of loop) {
+      const x = posAttr.getX(vi);
+      const z = posAttr.getZ(vi);
+      const span = Math.max(Math.abs(x), Math.abs(z));
+      const nx = x * (radius / span);
+      const nz = z * (radius / span);
+      const o = cursor * 3;
+      positions[o] = nx;
+      positions[o + 1] = 0;
+      positions[o + 2] = nz;
+      normals[o + 1] = 1;
+      uvs[cursor * 2] = 0.5 + nx / (WATER_GRID_HALF * 2);
+      uvs[cursor * 2 + 1] = 0.5 + nz / (WATER_GRID_HALF * 2);
+      ring.push(cursor);
+      cursor++;
+    }
+    const n = inner.length;
+    for (let i = 0; i < n; i++) {
+      const i0 = inner[i]!;
+      const i1 = inner[(i + 1) % n]!;
+      const o0 = ring[i]!;
+      const o1 = ring[(i + 1) % n]!;
+      indices.push(i0, o0, i1, i1, o0, o1);
+    }
+    inner = ring;
+  }
+
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeBoundingBox();
+  geo.computeBoundingSphere();
+}
+
 /** Deterministic 0–1 from integer seed. */
 function hash01(n: number): number {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -536,6 +656,7 @@ export class BackgroundSceneManager {
   private oceanH = 0;
   private oceanReady: Promise<void> | null = null;
   private readonly oceanMatByKey = new Map<string, BackgroundOceanMat>();
+  private readonly groundHorizon = new Map<string, THREE.Mesh>();
 
   constructor(scene: THREE.Scene) {
     this.root.name = 'BackgroundScenes';
@@ -754,10 +875,11 @@ export class BackgroundSceneManager {
     return mesh;
   }
 
-  update(dt: number): void {
+  update(dt: number, camera?: THREE.Camera): void {
     if (!this.wantVisible || !this.activeKey) return;
 
     this.time += dt;
+    if (camera) this.syncSkyToCamera(camera);
     this.updateClouds(this.activeKey, this.time);
     this.updateGradientSwirl(this.activeKey);
     this.updateOceanSky(this.activeKey);
@@ -1066,6 +1188,7 @@ export class BackgroundSceneManager {
             root.visible = false;
             this.collectWaterPlanes(root, name);
             unifyPalmMaterial(root, name);
+            this.ensureGroundHorizon(root, name);
             this.root.add(root);
             this.floorCache.set(name, root);
             return root;
@@ -1099,9 +1222,17 @@ export class BackgroundSceneManager {
             // Neon Sunset ocean should not show the sun shadow on the water.
             mesh.receiveShadow = !(name === 'Neon_Sunset' && isWaterPlaneName(mesh.name));
           });
+          if (name === 'Neon_Sunset') {
+            const water = findNamedMesh(root, 'WaterPlane');
+            if (water) {
+              const scale = Math.max(Math.abs(water.scale.x), Math.abs(water.scale.z), 1e-4);
+              extendWaterToHorizon(water, GROUND_HORIZON_RADIUS / scale);
+            }
+          }
           this.collectWaterPlanes(root, name);
           unifyColumnMaterial(root, name);
           unifyPalmMaterial(root, name);
+          this.ensureGroundHorizon(root, name);
           this.root.add(root);
           this.floorCache.set(name, root);
           return root;
@@ -1150,7 +1281,7 @@ export class BackgroundSceneManager {
               tex.repeat.set(1, vScale);
               tex.offset.set(0, 1 - vScale);
             } else {
-              // Top 90° only. The lower hemisphere mirrors that crop.
+              // Top 90°. Equator of the mesh (uv.y = 0) is the bottom of this crop.
               const vRepeat = Math.min(1, upperVFov / imageVFov);
               tex.repeat.set(1, vRepeat);
               tex.offset.set(0, 1 - vRepeat);
@@ -1167,7 +1298,9 @@ export class BackgroundSceneManager {
             const radius = skyboxRadius(name);
             const geometry = spill
               ? new THREE.SphereGeometry(radius, 64, 48)
-              : mirrorLowerHemisphere(new THREE.SphereGeometry(radius, 64, 48));
+              : DOME_SKY_KEYS.has(name)
+                ? hemisphereGeometry(radius)
+                : mirrorLowerHemisphere(new THREE.SphereGeometry(radius, 64, 48));
             const mesh = new THREE.Mesh(geometry, mat);
             mesh.position.y = SKYBOX_Y_BY_KEY[name] ?? 0;
             mesh.name = `Skybox_${name}`;
@@ -1262,6 +1395,49 @@ export class BackgroundSceneManager {
       this.skyInflight.set(name, pending);
     }
     return pending;
+  }
+
+  /** Keep a dome, and a palm ground disc, centered on the eye. */
+  private syncSkyToCamera(camera: THREE.Camera): void {
+    if (!this.activeKey) return;
+    const drop = SKYBOX_Y_BY_KEY[this.activeKey];
+    if (drop == null) return;
+    const pad = this.groundHorizon.get(this.activeKey);
+    if (pad) {
+      pad.position.x = camera.position.x;
+      pad.position.z = camera.position.z;
+    }
+    const sky = this.skyCache.get(this.activeKey);
+    if (!sky?.visible) return;
+    sky.position.copy(camera.position);
+    sky.position.y += drop;
+    sky.quaternion.identity();
+  }
+
+  /** Flat copy of the floor, wide enough that its edge sits past the horizon. */
+  private ensureGroundHorizon(root: THREE.Object3D, name: string): void {
+    if (!HORIZON_GROUND_KEYS.has(name) || this.groundHorizon.has(name)) return;
+    let mesh = findNamedMesh(root, 'GroundHorizon');
+    if (!mesh) {
+      const floor = findNamedMesh(root, 'WaterPlane');
+      const mat = floor
+        ? Array.isArray(floor.material)
+          ? floor.material[0]
+          : floor.material
+        : null;
+      if (!floor || !mat) return;
+      const geo = new THREE.CircleGeometry(GROUND_HORIZON_RADIUS, 64);
+      geo.rotateX(-Math.PI / 2);
+      mesh = new THREE.Mesh(geo, mat);
+      mesh.name = 'GroundHorizon';
+      mesh.position.copy(floor.position);
+      mesh.position.y -= 0.01;
+      mesh.receiveShadow = floor.receiveShadow;
+      mesh.castShadow = false;
+      mesh.renderOrder = -1;
+      floor.parent?.add(mesh);
+    }
+    this.groundHorizon.set(name, mesh);
   }
 
   /** Scroll and displace an ocean sky the same way a WaterPlane ripples. */
