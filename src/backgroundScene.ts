@@ -618,6 +618,52 @@ function makeGradientSkyMaterial(
   });
 }
 
+/** Three gathers lights for the whole camera, so layers cannot hide one light from one mesh. */
+function stripGlslIf(source: string, header: string): string {
+  const start = source.indexOf(header);
+  if (start < 0) return source;
+  const re = /#if(?:def|ndef)?\b|#endif\b/g;
+  re.lastIndex = start;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(source))) {
+    depth += match[0] === '#endif' ? -1 : 1;
+    if (depth === 0) {
+      return source.slice(0, start) + source.slice(match.index + match[0].length);
+    }
+  }
+  return source;
+}
+
+const DUNGEON_LIGHTS = stripGlslIf(
+  stripGlslIf(THREE.ShaderChunk.lights_fragment_begin, '#if ( NUM_DIR_LIGHTS > 0 )'),
+  '#if ( NUM_HEMI_LIGHTS > 0 )',
+);
+
+function ignoreHemiAndSun(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (!(mat instanceof THREE.MeshStandardMaterial) && !(mat instanceof THREE.MeshPhysicalMaterial)) continue;
+      if (mat.userData.noHemiOrSun) continue;
+      mat.userData.noHemiOrSun = true;
+      const previousKey = mat.customProgramCacheKey.bind(mat);
+      mat.customProgramCacheKey = () => `${previousKey()}|no-hemi-sun`;
+      const previous = mat.onBeforeCompile;
+      mat.onBeforeCompile = (shader, renderer) => {
+        previous?.(shader, renderer);
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <lights_fragment_begin>',
+          DUNGEON_LIGHTS,
+        );
+      };
+      mat.needsUpdate = true;
+    }
+  });
+}
+
 /**
  * Optional Trait BG floor GLBs (`/models/backgrounds/{TraitKey}.glb`)
  * and unlit sphere skyboxes (`/models/skybox/{TraitKey}.jpg`).
@@ -1169,6 +1215,7 @@ export class BackgroundSceneManager {
         this.clearOceanNormalMaps();
       }
       this.applyOceanMatToKey(name);
+      if (name === 'Dungeon') ignoreHemiAndSun(cached);
       return cached;
     }
     if (this.floorMissing.has(name)) return null;
@@ -1223,6 +1270,7 @@ export class BackgroundSceneManager {
             // Neon Sunset ocean should not show the sun shadow on the water.
             mesh.receiveShadow = !(name === 'Neon_Sunset' && isWaterPlaneName(mesh.name));
           });
+          if (name === 'Dungeon') ignoreHemiAndSun(root);
           if (name === 'Neon_Sunset') {
             const water = findNamedMesh(root, 'WaterPlane');
             if (water) {

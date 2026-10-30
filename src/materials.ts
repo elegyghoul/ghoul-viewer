@@ -254,6 +254,7 @@ const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Columns: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Dreams: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
+  Dungeon: { enabled: true, color: 0x000000, near: 0.45, far: 21.7 },
 
 };
 
@@ -347,6 +348,7 @@ const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset:
   Neon_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Vaporwave_Palms: { enabled: true, color: 0xfff2d0, intensity: 4.05, azimuth: 360, elevation: 55 },
   Pool_1: { enabled: false, color: 0xffffff, intensity: 3.05, azimuth: 312, elevation: 57 },
+  Dungeon: { enabled: true, color: 0xfff2d0, intensity: 0, azimuth: 35, elevation: 48 },
 
 };
 
