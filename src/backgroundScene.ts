@@ -37,6 +37,7 @@ const HORIZON_GROUND_KEYS = new Set(['Retro_Palms', 'Neon_Palms']);
 /** Traits that reuse another background's sky photo. */
 const SKYBOX_FILE_BY_KEY: Record<string, string> = {
   Vaporwave_Columns: 'Vaporwave_Palms',
+  Vaporwave_Dreams: 'Vaporwave_Palms',
   Neon_Palms: 'Retro_Palms',
 };
 

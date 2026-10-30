@@ -253,6 +253,7 @@ const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Neon_Sunset: { enabled: true, color: 0xce397e, near: 3.95, far: 80 },
   Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Columns: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
+  Vaporwave_Dreams: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
 
 };
 
