@@ -160,9 +160,9 @@ const ACCENT: Record<
 };
 
 const EYE_COLORS: Record<string, number> = {
-  BlueEyes: 0x2244ff,
+  BlueEyes: 0x91fff8,
   GreenEyes: 0x57b11f,
-  PinkEyes: 0xff66aa,
+  PinkEyes: 0xdc00f3,
   RedEyes: 0xff0000,
   YellowEyes: 0xffcc00,
 };
