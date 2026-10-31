@@ -58,8 +58,16 @@ function isLitMaterial(
   return mat instanceof THREE.MeshStandardMaterial || mat instanceof THREE.MeshPhysicalMaterial;
 }
 
+/** True only when the shader hook is present — Material.clone keeps userData but drops onBeforeCompile. */
+function hasGlassesLightHook(mat: THREE.Material): boolean {
+  return mat.onBeforeCompile.toString().includes('glasses-point-light-v1');
+}
+
 function attachLight(mat: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial): void {
-  if (mat.userData.glassesPointLight) return;
+  if (hasGlassesLightHook(mat)) {
+    mat.userData.glassesPointLight = true;
+    return;
+  }
   mat.userData.glassesPointLight = true;
   const previous = mat.onBeforeCompile;
   const previousKey = mat.customProgramCacheKey?.bind(mat);
@@ -115,9 +123,16 @@ function wireGlasses(root: THREE.Object3D): void {
     for (let i = 0; i < mats.length; i++) {
       const src = mats[i];
       if (!src || !isLitMaterial(src)) continue;
-      if (src.userData.glassesPointLight) continue;
+      if (hasGlassesLightHook(src)) continue;
+      // Stale flag from Material.clone(): re-hook in place, do not clone again.
+      if (src.userData.glassesPointLight) {
+        attachLight(src);
+        continue;
+      }
       // Clone so a material shared with the body never receives this light.
       const mat = src.clone();
+      // clone() copies userData; clear so attachLight does not treat this as already wired.
+      mat.userData.glassesPointLight = false;
       attachLight(mat);
       mats[i] = mat;
       changed = true;
@@ -190,7 +205,10 @@ export class GlassesLightManager {
     root.traverse((obj) => {
       if (!glassesName(obj.name)) return;
       this.hosts.push(obj);
-      wireGlasses(obj);
+      // Only wire when shown. Wiring while hidden races assemble's later
+      // Material.clone() (ensureUniqueMeshMaterials), which keeps the flag but
+      // drops onBeforeCompile — then sync skips and the light never returns.
+      if (chainVisible(obj)) wireGlasses(obj);
     });
     this.followHost();
   }
