@@ -157,7 +157,11 @@ export type MaterialSaveTarget =
   | { kind: 'skin'; key: string; slot: 'light' | 'dark' }
   | { kind: 'accent'; key: string }
   | { kind: 'eye'; key: string }
-  | { kind: 'background'; key: string; slot: 'top' | 'bottom' | 'clouds' | 'tint' | 'point' | 'columns' | 'palms' };
+  | {
+      kind: 'background';
+      key: string;
+      slot: 'top' | 'bottom' | 'clouds' | 'tint' | 'point' | 'chipLight' | 'columns' | 'palms';
+    };
 
 export type EditableMaterial = {
   label: string;
@@ -516,6 +520,7 @@ export class GhoulAssembler {
         }
         if (id === 'nc69r') attachNc69rDisplayScroll(obj);
         if (id === 'xeKF420') attachXeDisplayScroll(obj);
+        if (id === 'positronic') enableBloomLayer(obj);
       }
     }
   }

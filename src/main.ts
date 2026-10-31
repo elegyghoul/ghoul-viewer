@@ -33,6 +33,8 @@ import {
   backgroundFog,
   backgroundGradient,
   backgroundHasClouds,
+  backgroundChipwaveLight,
+  backgroundHasChipwaveLight,
   backgroundHasPointLight,
   backgroundHasSkyTint,
   backgroundOceanMat,
@@ -698,7 +700,9 @@ function gradientFromEditor(key: string): Pick<BackgroundGradient, 'top' | 'bott
   for (const e of editorEntries) {
     const t = e.saveTarget;
     if (!t || t.kind !== 'background' || t.key !== key) continue;
-    if (t.slot === 'clouds' || t.slot === 'tint' || t.slot === 'point') continue;
+    if (t.slot === 'clouds' || t.slot === 'tint' || t.slot === 'point' || t.slot === 'chipLight') {
+      continue;
+    }
     const withColor = e.material as THREE.Material & { color?: THREE.Color };
     if (!withColor.color?.isColor) continue;
     const hex = withColor.color.getHex() & 0xffffff;
@@ -757,6 +761,7 @@ function skyTintForKey(key: string): number {
 }
 
 const pointLightLive = new Map<string, { color: number; intensity: number }>();
+const chipwaveLightLive = new Map<string, { color: number; intensity: number; range: number }>();
 
 function pointColorFromEditor(key: string): number | null {
   if (selectedTraitKey !== 'background') return null;
@@ -771,12 +776,35 @@ function pointColorFromEditor(key: string): number | null {
   return null;
 }
 
+function chipwaveColorFromEditor(key: string): number | null {
+  if (selectedTraitKey !== 'background') return null;
+  if (currentTraits?.background !== key) return null;
+  for (const e of editorEntries) {
+    const t = e.saveTarget;
+    if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'chipLight') continue;
+    const withColor = e.material as THREE.Material & { color?: THREE.Color };
+    if (!withColor.color?.isColor) continue;
+    return withColor.color.getHex() & 0xffffff;
+  }
+  return null;
+}
+
 function pointLightForKey(key: string): { color: number; intensity: number } {
   const saved = backgroundPointLight(key) ?? { color: 0xfff6ea, intensity: 28000 };
   const live = pointLightLive.get(key);
   return {
     color: pointColorFromEditor(key) ?? live?.color ?? saved.color,
     intensity: live?.intensity ?? saved.intensity,
+  };
+}
+
+function chipwaveLightForKey(key: string): { color: number; intensity: number; range: number } {
+  const saved = backgroundChipwaveLight(key) ?? { color: 0xffffff, intensity: 280, range: 50 };
+  const live = chipwaveLightLive.get(key);
+  return {
+    color: chipwaveColorFromEditor(key) ?? live?.color ?? saved.color,
+    intensity: live?.intensity ?? saved.intensity,
+    range: live?.range ?? saved.range,
   };
 }
 
@@ -951,6 +979,10 @@ function syncGridAndBackground(): void {
         const point = pointLightForKey(key);
         bgScenes.setPoolLight(key, point.color, point.intensity);
       }
+      if (backgroundHasChipwaveLight(key)) {
+        const chip = chipwaveLightForKey(key);
+        bgScenes.setChipwaveLight(key, chip.color, chip.intensity, chip.range);
+      }
     }
   } else {
     scene.background = new THREE.Color(GRID_CLEAR);
@@ -969,6 +1001,10 @@ function syncGridAndBackground(): void {
       if (backgroundHasPointLight(key)) {
         const point = pointLightForKey(key);
         bgScenes.setPoolLight(key, point.color, point.intensity);
+      }
+      if (backgroundHasChipwaveLight(key)) {
+        const chip = chipwaveLightForKey(key);
+        bgScenes.setChipwaveLight(key, chip.color, chip.intensity, chip.range);
       }
       applyOceanMatIfSet(key);
       if (
@@ -1363,6 +1399,9 @@ function buildSavePayload(): {
       tint?: number;
       pointColor?: number;
       pointIntensity?: number;
+      chipLightColor?: number;
+      chipLightIntensity?: number;
+      chipLightRange?: number;
       columnsColor?: number;
       columnsRoughness?: number;
       columnsMetalness?: number;
@@ -1398,6 +1437,9 @@ function buildSavePayload(): {
       tint?: number;
       pointColor?: number;
       pointIntensity?: number;
+      chipLightColor?: number;
+      chipLightIntensity?: number;
+      chipLightRange?: number;
       columnsColor?: number;
       columnsRoughness?: number;
       columnsMetalness?: number;
@@ -1466,6 +1508,11 @@ function buildSavePayload(): {
         const point = pointLightForKey(target.key);
         row.pointColor = color;
         row.pointIntensity = point.intensity;
+      } else if (target.slot === 'chipLight') {
+        const chip = chipwaveLightForKey(target.key);
+        row.chipLightColor = color;
+        row.chipLightIntensity = chip.intensity;
+        row.chipLightRange = chip.range;
       } else if (target.slot === 'columns') {
         const std = entry.material as THREE.MeshStandardMaterial;
         row.columnsColor = color;
@@ -1511,6 +1558,11 @@ function summarizePayload(payload: ReturnType<typeof buildSavePayload>): string 
     if (v.clouds != null) bits.push(`${k} clouds ${hexToCss(v.clouds)}`);
     if (v.tint != null) bits.push(`${k} tint ${hexToCss(v.tint)}`);
     if (v.pointColor != null) bits.push(`${k} point ${hexToCss(v.pointColor)} ×${v.pointIntensity ?? ''}`);
+    if (v.chipLightColor != null) {
+      bits.push(
+        `${k} chip light ${hexToCss(v.chipLightColor)} ×${v.chipLightIntensity ?? ''} r${v.chipLightRange ?? ''}`,
+      );
+    }
     if (v.columnsColor != null) bits.push(`${k} columns ${hexToCss(v.columnsColor)}`);
     if (v.palmsColor != null) bits.push(`${k} trees ${hexToCss(v.palmsColor)}`);
   }
@@ -1810,11 +1862,23 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
         saveTarget: { kind: 'background', key, slot: 'point' },
       });
     }
-    materialHint.textContent = showPoint
-      ? `${formatTraitValue(key)} · point light · savable`
-      : showSkyTint
-        ? `${formatTraitValue(key)} · ocean sphere tint · savable`
-        : `${formatTraitValue(key)} · skybox gradient${showClouds ? ' + clouds' : ''} · savable`;
+    const showChipLight = backgroundHasChipwaveLight(key);
+    if (showChipLight) {
+      const chip = chipwaveLightForKey(key);
+      editorEntries.push({
+        label: `${key} · Chip light`,
+        material: new THREE.MeshBasicMaterial({ color: chip.color }),
+        lit: false,
+        saveTarget: { kind: 'background', key, slot: 'chipLight' },
+      });
+    }
+    materialHint.textContent = showChipLight
+      ? `${formatTraitValue(key)} · chip light · savable`
+      : showPoint
+        ? `${formatTraitValue(key)} · point light · savable`
+        : showSkyTint
+          ? `${formatTraitValue(key)} · ocean sphere tint · savable`
+          : `${formatTraitValue(key)} · skybox gradient${showClouds ? ' + clouds' : ''} · savable`;
     const card = document.createElement('div');
     card.className = 'mat-card';
     const title = document.createElement('div');
@@ -1822,18 +1886,20 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
     title.textContent = key;
     const meta = document.createElement('div');
     meta.className = 'mat-card-meta';
-    meta.textContent = showPoint
-      ? 'Ocean sphere · point light · savable'
-      : showSkyTint
-        ? 'Ocean sphere · tint × texture · savable'
-        : showClouds
-          ? 'Skybox gradient + clouds · savable'
-          : 'Skybox gradient · top → bottom · savable';
+    meta.textContent = showChipLight
+      ? 'Chipwave sphere · centre light · savable'
+      : showPoint
+        ? 'Ocean sphere · point light · savable'
+        : showSkyTint
+          ? 'Ocean sphere · tint × texture · savable'
+          : showClouds
+            ? 'Skybox gradient + clouds · savable'
+            : 'Skybox gradient · top → bottom · savable';
     card.append(title, meta);
 
     for (const entry of editorEntries) {
       const slot = entry.saveTarget?.kind === 'background' ? entry.saveTarget.slot : 'top';
-      if (slot === 'clouds' || slot === 'tint' || slot === 'point') continue;
+      if (slot === 'clouds' || slot === 'tint' || slot === 'point' || slot === 'chipLight') continue;
       const row = document.createElement('label');
       row.className = 'mat-color-row';
       row.append(slot === 'top' ? 'Top' : 'Bottom');
@@ -1978,6 +2044,79 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
       });
       strengthRow.append(strengthInput, strengthVal);
       card.append(strengthRow);
+    }
+
+    if (showChipLight) {
+      const chip = chipwaveLightForKey(key);
+      const applyChip = (color: number, intensity: number, range: number): void => {
+        chipwaveLightLive.set(key, { color, intensity, range });
+        bgScenes.setChipwaveLight(key, color, intensity, range);
+      };
+      for (const entry of editorEntries) {
+        const slot = entry.saveTarget?.kind === 'background' ? entry.saveTarget.slot : 'top';
+        if (slot !== 'chipLight') continue;
+        const row = document.createElement('label');
+        row.className = 'mat-color-row';
+        row.append('Chip light');
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = colorFromMaterial(entry.material);
+        const val = document.createElement('span');
+        val.className = 'mat-val';
+        val.textContent = colorInput.value;
+        colorInput.addEventListener('input', () => {
+          applyColorToGroup(entry, colorInput.value);
+          val.textContent = hexToCss(cssToHex(colorInput.value));
+          const color = chipwaveColorFromEditor(key);
+          const cur = chipwaveLightForKey(key);
+          if (color != null) applyChip(color, cur.intensity, cur.range);
+        });
+        row.append(colorInput, val);
+        card.append(row);
+      }
+      const strengthRow = document.createElement('label');
+      strengthRow.title = 'Centre light strength. Only the Chipwave sphere receives it.';
+      strengthRow.append('Chip light strength');
+      const strengthInput = document.createElement('input');
+      strengthInput.type = 'range';
+      strengthInput.min = '0';
+      strengthInput.max = '2000';
+      strengthInput.step = '1';
+      strengthInput.value = String(chip.intensity);
+      const strengthVal = document.createElement('span');
+      strengthVal.className = 'mat-val';
+      strengthVal.textContent = String(Math.round(chip.intensity));
+      strengthInput.addEventListener('input', () => {
+        const intensity = Number(strengthInput.value);
+        strengthVal.textContent = String(Math.round(intensity));
+        const cur = chipwaveLightForKey(key);
+        applyChip(cur.color, intensity, cur.range);
+        dirtySaveKeys.add(`background:${key}:chipLight`);
+      });
+      strengthRow.append(strengthInput, strengthVal);
+      card.append(strengthRow);
+
+      const rangeRow = document.createElement('label');
+      rangeRow.title = 'Falloff distance. Beyond this the chip light cuts out.';
+      rangeRow.append('Chip light range');
+      const rangeInput = document.createElement('input');
+      rangeInput.type = 'range';
+      rangeInput.min = '0';
+      rangeInput.max = '200';
+      rangeInput.step = '0.5';
+      rangeInput.value = String(chip.range);
+      const rangeVal = document.createElement('span');
+      rangeVal.className = 'mat-val';
+      rangeVal.textContent = Number(chip.range).toFixed(1);
+      rangeInput.addEventListener('input', () => {
+        const range = Number(rangeInput.value);
+        rangeVal.textContent = range.toFixed(1);
+        const cur = chipwaveLightForKey(key);
+        applyChip(cur.color, cur.intensity, range);
+        dirtySaveKeys.add(`background:${key}:chipLight`);
+      });
+      rangeRow.append(rangeInput, rangeVal);
+      card.append(rangeRow);
     }
     materialList.append(card);
     appendColumnMaterialCard(key);

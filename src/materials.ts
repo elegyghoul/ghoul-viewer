@@ -214,6 +214,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Pool_1: { top: 0x009ceb, bottom: 0x35517e, distance: 0.81 },
   Based_Ghoul_Blue: { top: 0x2572b6, bottom: 0x2572b6, distance: 0.97 },
   Vaporwave_Columns: { top: 0x000000, bottom: 0x000000, distance: 1 },
+  Chipwave: { top: 0x000000, bottom: 0x000000, distance: 1 },
 
 };
 
@@ -236,6 +237,18 @@ export type BackgroundPointLight = {
 
 const BACKGROUND_POINT_LIGHT: Record<string, BackgroundPointLight> = {
   Pool_1: { color: 0xffffff, intensity: 22700 },
+};
+
+/** Centre light for the Chipwave sphere only (not Pool 1 / scene lights). */
+export type BackgroundChipwaveLight = {
+  color: number;
+  intensity: number;
+  /** Falloff distance in world units. 0 = no range cut (inverse-square only). */
+  range: number;
+};
+
+const BACKGROUND_CHIPWAVE_LIGHT: Record<string, BackgroundChipwaveLight> = {
+  Chipwave: { color: 0xa1b7d3, intensity: 1011, range: 52.5 },
 
 };
 
@@ -300,6 +313,16 @@ export function backgroundPointLight(name: string): BackgroundPointLight | null 
 
 export function backgroundHasPointLight(name: string): boolean {
   return Object.prototype.hasOwnProperty.call(BACKGROUND_POINT_LIGHT, name);
+}
+
+export function backgroundChipwaveLight(name: string): BackgroundChipwaveLight | null {
+  const saved = BACKGROUND_CHIPWAVE_LIGHT[name];
+  if (!saved) return null;
+  return { color: saved.color, intensity: saved.intensity, range: saved.range };
+}
+
+export function backgroundHasChipwaveLight(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(BACKGROUND_CHIPWAVE_LIGHT, name);
 }
 
 export function backgroundFog(name: string): BackgroundFog {

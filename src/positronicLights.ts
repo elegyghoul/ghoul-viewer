@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler.js';
+import { enableBloomLayer } from './materials';
 
 /**
  * Pinprick LEDs scattered on the positronic surface.
  * Each one blinks on its own clock, red, green, or cyan.
- * Plain meshes in the main pass, so tone mapping, dither, and the
- * existing palette treat them like the rest of the ghoul.
+ * Unlit, and included in the selective bloom pass while they are on.
  */
 
 const COUNT = 75;
@@ -134,11 +134,16 @@ function makeLamps(host: THREE.Mesh): { mesh: THREE.InstancedMesh; lamps: Lamp[]
   const time = performance.now() * 0.001;
   const lamps: Lamp[] = [];
   const geom = new THREE.SphereGeometry(1, 6, 4);
-  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    toneMapped: false,
+    fog: false,
+  });
   const mesh = new THREE.InstancedMesh(geom, mat, spots.length);
   mesh.name = 'PositronicLights';
   mesh.frustumCulled = false;
   mesh.count = spots.length;
+  enableBloomLayer(mesh);
 
   for (let i = 0; i < spots.length; i++) {
     const lamp: Lamp = {

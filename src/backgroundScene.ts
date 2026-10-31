@@ -665,6 +665,176 @@ function ignoreHemiAndSun(root: THREE.Object3D): void {
 }
 
 /**
+ * Chipwave: no scene lights. A centre point light is compiled into this
+ * material only (same approach as Pool 1 / glasses).
+ */
+const CHIPWAVE_LIGHTS = (() => {
+  let chunk = THREE.ShaderChunk.lights_fragment_begin;
+  for (const header of [
+    '#if ( NUM_POINT_LIGHTS > 0 )',
+    '#if ( NUM_SPOT_LIGHTS > 0 )',
+    '#if ( NUM_DIR_LIGHTS > 0 )',
+    '#if ( NUM_RECT_AREA_LIGHTS > 0 )',
+    '#if ( NUM_HEMI_LIGHTS > 0 )',
+  ]) {
+    chunk = stripGlslIf(chunk, header);
+  }
+  return chunk.replace(
+    'vec3 irradiance = getAmbientLightIrradiance( ambientLightColor );',
+    'vec3 irradiance = vec3( 0.0 );',
+  );
+})();
+
+const DEFAULT_CHIPWAVE_LIGHT = { color: 0xffffff, intensity: 280, range: 50 };
+/** Slow continuous spin for Chipwave spheres (rad/s). */
+const CHIPWAVE_SPIN = 0.07;
+
+function collectChipwaveSpheres(root: THREE.Object3D): THREE.Mesh[] {
+  const spheres: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const n = mesh.name.trim().toLowerCase().replace(/\s+/g, '');
+    if (n === 'sphere' || n.startsWith('sphere')) spheres.push(mesh);
+  });
+  // Outer first so screen-blend layers draw large → small.
+  spheres.sort((a, b) => {
+    const sa = Math.max(Math.abs(a.scale.x), Math.abs(a.scale.y), Math.abs(a.scale.z));
+    const sb = Math.max(Math.abs(b.scale.x), Math.abs(b.scale.y), Math.abs(b.scale.z));
+    return sb - sa;
+  });
+  return spheres;
+}
+
+/** Photoshop Screen: 1 − (1 − src) × (1 − dst). */
+function applyChipwaveScreenBlend(mat: THREE.Material): void {
+  mat.transparent = true;
+  // Keep depthTest so the ghoul (closer) wins; skip depthWrite so the two
+  // spheres can still screen-blend with each other.
+  mat.depthWrite = false;
+  mat.depthTest = true;
+  mat.blending = THREE.CustomBlending;
+  mat.blendEquation = THREE.AddEquation;
+  mat.blendSrc = THREE.OneFactor;
+  mat.blendDst = THREE.OneMinusSrcColorFactor;
+  mat.blendEquationAlpha = THREE.AddEquation;
+  mat.blendSrcAlpha = THREE.OneFactor;
+  mat.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+  mat.needsUpdate = true;
+}
+
+type ChipwaveLightUniform = {
+  color: { value: THREE.Color };
+  intensity: { value: number };
+  range: { value: number };
+};
+
+const chipwaveLightUniforms = new WeakMap<THREE.Material, ChipwaveLightUniform>();
+
+function attachChipwaveCenterLight(
+  mat: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial,
+  color = DEFAULT_CHIPWAVE_LIGHT.color,
+  intensity = DEFAULT_CHIPWAVE_LIGHT.intensity,
+  range = DEFAULT_CHIPWAVE_LIGHT.range,
+): void {
+  if (mat.userData.chipwaveLit) return;
+  mat.userData.chipwaveLit = true;
+  const uniforms: ChipwaveLightUniform = {
+    color: { value: new THREE.Color(color) },
+    intensity: { value: intensity },
+    range: { value: range },
+  };
+  chipwaveLightUniforms.set(mat, uniforms);
+  // Inside the sphere: keep DoubleSide and light both faces toward the centre.
+  mat.side = THREE.DoubleSide;
+  mat.fog = false;
+  const previous = mat.onBeforeCompile;
+  const previousKey = mat.customProgramCacheKey.bind(mat);
+  mat.onBeforeCompile = (shader, renderer) => {
+    previous?.(shader, renderer);
+    shader.uniforms.uChipLightColor = uniforms.color;
+    shader.uniforms.uChipLightIntensity = uniforms.intensity;
+    shader.uniforms.uChipLightRange = uniforms.range;
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <lights_fragment_begin>',
+      CHIPWAVE_LIGHTS,
+    );
+    shader.fragmentShader =
+      'uniform vec3 uChipLightColor;\nuniform float uChipLightIntensity;\nuniform float uChipLightRange;\n' +
+      shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        /* glsl */ `
+          {
+            vec3 chipPos = - vViewPosition;
+            vec3 chipLight = (viewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+            vec3 toLight = chipLight - chipPos;
+            float dist = length(toLight);
+            float atten = uChipLightIntensity / max(dist * dist, 1.0);
+            if (uChipLightRange > 0.0) {
+              atten *= pow(clamp(1.0 - pow(dist / uChipLightRange, 4.0), 0.0, 1.0), 2.0);
+            }
+            vec3 L = toLight / max(dist, 1e-4);
+            vec3 N = normalize(normal);
+            // Face either winding toward the centre light.
+            if (dot(N, L) < 0.0) N = -N;
+            float ndotl = clamp(dot(N, L), 0.0, 1.0);
+            // Diffuse only — white specular was washing out the chip texture.
+            outgoingLight += material.diffuseContribution * uChipLightColor * atten * ndotl;
+          }
+          #include <opaque_fragment>
+        `,
+      );
+  };
+  mat.customProgramCacheKey = () => `${previousKey()}|chipwave-center-light-v4`;
+  mat.needsUpdate = true;
+}
+
+function writeChipwaveCenterLight(
+  mat: THREE.Material,
+  color: number,
+  intensity: number,
+  range: number,
+): void {
+  const uniforms = chipwaveLightUniforms.get(mat);
+  if (!uniforms) return;
+  uniforms.color.value.setHex(color & 0xffffff);
+  uniforms.intensity.value = intensity;
+  uniforms.range.value = range;
+}
+
+function prepareChipwave(
+  mesh: THREE.Mesh,
+  color = DEFAULT_CHIPWAVE_LIGHT.color,
+  intensity = DEFAULT_CHIPWAVE_LIGHT.intensity,
+  range = DEFAULT_CHIPWAVE_LIGHT.range,
+): void {
+  enableBloomLayer(mesh);
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const mat of mats) {
+    if (!(mat instanceof THREE.MeshStandardMaterial) && !(mat instanceof THREE.MeshPhysicalMaterial)) {
+      continue;
+    }
+    // Shared GLB materials: clone so each sphere can blend/light independently.
+    if (!mat.userData.chipwaveOwned) {
+      const owned = mat.clone();
+      owned.userData.chipwaveOwned = true;
+      const list = Array.isArray(mesh.material) ? [...mesh.material] : [mesh.material];
+      for (let i = 0; i < list.length; i++) {
+        if (list[i] === mat) list[i] = owned;
+      }
+      mesh.material = list.length === 1 ? list[0]! : list;
+      attachChipwaveCenterLight(owned, color, intensity, range);
+      applyChipwaveScreenBlend(owned);
+    } else {
+      attachChipwaveCenterLight(mat, color, intensity, range);
+      applyChipwaveScreenBlend(mat);
+    }
+  }
+}
+
+/**
  * Optional Trait BG floor GLBs (`/models/backgrounds/{TraitKey}.glb`)
  * and unlit sphere skyboxes (`/models/skybox/{TraitKey}.jpg`).
  * WaterPlane meshes use `/models/backgrounds/ocean.jpg` as a scrolling
@@ -679,6 +849,9 @@ export class BackgroundSceneManager {
   private readonly oceanSkyCache = new Map<string, OceanSky>();
   private readonly skyTint = new Map<string, number>();
   private readonly poolLight = new Map<string, { color: number; intensity: number }>();
+  private readonly chipwaveLight = new Map<string, { color: number; intensity: number; range: number }>();
+  private readonly chipwaveMats = new Map<string, THREE.Material[]>();
+  private chipwaveSpinners: { mesh: THREE.Mesh; sign: number }[] = [];
   private readonly gradientSkyCache = new Map<string, THREE.Mesh>();
   private readonly cloudCache = new Map<string, { root: THREE.Group; puffs: CloudPuff[] }>();
   private readonly waterByBg = new Map<string, WaterPlaneRipple[]>();
@@ -821,13 +994,39 @@ export class BackgroundSceneManager {
     mat.color.setHex(color);
   }
 
-  /** Centre point light compiled into an ocean sky. No effect on other materials. */
+  /** Centre point light for Pool 1 sky only. */
   setPoolLight(key: string, color: number, intensity: number): void {
     const next = { color: color & 0xffffff, intensity };
     this.poolLight.set(key, next);
     const sky = this.oceanSkyCache.get(key);
-    if (!sky) return;
-    writePoolCenterLight(sky.mesh.material as THREE.Material, next.color, next.intensity);
+    if (sky) writePoolCenterLight(sky.mesh.material as THREE.Material, next.color, next.intensity);
+  }
+
+  /** Centre point light for the Chipwave sphere only. */
+  setChipwaveLight(key: string, color: number, intensity: number, range: number): void {
+    const next = { color: color & 0xffffff, intensity, range: Math.max(0, range) };
+    this.chipwaveLight.set(key, next);
+    const mats = this.chipwaveMats.get(key);
+    if (!mats) return;
+    for (const mat of mats) writeChipwaveCenterLight(mat, next.color, next.intensity, next.range);
+  }
+
+  private setupChipwave(root: THREE.Object3D, name: string): void {
+    const light = this.chipwaveLight.get(name) ?? DEFAULT_CHIPWAVE_LIGHT;
+    const spheres = collectChipwaveSpheres(root);
+    const mats: THREE.Material[] = [];
+    this.chipwaveSpinners = [];
+    for (let i = 0; i < spheres.length; i++) {
+      const mesh = spheres[i]!;
+      prepareChipwave(mesh, light.color, light.intensity, light.range);
+      mesh.renderOrder = -20 + i;
+      this.chipwaveSpinners.push({ mesh, sign: i % 2 === 0 ? 1 : -1 });
+      const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of list) {
+        if (mat && !mats.includes(mat)) mats.push(mat);
+      }
+    }
+    this.chipwaveMats.set(name, mats);
   }
   setCloudColor(hex: number): void {
     this.cloudColor = hex & 0xffffff;
@@ -930,6 +1129,13 @@ export class BackgroundSceneManager {
     this.updateClouds(this.activeKey, this.time);
     this.updateGradientSwirl(this.activeKey);
     this.updateOceanSky(this.activeKey);
+    if (this.activeKey === 'Chipwave' && this.chipwaveSpinners.length) {
+      const step = CHIPWAVE_SPIN * dt;
+      for (const spin of this.chipwaveSpinners) {
+        if (!spin.mesh.visible) continue;
+        spin.mesh.rotateY(spin.sign * step);
+      }
+    }
 
     const waters = this.waterByBg.get(this.activeKey);
     if (!waters?.length) return;
@@ -1216,6 +1422,7 @@ export class BackgroundSceneManager {
       }
       this.applyOceanMatToKey(name);
       if (name === 'Dungeon') ignoreHemiAndSun(cached);
+      if (name === 'Chipwave') this.setupChipwave(cached, name);
       return cached;
     }
     if (this.floorMissing.has(name)) return null;
@@ -1271,6 +1478,7 @@ export class BackgroundSceneManager {
             mesh.receiveShadow = !(name === 'Neon_Sunset' && isWaterPlaneName(mesh.name));
           });
           if (name === 'Dungeon') ignoreHemiAndSun(root);
+          if (name === 'Chipwave') this.setupChipwave(root, name);
           if (name === 'Neon_Sunset') {
             const water = findNamedMesh(root, 'WaterPlane');
             if (water) {

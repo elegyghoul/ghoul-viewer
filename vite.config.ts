@@ -33,6 +33,9 @@ export type SaveMaterialsPayload = {
       tint?: number;
       pointColor?: number;
       pointIntensity?: number;
+      chipLightColor?: number;
+      chipLightIntensity?: number;
+      chipLightRange?: number;
       columnsColor?: number;
       columnsRoughness?: number;
       columnsMetalness?: number;
@@ -293,6 +296,18 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
         'BACKGROUND_POINT_LIGHT',
         key,
         `{ color: ${hexLiteral(vals.pointColor)}, intensity: ${Math.round(vals.pointIntensity)} }`,
+      );
+    }
+    if (
+      vals.chipLightColor != null &&
+      vals.chipLightIntensity != null &&
+      vals.chipLightRange != null
+    ) {
+      next = upsertInConstObject(
+        next,
+        'BACKGROUND_CHIPWAVE_LIGHT',
+        key,
+        `{ color: ${hexLiteral(vals.chipLightColor)}, intensity: ${Math.round(vals.chipLightIntensity)}, range: ${Number(vals.chipLightRange.toFixed(2))} }`,
       );
     }
     if (
