@@ -3186,12 +3186,21 @@ function clampGhoulId(n: number): number {
   return Math.min(6665, Math.max(0, Math.floor(n)));
 }
 
-/** Read ghoul id from `?id=123` (also accepts bare `?123`). */
+/** Parse ghoul id from `?id=123`, bare `?123`, or `?=123`. Null if absent. */
+function parseGhoulIdFromSearch(search = window.location.search): number | null {
+  const params = new URLSearchParams(search);
+  const named = params.get('id');
+  if (named != null && named !== '') return clampGhoulId(Number(named));
+  const emptyKey = params.get('');
+  if (emptyKey != null && emptyKey !== '') return clampGhoulId(Number(emptyKey));
+  const bare = [...params.keys()].find((k) => k !== '');
+  if (bare != null) return clampGhoulId(Number(bare));
+  return null;
+}
+
+/** Read ghoul id from the URL query, or 0 if none. */
 function ghoulIdFromUrl(): number {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('id') ?? [...params.keys()][0];
-  if (raw == null || raw === '') return 0;
-  return clampGhoulId(Number(raw));
+  return parseGhoulIdFromSearch() ?? 0;
 }
 
 function setUrlGhoulId(id: number): void {
@@ -4936,7 +4945,8 @@ async function boot(): Promise<void> {
     controls.addEventListener('end', () => {
       cubeGridWant = 0;
     });
-    const initialId = updateUrlFlag ? ghoulIdFromUrl() : currentId;
+    const fromUrl = parseGhoulIdFromSearch();
+    const initialId = updateUrlFlag ? (fromUrl ?? currentId) : currentId;
     currentId = clampGhoulId(initialId);
     const palette = await loadCalmPalette();
     dither = new DitherComposer(renderer, palette);

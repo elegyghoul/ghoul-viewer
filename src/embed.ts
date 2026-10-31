@@ -195,11 +195,18 @@ function bindToolTabs(): void {
   }
 }
 
+/** Prefer `?id=15` / `?15` / `?=15`, then data-ghoul. */
 function startingId(): number {
+  const params = new URLSearchParams(window.location.search);
+  const named = params.get('id');
+  if (named != null && named !== '') return Number(named);
+  const emptyKey = params.get('');
+  if (emptyKey != null && emptyKey !== '') return Number(emptyKey);
+  const bare = [...params.keys()].find((k) => k !== '');
+  if (bare != null) return Number(bare);
   const launched = ghoulLaunch().id;
   if (launched != null && Number.isFinite(launched)) return launched;
-  const raw = new URLSearchParams(window.location.search).get('id');
-  return raw != null && raw !== '' ? Number(raw) : 0;
+  return 0;
 }
 
 const slot = shellEl<HTMLElement>('ghoul-slot');
@@ -212,6 +219,7 @@ if (slot) {
   setHeader(startId);
   bindToolTabs();
   const launch = ghoulLaunch();
+  const idPicker = !!launch.host?.hasAttribute('data-id-picker');
   if (launch.scale === 'fit' && launch.host) bindScaleFit(launch.host);
   shellRoot().querySelector('.ghoul-stage')?.addEventListener('pointerup', () => {
     const el = focusedInShell();
@@ -223,7 +231,8 @@ if (slot) {
   });
   const viewer = mountGhoulViewer(slot, {
     id: startId,
-    updateUrl: false,
+    // Keep the address bar shareable on id-picker demo pages (e.g. embedScaled).
+    updateUrl: idPicker,
     onLoad: setHeader,
   });
   if (launch.host) (launch.host as HTMLElement & { viewer: GhoulViewer }).viewer = viewer;
