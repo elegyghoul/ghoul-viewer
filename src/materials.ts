@@ -16,7 +16,7 @@ const SKIN: Record<string, number> = {
   Crayola: rgb(0.34117648, 0.53333336, 0.3529412),
   Drall: rgb(0.49411768, 0.80392164, 0.8313726),
   Lilb: rgb(0.54509807, 0.4156863, 0.0),
-  Ray: 0xd18f66,
+  Ray: 0xf4bc9a,
   OldOne: rgb(0.2, 0.5411765, 0.41176474),
 };
 
@@ -127,11 +127,11 @@ const ACCENT: Record<
   sudoGems_0: { color: 0xffadeb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.16 },
   sudoGems_1: { color: 0xffadeb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.16 },
   sudoGems_2: { color: 0x3cc2ac, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0 },
-  rayGhoul_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
-  rayGhoul_1: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
-  rayGhoul_2: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
+  rayGhoul_0: { color: 0xffc799, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
+  rayGhoul_1: { color: 0xf1c79b, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
+  rayGhoul_2: { color: 0xf1c79b, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   rayGhoul_3: { color: 0x000000, emissive: 0x000000, emissiveIntensity: 1 },
-  rayGhoul_4: { color: 0x050505, emissive: 0x000000, emissiveIntensity: 1 },
+  rayGhoul_4: { color: 0x050505, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.85, metalness: 0.02 },
   eyeTears_0: { color: 0x414dd2, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.6, metalness: 0.6 },
   bullHorns_0: { color: 0xd6c084, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.2, metalness: 0.7 },
   key_0: { color: 0xeab950, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.66, metalness: 1 },
@@ -176,6 +176,8 @@ const BACKGROUND: Record<string, number> = {
   Decay: 0x020900,
   Pitch_Black: 0x000000,
   Based_Ghoul_Blue: 0x2572b6,
+  /** 1/1 Ray Ghoul (#2418) — no Background trait; clear colour is edited via Unique. */
+  Ray_Ghoul: 0x8b989c,
   Darkness: 0x000000,
   Dungeon: 0x000000,
   BasedChain: 0x000000,
@@ -213,6 +215,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
   Pool_1: { top: 0x009ceb, bottom: 0x35517e, distance: 0.81 },
   Based_Ghoul_Blue: { top: 0x2572b6, bottom: 0x2572b6, distance: 0.97 },
+  Ray_Ghoul: { top: 0x8b999c, bottom: 0x8b989c, distance: 0.05 },
   Vaporwave_Columns: { top: 0x000000, bottom: 0x000000, distance: 1 },
   Chipwave: { top: 0x000000, bottom: 0x000000, distance: 1 },
 

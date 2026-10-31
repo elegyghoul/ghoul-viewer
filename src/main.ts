@@ -675,11 +675,27 @@ const GHOUL_PEGS_ID = 207;
 const GHOUL_PEGS_BG = 0xf6e2b4;
 /** 1/1 Crayola (#2181) has no Background trait. Trait BG is Based Loans. */
 const CRAYOLA_BG = 'Based_Loans';
+/** 1/1 BlessedBeBased (#4791) / Stacey (#2446) have no Background trait. Trait BG is Based Ghoul Blue. */
+const BASED_GHOUL_BLUE_BG = 'Based_Ghoul_Blue';
+/** 1/1 Ray Ghoul (#2418) has no Background trait. Own savable clear colour. */
+const RAY_GHOUL_BG = 'Ray_Ghoul';
 
 function liveBackgroundKey(): string | null {
   if (currentTraits?.unique === 'Crayola') return CRAYOLA_BG;
+  if (currentTraits?.unique === 'BlessedBeBased' || currentTraits?.unique === 'Stacey') {
+    return BASED_GHOUL_BLUE_BG;
+  }
+  if (currentTraits?.unique === 'Ray_Ghoul') return RAY_GHOUL_BG;
   const name = currentTraits?.background;
   return name && name !== 'None' ? name : null;
+}
+
+/** True when the material editor is driving this Trait BG key. */
+function isEditingBackgroundKey(key: string): boolean {
+  if (selectedTraitKey !== 'background') return false;
+  if (currentTraits?.background === key) return true;
+  // Unique-forced BG (e.g. Ray Ghoul) while the Background trait itself is None.
+  return currentTraits?.background === 'None' && liveBackgroundKey() === key;
 }
 
 /** Fog is per Trait BG, or `None` when the ghoul has no background. */
@@ -693,8 +709,7 @@ const bgGradLive = new Map<string, BackgroundGradient>();
 const bgCloudLive = new Map<string, number>();
 
 function gradientFromEditor(key: string): Pick<BackgroundGradient, 'top' | 'bottom'> | null {
-  if (selectedTraitKey !== 'background') return null;
-  if (currentTraits?.background !== key) return null;
+  if (!isEditingBackgroundKey(key)) return null;
   let top: number | null = null;
   let bottom: number | null = null;
   for (const e of editorEntries) {
@@ -714,8 +729,7 @@ function gradientFromEditor(key: string): Pick<BackgroundGradient, 'top' | 'bott
 }
 
 function cloudColorFromEditor(key: string): number | null {
-  if (selectedTraitKey !== 'background') return null;
-  if (currentTraits?.background !== key) return null;
+  if (!isEditingBackgroundKey(key)) return null;
   for (const e of editorEntries) {
     const t = e.saveTarget;
     if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'clouds') continue;
@@ -744,8 +758,7 @@ function cloudColorForKey(key: string): number {
 const bgSkyTintLive = new Map<string, number>();
 
 function skyTintFromEditor(key: string): number | null {
-  if (selectedTraitKey !== 'background') return null;
-  if (currentTraits?.background !== key) return null;
+  if (!isEditingBackgroundKey(key)) return null;
   for (const e of editorEntries) {
     const t = e.saveTarget;
     if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'tint') continue;
@@ -764,8 +777,7 @@ const pointLightLive = new Map<string, { color: number; intensity: number }>();
 const chipwaveLightLive = new Map<string, { color: number; intensity: number; range: number }>();
 
 function pointColorFromEditor(key: string): number | null {
-  if (selectedTraitKey !== 'background') return null;
-  if (currentTraits?.background !== key) return null;
+  if (!isEditingBackgroundKey(key)) return null;
   for (const e of editorEntries) {
     const t = e.saveTarget;
     if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'point') continue;
@@ -777,8 +789,7 @@ function pointColorFromEditor(key: string): number | null {
 }
 
 function chipwaveColorFromEditor(key: string): number | null {
-  if (selectedTraitKey !== 'background') return null;
-  if (currentTraits?.background !== key) return null;
+  if (!isEditingBackgroundKey(key)) return null;
   for (const e of editorEntries) {
     const t = e.saveTarget;
     if (!t || t.kind !== 'background' || t.key !== key || t.slot !== 'chipLight') continue;
@@ -1814,7 +1825,11 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
   setSaveStatus('');
 
   if (category === 'background') {
-    const key = value || 'None';
+    // Ray Ghoul has no Background trait — edit its dedicated clear key instead of None.
+    const key =
+      currentTraits?.unique === 'Ray_Ghoul' && (!value || value === 'None')
+        ? RAY_GHOUL_BG
+        : value || 'None';
     const grad = bgGradLive.get(key) ?? backgroundGradient(key);
     const matTop = new THREE.MeshBasicMaterial({ color: grad.top });
     const matBottom = new THREE.MeshBasicMaterial({ color: grad.bottom });
@@ -2417,10 +2432,17 @@ function showTraits(traits: GhoulTraits): void {
 
   let firstKey: keyof GhoulTraits | null = null;
   const bodySkin = traits.ghoul === 'None' ? forcedBodySkin() : null;
+  // 1/1s with Background=None still use a forced clear (Ray Ghoul, Crayola, …).
+  const forcedBg = liveBackgroundKey();
   for (const { key, label } of TRAIT_LABELS) {
     const value = traits[key];
     if (typeof value !== 'string') continue;
-    const display = key === 'ghoul' && bodySkin ? bodySkin : value;
+    const display =
+      key === 'ghoul' && bodySkin
+        ? bodySkin
+        : key === 'background' && (!value || value === 'None') && forcedBg
+          ? forcedBg
+          : value;
     if (!display || display === 'None') continue;
     if (!firstKey) firstKey = key;
     const row = document.createElement('div');
