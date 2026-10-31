@@ -59,6 +59,8 @@ export class PlayController {
   private params: PlayParams = { ...DEFAULT_PLAY_PARAMS };
   private camMode: PlayCameraMode = 'fixed';
   private floorY = 0;
+  /** Half-extent of XZ walk box; null = unlimited. */
+  private walkHalf: number | null = null;
   private left = false;
   private right = false;
   private up = false;
@@ -100,6 +102,15 @@ export class PlayController {
 
   setParams(partial: Partial<PlayParams>): void {
     this.params = { ...this.params, ...partial };
+  }
+
+  /**
+   * Axis-aligned XZ walk limit (walls at ±half). Pass null to clear.
+   * Applied after each step while play is active.
+   */
+  setWalkBounds(half: number | null): void {
+    this.walkHalf = half != null && half > 0 ? half : null;
+    this.clampToWalkBounds();
   }
 
   getFollowCam(): FollowCamParams {
@@ -224,8 +235,16 @@ export class PlayController {
     }
 
     this.root.position.y = this.floorY;
+    this.clampToWalkBounds();
     this.applyLocomotion(moving);
     if (this.camMode === 'follow') this.updateFollowCamera(step);
+  }
+
+  private clampToWalkBounds(): void {
+    if (!this.root || this.walkHalf == null) return;
+    const h = this.walkHalf;
+    this.root.position.x = THREE.MathUtils.clamp(this.root.position.x, -h, h);
+    this.root.position.z = THREE.MathUtils.clamp(this.root.position.z, -h, h);
   }
 
   private applyCameraMode(): void {

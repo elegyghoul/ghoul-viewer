@@ -655,6 +655,87 @@ function isOrbitRotating(ctrl: OrbitControls): boolean {
   return st === 0 || st === 3 || st === 6;
 }
 
+/**
+ * Holodeck walk limits for Trait BG Play Mode: four vertical yellow grids
+ * (same look as the non-trait floor grid), invisible until the ghoul nears them.
+ * Enclosure is 2× the floor GridHelper side (4 → 8).
+ */
+const WALK_LIMIT_SIZE = 8;
+const WALK_LIMIT_HALF = WALK_LIMIT_SIZE * 0.5;
+/** Match floor GridHelper cell size: 4 / 16 = 0.25. */
+const WALK_LIMIT_DIVS = 32;
+const WALK_LIMIT_COLOR = 0xbd8825;
+const WALK_LIMIT_OPACITY = 0.5;
+const WALK_LIMIT_FADE = 1.25;
+const walkWalls = new THREE.Group();
+walkWalls.name = 'PlayWalkWalls';
+walkWalls.visible = false;
+
+type WalkWallFace = {
+  mesh: THREE.GridHelper;
+  /** Signed axis: 'x' | 'z' and which side (+1 / -1). */
+  axis: 'x' | 'z';
+  sign: 1 | -1;
+};
+
+const walkWallFaces: WalkWallFace[] = [];
+
+{
+  const half = WALK_LIMIT_HALF;
+  const midY = WALK_LIMIT_SIZE * 0.5;
+  const faces: Array<{ rot: THREE.Euler; pos: THREE.Vector3; axis: 'x' | 'z'; sign: 1 | -1 }> = [
+    { rot: new THREE.Euler(Math.PI / 2, 0, 0), pos: new THREE.Vector3(0, midY, half), axis: 'z', sign: 1 },
+    { rot: new THREE.Euler(-Math.PI / 2, 0, 0), pos: new THREE.Vector3(0, midY, -half), axis: 'z', sign: -1 },
+    { rot: new THREE.Euler(0, 0, -Math.PI / 2), pos: new THREE.Vector3(half, midY, 0), axis: 'x', sign: 1 },
+    { rot: new THREE.Euler(0, 0, Math.PI / 2), pos: new THREE.Vector3(-half, midY, 0), axis: 'x', sign: -1 },
+  ];
+  for (const f of faces) {
+    const face = new THREE.GridHelper(WALK_LIMIT_SIZE, WALK_LIMIT_DIVS, WALK_LIMIT_COLOR, WALK_LIMIT_COLOR);
+    styleCubeGridFace(face);
+    face.rotation.copy(f.rot);
+    face.position.copy(f.pos);
+    walkWalls.add(face);
+    walkWallFaces.push({ mesh: face, axis: f.axis, sign: f.sign });
+  }
+  scene.add(walkWalls);
+}
+
+function walkWallsActive(): boolean {
+  return playMode.active && bgMode === 'trait';
+}
+
+function syncWalkBounds(): void {
+  playMode.setWalkBounds(walkWallsActive() ? WALK_LIMIT_HALF : null);
+}
+
+function updateWalkWalls(): void {
+  if (!walkWallsActive() || !assembler) {
+    if (walkWalls.visible) {
+      for (const f of walkWallFaces) {
+        const mats = Array.isArray(f.mesh.material) ? f.mesh.material : [f.mesh.material];
+        for (const m of mats) m.opacity = 0;
+      }
+      walkWalls.visible = false;
+    }
+    return;
+  }
+
+  const p = assembler.root.position;
+  const unlit = lastUnlitScale;
+  let any = false;
+  for (const f of walkWallFaces) {
+    const along = f.axis === 'x' ? p.x : p.z;
+    // Distance from ghoul to this wall plane (positive while inside).
+    const dist = WALK_LIMIT_HALF - f.sign * along;
+    const t = 1 - THREE.MathUtils.clamp(dist / WALK_LIMIT_FADE, 0, 1);
+    const op = WALK_LIMIT_OPACITY * t * unlit;
+    const mats = Array.isArray(f.mesh.material) ? f.mesh.material : [f.mesh.material];
+    for (const m of mats) m.opacity = op;
+    if (op > 1e-3) any = true;
+  }
+  walkWalls.visible = any;
+}
+
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(8, 8),
   new THREE.ShadowMaterial({ opacity: 0.45 }),
@@ -3334,6 +3415,8 @@ function setAppMode(next: AppMode): void {
     }
     setCamMode('fixed');
   }
+  syncWalkBounds();
+  updateWalkWalls();
 }
 
 appModeViewBtn.addEventListener('click', () => setAppMode('view'));
@@ -3980,6 +4063,8 @@ function setBgMode(next: BgMode): void {
   else syncCameraChromeForBg();
   syncGridAndBackground();
   if (next !== 'ghoulball') cubeGridWant = 0;
+  syncWalkBounds();
+  updateWalkWalls();
 
   if (ghoulballStartTimer) {
     window.clearTimeout(ghoulballStartTimer);
@@ -4012,6 +4097,8 @@ function setBgMode(next: BgMode): void {
         playMode.setEnabled(false, null, null, camera, controls!);
         animator.snapTo('Idle');
         syncPlayBanner();
+        syncWalkBounds();
+        updateWalkWalls();
       }
 
       const extras: THREE.Object3D[] = [];
@@ -4763,6 +4850,7 @@ function animate(): void {
   }
   positronicLights.update();
   playMode.update(dt, ghoulball.frozen);
+  updateWalkWalls();
   updateLightTween(dt);
   updateBeamSway(dt);
   updateToxicSlime(dt);
