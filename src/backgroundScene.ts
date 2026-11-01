@@ -197,6 +197,10 @@ const NET_CYLINDER_Y = Math.max(
  */
 const NET_CYLINDER_HALF_THICK = 0.15;
 
+/** Spin rate (rad/s) and downward pattern scroll (cells/s). Pattern wraps — infinite illusion. */
+const NET_CYLINDER_SPIN = 0.12;
+const NET_CYLINDER_SCROLL_Y = 0.35;
+
 type WaterPlaneRipple = {
   mesh: THREE.Mesh;
   rest: Float32Array;
@@ -553,7 +557,8 @@ function gradientColumnSwirl(name: string): number {
 
 /**
  * Thick angle×height net on a cylinder wall; square cells in world units.
- * Top→bottom colour mix by local Y. Manual black fog.
+ * uScrollY shifts the pattern so a finite tube reads as an infinite scrolling cage.
+ * Top→bottom colour mix stays locked to local Y. Manual black fog.
  */
 function makeNetCylinderMaterial(top: number, bottom: number, distance: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -565,6 +570,7 @@ function makeNetCylinderMaterial(top: number, bottom: number, distance: number):
       uLonCount: { value: NET_CYLINDER_LON },
       uHalfHeight: { value: NET_CYLINDER_HEIGHT * 0.5 },
       uHalfThick: { value: NET_CYLINDER_HALF_THICK },
+      uScrollY: { value: 0 },
       uFogNear: { value: 2 },
       uFogFar: { value: 16 },
       uFogColor: { value: new THREE.Color(0x000000) },
@@ -587,6 +593,7 @@ function makeNetCylinderMaterial(top: number, bottom: number, distance: number):
       uniform float uLonCount;
       uniform float uHalfHeight;
       uniform float uHalfThick;
+      uniform float uScrollY;
       uniform float uFogNear;
       uniform float uFogFar;
       uniform vec3 uFogColor;
@@ -597,7 +604,8 @@ function makeNetCylinderMaterial(top: number, bottom: number, distance: number):
         float lon = atan(vLocalPos.z, vLocalPos.x) / (2.0 * 3.14159265) + 0.5;
         float y01 = clamp(vLocalPos.y / max(uHalfHeight, 1e-4) * 0.5 + 0.5, 0.0, 1.0);
 
-        float yF = fract(y01 * uYCount);
+        // Scroll in cell-space so fract() wraps seamlessly (infinite downward motion).
+        float yF = fract(y01 * uYCount + uScrollY);
         float lonF = fract(lon * uLonCount);
         float dY = min(yF, 1.0 - yF);
         float dLon = min(lonF, 1.0 - lonF);
@@ -1270,12 +1278,27 @@ export class BackgroundSceneManager {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = `NetCylinder_${name}`;
     isolateSkyFromPointLights(mesh);
+    enableBloomLayer(mesh);
     mesh.renderOrder = -5;
     mesh.frustumCulled = false;
     mesh.visible = false;
     this.root.add(mesh);
     this.netSphereCache.set(name, mesh);
     return mesh;
+  }
+
+  private updateNetCylinder(key: string, dt: number): void {
+    if (!NET_SPHERE_KEYS.has(key)) return;
+    const mesh = this.netSphereCache.get(key);
+    if (!mesh?.visible) return;
+    mesh.rotateY(NET_CYLINDER_SPIN * dt);
+    const mat = mesh.material as THREE.ShaderMaterial;
+    const scroll = mat.uniforms.uScrollY;
+    if (scroll) {
+      // Positive scroll → pattern moves downward through the fixed tube.
+      scroll.value = (scroll.value + NET_CYLINDER_SCROLL_Y * dt) % 1;
+      if (scroll.value < 0) scroll.value += 1;
+    }
   }
 
   update(dt: number, camera?: THREE.Camera): void {
@@ -1286,6 +1309,7 @@ export class BackgroundSceneManager {
     this.updateClouds(this.activeKey, this.time);
     this.updateGradientSwirl(this.activeKey);
     this.updateOceanSky(this.activeKey);
+    this.updateNetCylinder(this.activeKey, dt);
     if (this.activeKey === 'Chipwave' && this.chipwaveSpinners.length) {
       const step = CHIPWAVE_SPIN * dt;
       for (const spin of this.chipwaveSpinners) {

@@ -219,7 +219,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Vaporwave_Columns: { top: 0x000000, bottom: 0x000000, distance: 1 },
   Chipwave: { top: 0x000000, bottom: 0x000000, distance: 1 },
   /** Net-sphere band colours (holes stay `BACKGROUND.BasedChain`). */
-  BasedChain: { top: 0x5d99da, bottom: 0x4c0052, distance: 0.16 },
+  BasedChain: { top: 0x0060c7, bottom: 0x47004d, distance: 0.16 },
 
 };
 
