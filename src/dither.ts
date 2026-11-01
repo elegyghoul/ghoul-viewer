@@ -81,6 +81,9 @@ uniform vec3 uPalette[${MAX_PALETTE}];
 uniform int uPaletteSize;
 uniform float uDitherStrength;
 uniform vec2 uResolution;
+uniform float uVigIntensity;
+uniform float uVigRadius;
+uniform float uVigSoft;
 
 varying vec2 vUv;
 
@@ -130,6 +133,13 @@ vec3 nearestPalette(vec3 color) {
 
 void main() {
   vec3 linearColor = texture2D(tDiffuse, vUv).rgb;
+  // Screen vignette (BasedChain Trait BG). Intensity 0 disables.
+  if (uVigIntensity > 1e-4) {
+    vec2 vc = vUv * 2.0 - 1.0;
+    float r = length(vc);
+    float vig = smoothstep(uVigRadius, uVigRadius + max(uVigSoft, 0.001), r);
+    linearColor *= 1.0 - clamp(vig * uVigIntensity, 0.0, 1.0);
+  }
   vec3 color = linearToSrgb(linearColor);
   vec3 snapped = nearestPalette(color);
   vec3 delta = color - snapped;
@@ -273,6 +283,9 @@ export class DitherComposer {
         uPaletteSize: { value: palette.length },
         uDitherStrength: { value: 0.14 },
         uResolution: { value: new THREE.Vector2(PIXEL_SIZE, PIXEL_SIZE) },
+        uVigIntensity: { value: 0 },
+        uVigRadius: { value: 0.55 },
+        uVigSoft: { value: 0.55 },
       },
       vertexShader: quadVert,
       fragmentShader: ditherFrag,
@@ -414,6 +427,13 @@ export class DitherComposer {
     renderer.outputColorSpace = prevOutput;
     renderer.toneMapping = prevTone;
     renderer.shadowMap.autoUpdate = prevShadowAuto;
+  }
+
+  /** Screen vignette in the final dither pass. Intensity 0 turns it off. */
+  setVignette(intensity: number, radius = 0.55, soft = 0.55): void {
+    this.ditherMaterial.uniforms.uVigIntensity!.value = Math.max(0, intensity);
+    this.ditherMaterial.uniforms.uVigRadius!.value = Math.max(0, radius);
+    this.ditherMaterial.uniforms.uVigSoft!.value = Math.max(0.001, soft);
   }
 
   /** Dithered scene with the bloom passes left out. */

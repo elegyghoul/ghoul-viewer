@@ -218,6 +218,8 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Ray_Ghoul: { top: 0x8b999c, bottom: 0x8b989c, distance: 0.05 },
   Vaporwave_Columns: { top: 0x000000, bottom: 0x000000, distance: 1 },
   Chipwave: { top: 0x000000, bottom: 0x000000, distance: 1 },
+  /** Net-sphere band colours (holes stay `BACKGROUND.BasedChain`). */
+  BasedChain: { top: 0x5d99da, bottom: 0x4c0052, distance: 0.16 },
 
 };
 
@@ -271,8 +273,40 @@ const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Vaporwave_Columns: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Dreams: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Dungeon: { enabled: true, color: 0x000000, near: 0.45, far: 21.7 },
+  /** Black distance fog for the BasedChain net cage (Near/Far edited in Trait inspector). */
+  BasedChain: { enabled: true, color: 0x000000, near: 5.2, far: 31.75 },
 
 };
+
+/** Screen vignette for Trait BG (BasedChain only). Edited in the Trait inspector. */
+export type BackgroundVignette = {
+  intensity: number;
+  /** Clear centre size (NDC radius). Higher = vignette starts further out. */
+  radius: number;
+  /** Falloff width beyond radius. */
+  soft: number;
+};
+
+export const DEFAULT_VIGNETTE: BackgroundVignette = {
+  intensity: 0,
+  radius: 0.55,
+  soft: 0.55,
+};
+
+const BACKGROUND_VIGNETTE: Record<string, BackgroundVignette> = {
+  BasedChain: { intensity: 0.99, radius: 0.27, soft: 1.15 },
+
+};
+
+export function backgroundVignette(name: string): BackgroundVignette {
+  const saved = BACKGROUND_VIGNETTE[name];
+  if (!saved) return { ...DEFAULT_VIGNETTE };
+  return {
+    intensity: saved.intensity,
+    radius: saved.radius,
+    soft: Math.max(0.001, saved.soft),
+  };
+}
 
 export function backgroundColor(name: string): number {
   return BACKGROUND[name] ?? 0x000000;

@@ -48,6 +48,7 @@ export type SaveMaterialsPayload = {
     string,
     { enabled: boolean; color: number; near: number; far: number }
   >;
+  backgroundVignette?: Record<string, { intensity: number; radius: number; soft: number }>;
   backgroundRipple?: Record<
     string,
     { enabled: boolean; amplitude: number; frequency: number; speed: number }
@@ -92,6 +93,10 @@ function fogLiteral(entry: {
   far: number;
 }): string {
   return `{ enabled: ${entry.enabled ? 'true' : 'false'}, color: ${hexLiteral(entry.color)}, near: ${Number(entry.near.toFixed(3))}, far: ${Number(entry.far.toFixed(3))} }`;
+}
+
+function vignetteLiteral(entry: { intensity: number; radius: number; soft: number }): string {
+  return `{ intensity: ${Number(entry.intensity.toFixed(3))}, radius: ${Number(entry.radius.toFixed(3))}, soft: ${Number(entry.soft.toFixed(3))} }`;
 }
 
 function rippleLiteral(entry: {
@@ -268,13 +273,18 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
     next = upsertInConstObject(next, 'EYE_COLORS', key, hexLiteral(vals.color));
   }
 
+  /** Net cages keep a separate solid clear; Top/Bottom only tint the bands. */
+  const netSphereBgKeys = new Set(['BasedChain']);
+
   for (const [key, vals] of Object.entries(payload.background ?? {})) {
     const top = vals.top ?? vals.color;
     const bottom = vals.bottom ?? vals.color;
-    if (bottom != null) {
-      next = upsertInConstObject(next, 'BACKGROUND', key, hexLiteral(bottom));
-    } else if (top != null) {
-      next = upsertInConstObject(next, 'BACKGROUND', key, hexLiteral(top));
+    if (!netSphereBgKeys.has(key)) {
+      if (bottom != null) {
+        next = upsertInConstObject(next, 'BACKGROUND', key, hexLiteral(bottom));
+      } else if (top != null) {
+        next = upsertInConstObject(next, 'BACKGROUND', key, hexLiteral(top));
+      }
     }
     if (top != null && bottom != null) {
       next = upsertInConstObject(
@@ -339,6 +349,10 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
 
   for (const [key, vals] of Object.entries(payload.backgroundFog ?? {})) {
     next = upsertInConstObject(next, 'BACKGROUND_FOG', key, fogLiteral(vals));
+  }
+
+  for (const [key, vals] of Object.entries(payload.backgroundVignette ?? {})) {
+    next = upsertInConstObject(next, 'BACKGROUND_VIGNETTE', key, vignetteLiteral(vals));
   }
 
   for (const [key, vals] of Object.entries(payload.backgroundRipple ?? {})) {

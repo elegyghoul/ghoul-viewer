@@ -26,8 +26,13 @@ import { DroolManager, DROOL_PRESETS } from './drool';
 import { CudiParticleManager } from './cudiParticles';
 import { GhoulballController, DEFAULT_GHOULBALL_MATERIAL, GHOULBALL_WRAP_DURATION, type GhoulballMaterialParams } from './ghoulball';
 import { PlayController, DEFAULT_PLAY_PARAMS, type PlayCameraMode, type FollowCamParams } from './playMode';
-import { BackgroundSceneManager, SKYBOX_CLIP_FAR } from './backgroundScene';
 import {
+  BackgroundSceneManager,
+  SKYBOX_CLIP_FAR,
+  backgroundUsesNetSphere,
+} from './backgroundScene';
+import {
+  backgroundColor,
   backgroundCloudColor,
   backgroundDirLight,
   backgroundFog,
@@ -41,6 +46,7 @@ import {
   backgroundPointLight,
   backgroundRipple,
   backgroundSkyTint,
+  backgroundVignette,
   bindBeamSway,
   updateBeamSway,
   updateNc69rDisplayScroll,
@@ -52,11 +58,13 @@ import {
   DEFAULT_DIR_LIGHT,
   DEFAULT_GRADIENT_DISTANCE,
   DEFAULT_OCEAN_MAT,
+  DEFAULT_VIGNETTE,
   type BackgroundDirLight,
   type BackgroundFog,
   type BackgroundGradient,
   type BackgroundOceanMat,
   type BackgroundRipple,
+  type BackgroundVignette,
 } from './materials';
 import { assetUrl, shellRoot } from './assetUrl';
 
@@ -913,6 +921,8 @@ const rippleLive = new Map<string, BackgroundRipple>();
 const oceanMatLive = new Map<string, BackgroundOceanMat>();
 let oceanUiKey: string | null = null;
 let oceanUiSyncing = false;
+/** Live vignette edits (BasedChain Trait BG). */
+const vignetteLive = new Map<string, BackgroundVignette>();
 
 function fogForKey(key: string): BackgroundFog {
   const live = fogLive.get(key);
@@ -925,6 +935,27 @@ function fogForKey(key: string): BackgroundFog {
     };
   }
   return backgroundFog(key);
+}
+
+function vignetteForKey(key: string): BackgroundVignette {
+  const live = vignetteLive.get(key);
+  if (live) {
+    return {
+      intensity: live.intensity,
+      radius: live.radius,
+      soft: Math.max(0.001, live.soft),
+    };
+  }
+  return backgroundVignette(key);
+}
+
+function applyTraitVignette(): void {
+  const trait = bgMode === 'trait';
+  const key = liveBackgroundKey();
+  const vig =
+    trait && key && backgroundUsesNetSphere(key) ? vignetteForKey(key) : DEFAULT_VIGNETTE;
+  dither?.setVignette(vig.intensity, vig.radius, vig.soft);
+  cleanDither?.setVignette(vig.intensity, vig.radius, vig.soft);
 }
 
 function dirLightForKey(key: string): BackgroundDirLight {
@@ -1036,6 +1067,7 @@ function applySceneFog(): void {
   } else {
     scene.fog = new THREE.Fog(fog.color, near, far);
   }
+  if (backgroundUsesNetSphere(key)) bgScenes.setNetFog(near, far, fog.color);
 }
 
 function syncGridAndBackground(): void {
@@ -1061,8 +1093,11 @@ function syncGridAndBackground(): void {
         : key
           ? gradientForKey(key)
           : { top: GRID_CLEAR, bottom: GRID_CLEAR, distance: DEFAULT_GRADIENT_DISTANCE };
-    // Flat clear matches horizon; the sphere skybox carries the vertical gradient.
-    scene.background = new THREE.Color(g.bottom);
+    // Solid skies: flat clear = gradient bottom. Net cages: clear stays the solid BG colour
+    // so openings read as empty space; Top/Bottom only tint the bands.
+    const clearHex =
+      key && backgroundUsesNetSphere(key) ? backgroundColor(key) : g.bottom;
+    scene.background = new THREE.Color(clearHex);
     bgScenes.setClearGradient(g.top, g.bottom, g.distance ?? DEFAULT_GRADIENT_DISTANCE);
     if (key) {
       bgScenes.setCloudColor(cloudColorForKey(key));
@@ -1080,6 +1115,7 @@ function syncGridAndBackground(): void {
     scene.background = new THREE.Color(GRID_CLEAR);
   }
   applySceneFog();
+  applyTraitVignette();
   applyTraitDirLight();
   const ripple = key ? rippleForKey(key) : { enabled: false, amplitude: 0, frequency: 1, speed: 1 };
   bgScenes.setRipple(ripple);
@@ -1088,6 +1124,11 @@ function syncGridAndBackground(): void {
     if (key) {
       const g = gradientForKey(key);
       bgScenes.setClearGradient(g.top, g.bottom, g.distance ?? DEFAULT_GRADIENT_DISTANCE);
+      // Net fog uniforms only exist after the cage mesh is created.
+      if (backgroundUsesNetSphere(key)) {
+        const fog = fogForKey(key);
+        if (fog.enabled) bgScenes.setNetFog(fog.near, fog.far, fog.color);
+      }
       bgScenes.setCloudColor(cloudColorForKey(key));
       bgScenes.setSkyTint(key, skyTintForKey(key));
       if (backgroundHasPointLight(key)) {
@@ -1668,13 +1709,35 @@ async function saveMaterialsToDisk(): Promise<void> {
     return;
   }
 
+  // Net cages also persist fog + vignette from the Trait inspector.
+  const backgroundFog: Record<string, BackgroundFog> = {};
+  const backgroundVignettePayload: Record<string, BackgroundVignette> = {};
+  for (const key of Object.keys(payload.background ?? {})) {
+    if (!backgroundUsesNetSphere(key)) continue;
+    const fog = fogForKey(key);
+    backgroundFog[key] = {
+      enabled: true,
+      color: 0x000000,
+      near: fog.near,
+      far: Math.max(fog.far, fog.near + 0.01),
+    };
+    backgroundVignettePayload[key] = vignetteForKey(key);
+  }
+  const body = {
+    ...payload,
+    ...(Object.keys(backgroundFog).length ? { backgroundFog } : {}),
+    ...(Object.keys(backgroundVignettePayload).length
+      ? { backgroundVignette: backgroundVignettePayload }
+      : {}),
+  };
+
   materialSaveBtn.disabled = true;
   setSaveStatus('Saving…');
   try {
     const res = await fetch('/__dev/save-materials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
     const text = await res.text();
     let data: { ok: boolean; error?: string; file?: string; wrote?: string };
@@ -1687,7 +1750,14 @@ async function saveMaterialsToDisk(): Promise<void> {
       throw new Error(data.error || `HTTP ${res.status}`);
     }
     dirtySaveKeys.clear();
-    setSaveStatus(`Saved · ${summarizePayload(payload)}`, 'ok');
+    const fogBits = Object.entries(backgroundFog).map(
+      ([k, f]) => `${k} fog ${f.near.toFixed(2)}–${f.far.toFixed(2)}`,
+    );
+    const vigBits = Object.entries(backgroundVignettePayload).map(
+      ([k, v]) => `${k} vig ${v.intensity.toFixed(2)}`,
+    );
+    const summary = [summarizePayload(payload), ...fogBits, ...vigBits].filter(Boolean).join(', ');
+    setSaveStatus(`Saved · ${summary}`, 'ok');
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     setSaveStatus(
@@ -1968,13 +2038,16 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
         saveTarget: { kind: 'background', key, slot: 'chipLight' },
       });
     }
+    const showNet = backgroundUsesNetSphere(key);
     materialHint.textContent = showChipLight
       ? `${formatTraitValue(key)} · chip light · savable`
       : showPoint
         ? `${formatTraitValue(key)} · point light · savable`
         : showSkyTint
           ? `${formatTraitValue(key)} · ocean sphere tint · savable`
-          : `${formatTraitValue(key)} · skybox gradient${showClouds ? ' + clouds' : ''} · savable`;
+          : showNet
+            ? `${formatTraitValue(key)} · net cylinder · savable`
+            : `${formatTraitValue(key)} · skybox gradient${showClouds ? ' + clouds' : ''} · savable`;
     const card = document.createElement('div');
     card.className = 'mat-card';
     const title = document.createElement('div');
@@ -1988,9 +2061,11 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
         ? 'Ocean sphere · point light · savable'
         : showSkyTint
           ? 'Ocean sphere · tint × texture · savable'
-          : showClouds
-            ? 'Skybox gradient + clouds · savable'
-            : 'Skybox gradient · top → bottom · savable';
+          : showNet
+            ? 'Net cylinder · fog + vignette · savable'
+            : showClouds
+              ? 'Skybox gradient + clouds · savable'
+              : 'Skybox gradient · top → bottom · savable';
     card.append(title, meta);
 
     for (const entry of editorEntries) {
@@ -2019,7 +2094,9 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
     }
 
     const distRow = document.createElement('label');
-    distRow.title = 'Dither crossover width. 1 = full frame (pixel-art). Lower = tighter band. Higher = softer, less solid at the edges.';
+    distRow.title = showNet
+      ? 'How soft the top→bottom blend is along the cylinder. Lower = sharper mid-height split.'
+      : 'Dither crossover width. 1 = full frame (pixel-art). Lower = tighter band. Higher = softer, less solid at the edges.';
     distRow.append('Distance');
     const distInput = document.createElement('input');
     distInput.type = 'range';
@@ -2041,6 +2118,152 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
     distInput.addEventListener('input', writeDistance);
     distRow.append(distInput, distVal);
     card.append(distRow);
+
+    if (showNet) {
+      const fog = fogForKey(key);
+      const writeNetFog = (nearRaw: number, farRaw: number): void => {
+        let near = nearRaw;
+        let far = farRaw;
+        if (far < near + 0.01) far = near + 0.01;
+        fogLive.set(key, {
+          enabled: true,
+          color: 0x000000,
+          near,
+          far,
+        });
+        dirtySaveKeys.add(`background:${key}:top`);
+        applySceneFog();
+        syncFogControls();
+      };
+
+      const fogNearRow = document.createElement('label');
+      fogNearRow.title = 'Black fog starts here (camera distance). BasedChain only.';
+      fogNearRow.append('Fog near');
+      const fogNearRange = document.createElement('input');
+      fogNearRange.type = 'range';
+      fogNearRange.min = '0';
+      fogNearRange.max = '40';
+      fogNearRange.step = '0.05';
+      fogNearRange.value = String(fog.near);
+      const fogNearValEl = document.createElement('span');
+      fogNearValEl.className = 'mat-val';
+      fogNearValEl.textContent = fog.near.toFixed(2);
+
+      const fogFarRow = document.createElement('label');
+      fogFarRow.title = 'Black fog is fully opaque here (camera distance). BasedChain only.';
+      fogFarRow.append('Fog far');
+      const fogFarRange = document.createElement('input');
+      fogFarRange.type = 'range';
+      fogFarRange.min = '0.1';
+      fogFarRange.max = '80';
+      fogFarRange.step = '0.05';
+      fogFarRange.value = String(fog.far);
+      const fogFarValEl = document.createElement('span');
+      fogFarValEl.className = 'mat-val';
+      fogFarValEl.textContent = fog.far.toFixed(2);
+
+      fogNearRange.addEventListener('input', () => {
+        const near = Number(fogNearRange.value);
+        let far = Number(fogFarRange.value);
+        if (far < near + 0.01) {
+          far = near + 0.01;
+          fogFarRange.value = String(far);
+        }
+        fogNearValEl.textContent = near.toFixed(2);
+        fogFarValEl.textContent = far.toFixed(2);
+        writeNetFog(near, far);
+      });
+      fogFarRange.addEventListener('input', () => {
+        let near = Number(fogNearRange.value);
+        let far = Number(fogFarRange.value);
+        if (far < near + 0.01) {
+          near = Math.max(0, far - 0.01);
+          fogNearRange.value = String(near);
+          fogNearValEl.textContent = near.toFixed(2);
+        }
+        fogFarValEl.textContent = far.toFixed(2);
+        writeNetFog(near, far);
+      });
+
+      fogNearRow.append(fogNearRange, fogNearValEl);
+      fogFarRow.append(fogFarRange, fogFarValEl);
+      card.append(fogNearRow, fogFarRow);
+
+      const vig = vignetteForKey(key);
+      const writeVig = (next: BackgroundVignette): void => {
+        vignetteLive.set(key, {
+          intensity: Math.max(0, next.intensity),
+          radius: Math.max(0, next.radius),
+          soft: Math.max(0.001, next.soft),
+        });
+        dirtySaveKeys.add(`background:${key}:top`);
+        applyTraitVignette();
+      };
+
+      const mkVigRow = (
+        label: string,
+        title: string,
+        min: string,
+        max: string,
+        step: string,
+        value: number,
+        digits: number,
+        onInput: (n: number) => void,
+      ): HTMLLabelElement => {
+        const row = document.createElement('label');
+        row.title = title;
+        row.append(label);
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = min;
+        range.max = max;
+        range.step = step;
+        range.value = String(value);
+        const valEl = document.createElement('span');
+        valEl.className = 'mat-val';
+        valEl.textContent = value.toFixed(digits);
+        range.addEventListener('input', () => {
+          const n = Number(range.value);
+          valEl.textContent = n.toFixed(digits);
+          onInput(n);
+        });
+        row.append(range, valEl);
+        return row;
+      };
+
+      card.append(
+        mkVigRow(
+          'Vig amount',
+          'How dark the screen edges go. BasedChain Trait BG only.',
+          '0',
+          '1.5',
+          '0.01',
+          vig.intensity,
+          2,
+          (intensity) => writeVig({ ...vignetteForKey(key), intensity }),
+        ),
+        mkVigRow(
+          'Vig radius',
+          'Clear centre size. Higher = vignette starts further toward the edges.',
+          '0',
+          '1.5',
+          '0.01',
+          vig.radius,
+          2,
+          (radius) => writeVig({ ...vignetteForKey(key), radius }),
+        ),
+        mkVigRow(
+          'Vig soft',
+          'How gradual the falloff is beyond the radius.',
+          '0.05',
+          '1.5',
+          '0.01',
+          vig.soft,
+          2,
+          (soft) => writeVig({ ...vignetteForKey(key), soft }),
+        ),
+      );
+    }
 
     for (const entry of editorEntries) {
       const slot = entry.saveTarget?.kind === 'background' ? entry.saveTarget.slot : 'top';

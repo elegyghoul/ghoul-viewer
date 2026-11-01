@@ -167,6 +167,36 @@ export const SKYBOX_CLIP_FAR =
 /** Backgrounds that get a procedural drifting cloud field (no skybox jpg required). */
 const CLOUD_FIELD_KEYS = new Set(['Based_Loans']);
 
+/**
+ * World-centered open cylinder net cage (not a solid sky).
+ * Holes show the scene clear colour; band colours come from the Trait BG gradient.
+ * Cell counts are chosen so openings are square in world units on the unrolled wall.
+ */
+const NET_SPHERE_KEYS = new Set(['BasedChain']);
+
+export function backgroundUsesNetSphere(name: string): boolean {
+  return NET_SPHERE_KEYS.has(name);
+}
+
+/** Cage radius — same as the old sphere. */
+const NET_CYLINDER_RADIUS = 14;
+
+/** Twice the old sphere's height (sphere diameter was 2×radius). */
+const NET_CYLINDER_HEIGHT = NET_CYLINDER_RADIUS * 4;
+
+/** Circumferential divisions; height count matches so cells stay square. */
+const NET_CYLINDER_LON = 90;
+const NET_CYLINDER_Y = Math.max(
+  1,
+  Math.round((NET_CYLINDER_HEIGHT * NET_CYLINDER_LON) / (2 * Math.PI * NET_CYLINDER_RADIUS)),
+);
+
+/**
+ * Half-width of each band as a fraction of one cell (0.5 = solid).
+ * ~0.15 = 25% thinner than the original 0.2 chunky net.
+ */
+const NET_CYLINDER_HALF_THICK = 0.15;
+
 type WaterPlaneRipple = {
   mesh: THREE.Mesh;
   rest: Float32Array;
@@ -521,6 +551,76 @@ function gradientColumnSwirl(name: string): number {
   return GRADIENT_COLUMN_SWIRL[name] ?? 0;
 }
 
+/**
+ * Thick angle×height net on a cylinder wall; square cells in world units.
+ * Top→bottom colour mix by local Y. Manual black fog.
+ */
+function makeNetCylinderMaterial(top: number, bottom: number, distance: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTop: { value: new THREE.Color(top) },
+      uBottom: { value: new THREE.Color(bottom) },
+      uDistance: { value: distance },
+      uYCount: { value: NET_CYLINDER_Y },
+      uLonCount: { value: NET_CYLINDER_LON },
+      uHalfHeight: { value: NET_CYLINDER_HEIGHT * 0.5 },
+      uHalfThick: { value: NET_CYLINDER_HALF_THICK },
+      uFogNear: { value: 2 },
+      uFogFar: { value: 16 },
+      uFogColor: { value: new THREE.Color(0x000000) },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vLocalPos;
+      varying float vFogDepth;
+      void main() {
+        vLocalPos = position;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vFogDepth = -mvPosition.z;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uTop;
+      uniform vec3 uBottom;
+      uniform float uDistance;
+      uniform float uYCount;
+      uniform float uLonCount;
+      uniform float uHalfHeight;
+      uniform float uHalfThick;
+      uniform float uFogNear;
+      uniform float uFogFar;
+      uniform vec3 uFogColor;
+      varying vec3 vLocalPos;
+      varying float vFogDepth;
+
+      void main() {
+        float lon = atan(vLocalPos.z, vLocalPos.x) / (2.0 * 3.14159265) + 0.5;
+        float y01 = clamp(vLocalPos.y / max(uHalfHeight, 1e-4) * 0.5 + 0.5, 0.0, 1.0);
+
+        float yF = fract(y01 * uYCount);
+        float lonF = fract(lon * uLonCount);
+        float dY = min(yF, 1.0 - yF);
+        float dLon = min(lonF, 1.0 - lonF);
+        float d = min(dY, dLon);
+        float halfW = clamp(uHalfThick, 0.02, 0.49);
+        if (d > halfW) discard;
+
+        // Cylinder Y: +1 rim → top colour, −1 rim → bottom. Distance softens the blend.
+        float yN = clamp(vLocalPos.y / max(uHalfHeight, 1e-4), -1.0, 1.0);
+        float dBlend = max(uDistance, 0.02);
+        float t = clamp(0.5 + 0.5 * (yN / dBlend), 0.0, 1.0);
+        vec3 col = mix(uBottom, uTop, t);
+        float fogFactor = smoothstep(uFogNear, max(uFogFar, uFogNear + 0.01), vFogDepth);
+        gl_FragColor = vec4(mix(col, uFogColor, fogFactor), 1.0);
+      }
+    `,
+    side: THREE.DoubleSide,
+    depthWrite: true,
+    fog: false,
+    toneMapped: false,
+  });
+}
+
 function makeGradientSkyMaterial(
   top: number,
   bottom: number,
@@ -840,7 +940,8 @@ function prepareChipwave(
  * WaterPlane meshes use `/models/backgrounds/ocean.jpg` as a scrolling
  * normal map + CPU height displacement (green channel as height proxy).
  * Based_Loans (and any BG without a photo skybox) uses a procedural
- * gradient sphere + optional cloud field.
+ * gradient sphere + optional cloud field. BasedChain uses a thick
+ * open-cylinder net cage instead of a solid sky.
  */
 export class BackgroundSceneManager {
   private readonly root = new THREE.Group();
@@ -853,6 +954,7 @@ export class BackgroundSceneManager {
   private readonly chipwaveMats = new Map<string, THREE.Material[]>();
   private chipwaveSpinners: { mesh: THREE.Mesh; sign: number }[] = [];
   private readonly gradientSkyCache = new Map<string, THREE.Mesh>();
+  private readonly netSphereCache = new Map<string, THREE.Mesh>();
   private readonly cloudCache = new Map<string, { root: THREE.Group; puffs: CloudPuff[] }>();
   private readonly waterByBg = new Map<string, WaterPlaneRipple[]>();
   private readonly floorMissing = new Set<string>();
@@ -972,7 +1074,7 @@ export class BackgroundSceneManager {
     }
   }
 
-  /** Editable Trait BG clear gradient (applied to procedural sphere skybox). */
+  /** Editable Trait BG clear gradient (procedural sky or BasedChain net). */
   setClearGradient(top: number, bottom: number, distance = 1): void {
     this.clearGrad = {
       top: top & 0xffffff,
@@ -980,8 +1082,23 @@ export class BackgroundSceneManager {
       distance: Math.max(0, distance),
     };
     if (!this.activeKey || !this.wantVisible) return;
-    const mesh = this.gradientSkyCache.get(this.activeKey);
+    const mesh =
+      this.netSphereCache.get(this.activeKey) ?? this.gradientSkyCache.get(this.activeKey);
     if (mesh?.visible) this.applyGradientColors(mesh);
+  }
+
+  /** Push black distance fog into the BasedChain net shader (scene fog stays separate). */
+  setNetFog(near: number, far: number, color = 0x000000): void {
+    if (!this.activeKey) return;
+    const mesh = this.netSphereCache.get(this.activeKey);
+    if (!mesh) return;
+    const mat = mesh.material as THREE.ShaderMaterial;
+    const uNear = mat.uniforms.uFogNear;
+    const uFar = mat.uniforms.uFogFar;
+    const uColor = mat.uniforms.uFogColor;
+    if (uNear) uNear.value = near;
+    if (uFar) uFar.value = Math.max(far, near + 0.01);
+    if (uColor) (uColor.value as THREE.Color).setHex(color & 0xffffff);
   }
 
   /** Tint for an ocean-texture sky sphere (map × colour). */
@@ -1051,6 +1168,15 @@ export class BackgroundSceneManager {
       return false;
     }
 
+    // Net cages have no floor/sky assets — don't await 404s before showing them.
+    if (NET_SPHERE_KEYS.has(name)) {
+      if (this.activeKey !== name || !this.wantVisible) return false;
+      const net = this.ensureNetSphere(name);
+      net.visible = true;
+      this.applyGradientColors(net);
+      return true;
+    }
+
     const [floor, sky, clouds] = await Promise.all([
       this.loadFloor(name),
       this.loadSkybox(name),
@@ -1118,6 +1244,37 @@ export class BackgroundSceneManager {
     mesh.visible = false;
     this.root.add(mesh);
     this.gradientSkyCache.set(name, mesh);
+    return mesh;
+  }
+
+  private ensureNetSphere(name: string): THREE.Mesh {
+    const cached = this.netSphereCache.get(name);
+    if (cached) {
+      this.applyGradientColors(cached);
+      return cached;
+    }
+    const mat = makeNetCylinderMaterial(
+      this.clearGrad.top,
+      this.clearGrad.bottom,
+      this.clearGrad.distance,
+    );
+    // Open tube; dense segments so discarded bands stay round, not faceted.
+    const geo = new THREE.CylinderGeometry(
+      NET_CYLINDER_RADIUS,
+      NET_CYLINDER_RADIUS,
+      NET_CYLINDER_HEIGHT,
+      96,
+      Math.max(32, NET_CYLINDER_Y * 2),
+      true,
+    );
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = `NetCylinder_${name}`;
+    isolateSkyFromPointLights(mesh);
+    mesh.renderOrder = -5;
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    this.root.add(mesh);
+    this.netSphereCache.set(name, mesh);
     return mesh;
   }
 

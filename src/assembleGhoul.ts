@@ -160,7 +160,16 @@ export type MaterialSaveTarget =
   | {
       kind: 'background';
       key: string;
-      slot: 'top' | 'bottom' | 'clouds' | 'tint' | 'point' | 'chipLight' | 'columns' | 'palms';
+      slot:
+        | 'top'
+        | 'bottom'
+        | 'clouds'
+        | 'tint'
+        | 'point'
+        | 'chipLight'
+        | 'netLight'
+        | 'columns'
+        | 'palms';
     };
 
 export type EditableMaterial = {
