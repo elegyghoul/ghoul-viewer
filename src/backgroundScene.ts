@@ -574,6 +574,7 @@ function makeNetCylinderMaterial(top: number, bottom: number, distance: number):
       uFogNear: { value: 2 },
       uFogFar: { value: 16 },
       uFogColor: { value: new THREE.Color(0x000000) },
+      uFade: { value: 1 },
     },
     vertexShader: /* glsl */ `
       varying vec3 vLocalPos;
@@ -597,6 +598,7 @@ function makeNetCylinderMaterial(top: number, bottom: number, distance: number):
       uniform float uFogNear;
       uniform float uFogFar;
       uniform vec3 uFogColor;
+      uniform float uFade;
       varying vec3 vLocalPos;
       varying float vFogDepth;
 
@@ -619,7 +621,7 @@ function makeNetCylinderMaterial(top: number, bottom: number, distance: number):
         float t = clamp(0.5 + 0.5 * (yN / dBlend), 0.0, 1.0);
         vec3 col = mix(uBottom, uTop, t);
         float fogFactor = smoothstep(uFogNear, max(uFogFar, uFogNear + 0.01), vFogDepth);
-        gl_FragColor = vec4(mix(col, uFogColor, fogFactor), 1.0);
+        gl_FragColor = vec4(mix(col, uFogColor, fogFactor) * uFade, 1.0);
       }
     `,
     side: THREE.DoubleSide,
@@ -642,6 +644,7 @@ function makeGradientSkyMaterial(
       uDistance: { value: distance },
       uSwirl: { value: swirl },
       uTime: { value: 0 },
+      uFade: { value: 1 },
     },
     vertexShader: /* glsl */ `
       varying vec4 vClip;
@@ -656,6 +659,7 @@ function makeGradientSkyMaterial(
       uniform float uDistance;
       uniform float uSwirl;
       uniform float uTime;
+      uniform float uFade;
       varying vec4 vClip;
 
       float hash(vec2 p) {
@@ -716,7 +720,7 @@ function makeGradientSkyMaterial(
         }
 
         float t = clamp(0.5 + 0.5 * (y / d), 0.0, 1.0);
-        gl_FragColor = vec4(mix(uBottom, uTop, t), 1.0);
+        gl_FragColor = vec4(mix(uBottom, uTop, t) * uFade, 1.0);
       }
     `,
     side: THREE.BackSide,
@@ -971,6 +975,12 @@ export class BackgroundSceneManager {
   private readonly skyInflight = new Map<string, Promise<THREE.Object3D | null>>();
   private activeKey: string | null = null;
   private wantVisible = false;
+  /** 0 = fully faded to black, 1 = full trait env. Does not touch the ghoul. */
+  private fade = 1;
+  private readonly fadeBase = new WeakMap<
+    THREE.Material,
+    { color?: THREE.Color; emissive?: THREE.Color; opacity: number; transparent: boolean }
+  >();
   private clearGrad = { top: 0x000000, bottom: 0x000000, distance: 1 };
   private cloudColor = 0xffffff;
   private ripple: BackgroundRipple = {
@@ -1117,6 +1127,8 @@ export class BackgroundSceneManager {
     if (!sky) return;
     const mat = sky.mesh.material as THREE.MeshBasicMaterial;
     mat.color.setHex(color);
+    this.rememberFadeBase(mat);
+    this.applyFadeToMaterial(mat);
   }
 
   /** Centre point light for Pool 1 sky only. */
@@ -1124,7 +1136,13 @@ export class BackgroundSceneManager {
     const next = { color: color & 0xffffff, intensity };
     this.poolLight.set(key, next);
     const sky = this.oceanSkyCache.get(key);
-    if (sky) writePoolCenterLight(sky.mesh.material as THREE.Material, next.color, next.intensity);
+    if (sky) {
+      writePoolCenterLight(
+        sky.mesh.material as THREE.Material,
+        next.color,
+        next.intensity * this.fade,
+      );
+    }
   }
 
   /** Centre point light for the Chipwave sphere only. */
@@ -1133,7 +1151,9 @@ export class BackgroundSceneManager {
     this.chipwaveLight.set(key, next);
     const mats = this.chipwaveMats.get(key);
     if (!mats) return;
-    for (const mat of mats) writeChipwaveCenterLight(mat, next.color, next.intensity, next.range);
+    for (const mat of mats) {
+      writeChipwaveCenterLight(mat, next.color, next.intensity * this.fade, next.range);
+    }
   }
 
   private setupChipwave(root: THREE.Object3D, name: string): void {
@@ -1157,10 +1177,122 @@ export class BackgroundSceneManager {
     this.cloudColor = hex & 0xffffff;
     if (!this.activeKey || !this.wantVisible) return;
     this.applyCloudColor(this.activeKey);
+    this.applyFade();
   }
 
   hasCloudField(key: string | null | undefined): boolean {
     return !!key && CLOUD_FIELD_KEYS.has(key);
+  }
+
+  getFade(): number {
+    return this.fade;
+  }
+
+  /**
+   * Fade the trait environment toward black (0) or full (1).
+   * Multiplies mesh colours / already-transparent opacities — never touches the ghoul.
+   */
+  setFade(fade: number): void {
+    this.fade = THREE.MathUtils.clamp(fade, 0, 1);
+    this.applyFade();
+  }
+
+  /** Capture current colour/opacity as the fade baseline (call after tint edits). */
+  rememberFadeBase(mat: THREE.Material): void {
+    this.captureFadeBase(mat, true);
+  }
+
+  private captureFadeBase(mat: THREE.Material, force = false): void {
+    if (!force && this.fadeBase.has(mat)) return;
+    let opacity = 'opacity' in mat && typeof mat.opacity === 'number' ? mat.opacity : 1;
+    const transparent = !!mat.transparent;
+    // Undo the live fade so the stored baseline is the un-faded look.
+    if (this.fade > 1e-6 && this.fade < 1 - 1e-6) {
+      if (transparent) opacity /= this.fade;
+    }
+    const entry: {
+      color?: THREE.Color;
+      emissive?: THREE.Color;
+      opacity: number;
+      transparent: boolean;
+    } = { opacity, transparent };
+    if ('color' in mat && (mat as THREE.MeshBasicMaterial).color instanceof THREE.Color) {
+      const c = (mat as THREE.MeshBasicMaterial).color.clone();
+      if (this.fade > 1e-6) c.multiplyScalar(1 / this.fade);
+      entry.color = c;
+    }
+    if ('emissive' in mat && (mat as THREE.MeshStandardMaterial).emissive instanceof THREE.Color) {
+      const e = (mat as THREE.MeshStandardMaterial).emissive.clone();
+      if (this.fade > 1e-6) e.multiplyScalar(1 / this.fade);
+      entry.emissive = e;
+    }
+    this.fadeBase.set(mat, entry);
+  }
+
+  private applyFadeToMaterial(mat: THREE.Material): void {
+    if (mat instanceof THREE.ShaderMaterial) {
+      if (mat.uniforms?.uFade) mat.uniforms.uFade.value = this.fade;
+      return;
+    }
+    this.captureFadeBase(mat);
+    const base = this.fadeBase.get(mat);
+    if (!base) return;
+    const f = this.fade;
+    // Transparent mats (clouds, soft sprites): fade opacity only.
+    if (base.transparent && 'opacity' in mat) {
+      if (base.color && 'color' in mat) {
+        (mat as THREE.MeshBasicMaterial).color.copy(base.color);
+      }
+      mat.opacity = base.opacity * f;
+      mat.transparent = true;
+      return;
+    }
+    // Opaque env meshes: multiply colour toward black (avoids sorting vs the ghoul).
+    if (base.color && 'color' in mat) {
+      (mat as THREE.MeshBasicMaterial).color.copy(base.color).multiplyScalar(f);
+    }
+    if (base.emissive && 'emissive' in mat) {
+      (mat as THREE.MeshStandardMaterial).emissive.copy(base.emissive).multiplyScalar(f);
+    }
+  }
+
+  private applyFade(): void {
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      const sprite = o as THREE.Sprite;
+      if (!mesh.isMesh && !sprite.isSprite) return;
+      const mats = Array.isArray(mesh.material)
+        ? mesh.material
+        : mesh.material
+          ? [mesh.material]
+          : [];
+      for (const mat of mats) {
+        if (mat) this.applyFadeToMaterial(mat);
+      }
+    });
+    // Dim trait-local centre lights with the same fade.
+    if (this.activeKey) {
+      const pool = this.poolLight.get(this.activeKey);
+      if (pool) {
+        const sky = this.oceanSkyCache.get(this.activeKey);
+        if (sky) {
+          writePoolCenterLight(
+            sky.mesh.material as THREE.Material,
+            pool.color,
+            pool.intensity * this.fade,
+          );
+        }
+      }
+      const chip = this.chipwaveLight.get(this.activeKey);
+      if (chip) {
+        const mats = this.chipwaveMats.get(this.activeKey);
+        if (mats) {
+          for (const mat of mats) {
+            writeChipwaveCenterLight(mat, chip.color, chip.intensity * this.fade, chip.range);
+          }
+        }
+      }
+    }
   }
 
   /** Show floor + skybox / clouds for `key` when visible. Returns whether anything is shown. */
@@ -1182,6 +1314,7 @@ export class BackgroundSceneManager {
       const net = this.ensureNetSphere(name);
       net.visible = true;
       this.applyGradientColors(net);
+      this.applyFade();
       return true;
     }
 
@@ -1211,6 +1344,7 @@ export class BackgroundSceneManager {
       this.applyCloudColor(name);
       shown = true;
     }
+    this.applyFade();
     return shown;
   }
 
@@ -1222,6 +1356,7 @@ export class BackgroundSceneManager {
       const mat = puff.sprite.material as THREE.SpriteMaterial;
       mat.color.setHex(c);
       mat.needsUpdate = true;
+      this.rememberFadeBase(mat);
     }
   }
 
@@ -1459,6 +1594,7 @@ export class BackgroundSceneManager {
     if (waters) for (const w of waters) this.applyOceanMatToMesh(w.mesh, settings);
     const sky = this.oceanSkyCache.get(key);
     if (sky) this.applyOceanMatToSky(key, sky, settings);
+    this.applyFade();
   }
 
   /** Lit ocean settings on the sky sphere, without the floor-mesh fog/depth flags. */
@@ -1504,6 +1640,7 @@ export class BackgroundSceneManager {
     }
     std.needsUpdate = true;
     this.skyTint.set(key, settings.color);
+    this.rememberFadeBase(std);
   }
 
   private applyOceanMatToMesh(mesh: THREE.Mesh, settings: BackgroundOceanMat): void {
@@ -1529,6 +1666,7 @@ export class BackgroundSceneManager {
       std.depthWrite = settings.opacity >= 0.999;
       std.envMapIntensity = settings.envMapIntensity;
       std.needsUpdate = true;
+      this.rememberFadeBase(std);
       next.push(std);
     }
     mesh.material = next.length === 1 ? next[0]! : next;

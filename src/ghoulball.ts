@@ -76,8 +76,9 @@ export const DEFAULT_GHOULBALL_MATERIAL: GhoulballMaterialParams = {
  * Original skinned meshes are not mutated.
  */
 export class GhoulballController {
-  private phase: 'idle' | 'wrapping' | 'ball' = 'idle';
+  private phase: 'idle' | 'wrapping' | 'unwrapping' | 'ball' = 'idle';
   private elapsed = 0;
+  private unwrapComplete: (() => void) | null = null;
   private centerWorld = new THREE.Vector3();
   private radius = 0.45;
   private ball: THREE.Mesh | null = null;
@@ -206,7 +207,7 @@ export class GhoulballController {
   }
 
   get frozen(): boolean {
-    return this.phase === 'wrapping' || this.phase === 'ball';
+    return this.phase === 'wrapping' || this.phase === 'unwrapping' || this.phase === 'ball';
   }
 
   /** True while pointer-dragging the ball (not camera orbit). */
@@ -249,8 +250,12 @@ export class GhoulballController {
     scene: THREE.Scene,
     refImageUrl: string,
     extras: THREE.Object3D[] = [],
+    opts?: { instant?: boolean },
   ): void {
+    // Sync Euler from the live mesh before teardown so restarts keep drag/spin pose.
+    if (this.ball) this.getRotation();
     this.stop(root, true);
+
     this.root = root;
     this.scene = scene;
     this.refUrl = refImageUrl;
@@ -258,32 +263,26 @@ export class GhoulballController {
 
     root.visible = true;
     root.updateWorldMatrix(true, true);
-
-    let box = box3BodyOnly(root);
-    if (box.isEmpty()) box = box3Visible(root);
-    const sizeY = box.isEmpty() ? 1.6 : box.max.y - box.min.y;
-    this.radius = Math.max(0.35, Math.min(sizeY * 0.28, 0.7));
-
-    const hips =
-      root.getObjectByName('mixamorig:Hips') ??
-      root.getObjectByName('mixamorigHips') ??
-      root.getObjectByName('Hips');
-    if (hips) {
-      hips.getWorldPosition(this.centerWorld);
-    } else if (!box.isEmpty()) {
-      box.getCenter(this.centerWorld);
-    } else {
-      this.centerWorld.set(0, 0.9, 0);
-    }
-    this.cx = this.centerWorld.x;
-    this.cy = this.centerWorld.y;
-    this.cz = this.centerWorld.z;
+    this.refreshCenterFromRoot(root);
 
     this.extrasHidden = [];
     for (const o of extras) {
       if (!o.visible) continue;
       o.visible = false;
       this.extrasHidden.push(o);
+    }
+
+    // Already in ball mode and switching ids: skip wrap, show formed ball.
+    if (opts?.instant) {
+      this.phase = 'ball';
+      this.createBall(scene, this.refUrl);
+      if (this.ball) {
+        this.ball.scale.setScalar(1);
+        this.ball.visible = true;
+      }
+      this.applyUserSwirl();
+      root.visible = false;
+      return;
     }
 
     this.buildSphereTargets();
@@ -305,6 +304,54 @@ export class GhoulballController {
     if (this.spinZ) this.ball.rotateZ(this.spinZ * step);
   }
 
+  /**
+   * Play the wrap morph in reverse (ball → ghoul). Safe to call mid-wrap.
+   * `onComplete` runs after the ghoul is restored (or immediately if idle).
+   */
+  reverse(onComplete?: () => void): void {
+    if (this.phase === 'idle') {
+      onComplete?.();
+      return;
+    }
+
+    this.endDrag();
+    this.unwrapComplete = onComplete ?? null;
+
+    if (this.phase === 'unwrapping') return;
+
+    if (this.phase === 'wrapping') {
+      // Continue from the current ease back toward the ghoul.
+      this.elapsed = Math.max(0, WRAP_DURATION - this.elapsed);
+      this.phase = 'unwrapping';
+      return;
+    }
+
+    // phase === 'ball': rebuild bake at fully-wrapped pose, then unwind.
+    const root = this.root;
+    const scene = this.scene;
+    if (!root || !scene) {
+      this.unwrapComplete = null;
+      this.stop(root, true);
+      onComplete?.();
+      return;
+    }
+
+    root.visible = true;
+    root.updateWorldMatrix(true, true);
+    this.refreshCenterFromRoot(root);
+    this.buildSphereTargets();
+    this.bakeAndBind(root, scene);
+    this.applyWrap(1);
+    if (this.ball) {
+      this.ball.scale.setScalar(1);
+      this.ball.position.copy(this.centerWorld);
+      this.ball.visible = true;
+    }
+    this.setSwirlFromEase(1);
+    this.elapsed = 0;
+    this.phase = 'unwrapping';
+  }
+
   update(dt: number): void {
     const step = Math.min(dt, 0.05);
 
@@ -323,6 +370,21 @@ export class GhoulballController {
       return;
     }
 
+    if (this.phase === 'unwrapping') {
+      this.elapsed += step;
+      const t = Math.min(1, this.elapsed / WRAP_DURATION);
+      const ease = 1 - t * t * (3 - 2 * t);
+      this.applyWrap(ease);
+      if (this.ball) {
+        this.ball.scale.setScalar(Math.max(0.001, ease));
+        this.ball.position.copy(this.centerWorld);
+        this.applyIdleSpin(step);
+      }
+      this.setSwirlFromEase(ease);
+      if (t >= 1) this.finishToGhoul();
+      return;
+    }
+
     if (this.phase === 'ball' && this.ball) {
       this.ball.position.copy(this.centerWorld);
       this.applyIdleSpin(step);
@@ -331,6 +393,7 @@ export class GhoulballController {
 
   stop(root?: THREE.Object3D | null, _restore = true): void {
     this.endDrag();
+    this.unwrapComplete = null;
     const r = root ?? this.root;
     this.clearBake();
     for (const o of this.hiddenSources) o.visible = true;
@@ -343,12 +406,8 @@ export class GhoulballController {
     this.sphereVerts = new Float32Array(0);
     this.phase = 'idle';
     this.elapsed = 0;
-    this.rotX = 0;
-    this.rotY = 0;
-    this.rotZ = THREE.MathUtils.radToDeg(AXIAL_TILT);
-    this.spinX = 0;
-    this.spinY = AUTO_SPIN_Y;
-    this.spinZ = 0;
+    // Keep rot/spin so id switches in ball mode (and start→stop→start) don't reset pose.
+    // Use resetRotation() / resetBall() when defaults are wanted.
     this.spinPaused = false;
     this.root = null;
     this.scene = null;
@@ -589,6 +648,36 @@ export class GhoulballController {
     this.applyUserSwirl();
     if (this.root) this.root.visible = false;
     this.phase = 'ball';
+  }
+
+  private finishToGhoul(): void {
+    const cb = this.unwrapComplete;
+    this.unwrapComplete = null;
+    const root = this.root;
+    this.stop(root, true);
+    cb?.();
+  }
+
+  private refreshCenterFromRoot(root: THREE.Object3D): void {
+    let box = box3BodyOnly(root);
+    if (box.isEmpty()) box = box3Visible(root);
+    const sizeY = box.isEmpty() ? 1.6 : box.max.y - box.min.y;
+    this.radius = Math.max(0.35, Math.min(sizeY * 0.28, 0.7));
+
+    const hips =
+      root.getObjectByName('mixamorig:Hips') ??
+      root.getObjectByName('mixamorigHips') ??
+      root.getObjectByName('Hips');
+    if (hips) {
+      hips.getWorldPosition(this.centerWorld);
+    } else if (!box.isEmpty()) {
+      box.getCenter(this.centerWorld);
+    } else {
+      this.centerWorld.set(0, 0.9, 0);
+    }
+    this.cx = this.centerWorld.x;
+    this.cy = this.centerWorld.y;
+    this.cz = this.centerWorld.z;
   }
 
   private onPointerDown(e: PointerEvent): void {

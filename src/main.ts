@@ -4089,10 +4089,27 @@ function doLoad(id?: number): void {
   showReferencePng(n);
   try {
     // Leave any in-progress ball so the new ghoul loads clean.
-    if (ghoulball.active) ghoulball.stop(assembler.root, true);
+    // If we were already in ball mode, keep the current ball up and swap instantly
+    // (no unwrap → wrap) once the new id is ready.
+    const stayInBall = bgMode === 'ghoulball' && ghoulball.active;
+    if (ghoulball.active && !stayInBall) ghoulball.stop(assembler.root, true);
+    // Hide the body during reload so it never flashes between balls.
+    if (stayInBall) assembler.root.visible = false;
+    const heldCam =
+      stayInBall && controls
+        ? { pos: camera.position.clone(), target: controls.target.clone() }
+        : null;
     const traits = loadGhoul(assembler, n);
     showTraits(traits);
     frameCharacter(assembler);
+    if (stayInBall) {
+      assembler.root.visible = false;
+      if (heldCam && controls) {
+        camera.position.copy(heldCam.pos);
+        controls.target.copy(heldCam.target);
+        controls.update();
+      }
+    }
     if (playMode.active) playMode.syncFloorFromRoot();
     bindToxicSlime(assembler.root);
     bindToxicMist(assembler.root, scene);
@@ -4129,7 +4146,14 @@ function doLoad(id?: number): void {
     syncGridAndBackground();
     applyObjectShadows(assembler.root, true, true);
     if (bgMode === 'ghoulball') {
-      resetGhoulPoseAndCamera();
+      if (stayInBall) {
+        // Pose for ball center without showing the body or reframing the orbit.
+        if (assembler.bodyRoot) assembler.bodyRoot.position.set(0, 0, 0);
+        assembler.root.visible = false;
+        animator.snapTo('Idle');
+      } else {
+        resetGhoulPoseAndCamera();
+      }
       const extras: THREE.Object3D[] = [];
       scene.traverse((o) => {
         const pts = o as THREE.Points;
@@ -4138,7 +4162,7 @@ function doLoad(id?: number): void {
       });
       const refUrl =
         refImage.src || assetUrl(`/Ghouls/${String(n).padStart(4, '0')}.png`);
-      ghoulball.start(assembler.root, scene, refUrl, extras);
+      ghoulball.start(assembler.root, scene, refUrl, extras, { instant: stayInBall });
       reapplyStoredBall();
     }
   } catch (e) {
@@ -4458,10 +4482,10 @@ function setBgMode(next: BgMode): void {
         sunElevation: lightMix.sunElevation,
       });
     }
-    // Same Reset as the toolbar button, while Play is still on so Idle snaps the
-    // same way. Wait a beat so Idle actually settles, then leave Play and wrap.
-    resetGhoulPoseAndCamera();
+    // Wrap in place — keep the current orbit (same as Ball → Ghoul).
+    // Snap Idle so the bake matches; leave Play if needed, then wrap.
     const asm = assembler;
+    animator.snapTo(playMode.active ? 'Idle' : selectedAnim());
     ghoulballStartTimer = window.setTimeout(() => {
       ghoulballStartTimer = 0;
       if (bgMode !== 'ghoulball' || assembler !== asm) return;
@@ -4476,6 +4500,8 @@ function setBgMode(next: BgMode): void {
         syncPlayBanner();
         syncWalkBounds();
         updateWalkWalls();
+      } else {
+        animator.snapTo('Idle');
       }
 
       const extras: THREE.Object3D[] = [];
@@ -4489,13 +4515,20 @@ function setBgMode(next: BgMode): void {
       reapplyStoredBall();
     }, 50);
   } else if (prev === 'ghoulball' && assembler) {
-    ghoulball.stop(assembler.root, true);
-    playSelectedAnim();
-    if (lightsBeforeGhoulball) {
-      setLights(lightsBeforeGhoulball);
-      lightsBeforeGhoulball = null;
+    const restore = lightsBeforeGhoulball;
+    lightsBeforeGhoulball = null;
+    if (restore) startLightTween(restore);
+    else syncLightControls();
+
+    // Ball → ghoul: reverse the wrap morph, then resume the selected anim.
+    if (ghoulball.active) {
+      animator.snapTo('Idle');
+      ghoulball.reverse(() => {
+        playSelectedAnim();
+      });
     } else {
-      syncLightControls();
+      ghoulball.stop(assembler.root, true);
+      playSelectedAnim();
     }
   } else if (
     assembler &&
