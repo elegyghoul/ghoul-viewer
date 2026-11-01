@@ -1183,6 +1183,7 @@ const haloLight = new HaloLightManager();
 const glassesLight = new GlassesLightManager();
 const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
+void cudiParticles.loadSavedSettings();
 const drool = new DroolManager();
 const ghoulball = new GhoulballController();
 const playMode = new PlayController();
@@ -1407,6 +1408,14 @@ const ballEnvVal = q<HTMLSpanElement>('#ballEnvVal');
 const ballReflectivityVal = q<HTMLSpanElement>('#ballReflectivityVal');
 const ballSwirlVal = q<HTMLSpanElement>('#ballSwirlVal');
 const traitsListEl = q<HTMLDListElement>('#traitsList');
+const traitsTabTraits = q<HTMLButtonElement>('#traitsTabTraits');
+const traitsTabCudi = q<HTMLButtonElement>('#traitsTabCudi');
+const traitsPane = q<HTMLElement>('#traitsPane');
+const cudiPane = q<HTMLElement>('#cudiPane');
+const cudiHint = q<HTMLElement>('#cudiHint');
+const cudiEmitterList = q<HTMLElement>('#cudiEmitterList');
+const cudiSaveBtn = q<HTMLButtonElement>('#cudiSaveBtn');
+const cudiSaveStatus = q<HTMLElement>('#cudiSaveStatus');
 const sceneVertsEl = q<HTMLElement>('#sceneVerts');
 const sceneTrisEl = q<HTMLElement>('#sceneTris');
 const materialHint = q<HTMLElement>('#materialHint');
@@ -2773,6 +2782,142 @@ function showTraits(traits: GhoulTraits): void {
   // Default to Ghoul (skin materials) when present, else first trait.
   const prefer = traits.ghoul && traits.ghoul !== 'None' ? 'ghoul' : firstKey;
   if (prefer) selectTrait(prefer);
+  syncCudiControls();
+}
+
+function setTraitsTab(which: 'traits' | 'cudi'): void {
+  const onTraits = which === 'traits';
+  if (traitsTabTraits instanceof HTMLButtonElement) {
+    traitsTabTraits.setAttribute('aria-selected', onTraits ? 'true' : 'false');
+  }
+  if (traitsTabCudi instanceof HTMLButtonElement) {
+    traitsTabCudi.setAttribute('aria-selected', onTraits ? 'false' : 'true');
+  }
+  if (traitsPane instanceof HTMLElement) traitsPane.hidden = !onTraits;
+  if (cudiPane instanceof HTMLElement) cudiPane.hidden = onTraits;
+  if (!onTraits) syncCudiControls();
+}
+
+function formatCudiLife(v: number): string {
+  return `${v.toFixed(2)}s`;
+}
+
+function formatCudiSpeed(v: number): string {
+  return v.toFixed(3);
+}
+
+function setCudiSaveStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {
+  if (!(cudiSaveStatus instanceof HTMLElement) || !cudiSaveStatus.isConnected) return;
+  cudiSaveStatus.textContent = text;
+  cudiSaveStatus.classList.toggle('is-ok', kind === 'ok');
+  cudiSaveStatus.classList.toggle('is-err', kind === 'err');
+}
+
+function syncCudiControls(): void {
+  if (!(cudiEmitterList instanceof HTMLElement)) return;
+  const active = cudiParticles.isActive();
+  if (cudiHint instanceof HTMLElement) {
+    cudiHint.textContent = active
+      ? 'Lifespan and emission speed (along surface normal). Speed 0 sticks to the mesh.'
+      : 'Load a Ghoul_Cudi to edit emitters';
+  }
+  if (cudiSaveBtn instanceof HTMLButtonElement && cudiSaveBtn.isConnected) {
+    cudiSaveBtn.disabled = !active;
+  }
+  cudiEmitterList.replaceChildren();
+  if (!active) return;
+
+  for (const em of cudiParticles.listEmitters()) {
+    const block = document.createElement('div');
+    block.className = 'cudi-emitter';
+    block.dataset.id = em.id;
+
+    const title = document.createElement('div');
+    title.className = 'cudi-emitter-title';
+    title.textContent = em.label;
+    block.append(title);
+
+    const lifeLabel = document.createElement('label');
+    lifeLabel.title = `Default ${em.defaultLife.toFixed(2)}s`;
+    lifeLabel.append('Life');
+    const lifeInput = document.createElement('input');
+    lifeInput.type = 'range';
+    lifeInput.min = '0.05';
+    lifeInput.max = '5';
+    lifeInput.step = '0.05';
+    lifeInput.value = String(em.life);
+    lifeInput.dataset.param = 'life';
+    lifeInput.dataset.id = em.id;
+    const lifeVal = document.createElement('span');
+    lifeVal.textContent = formatCudiLife(em.life);
+    lifeLabel.append(lifeInput, lifeVal);
+    block.append(lifeLabel);
+
+    const speedLabel = document.createElement('label');
+    speedLabel.title = `Default ${formatCudiSpeed(em.defaultSpeed)} — world units / sec along the mesh normal`;
+    speedLabel.append('Speed');
+    const speedInput = document.createElement('input');
+    speedInput.type = 'range';
+    speedInput.min = '0';
+    speedInput.max = '1';
+    speedInput.step = '0.005';
+    speedInput.value = String(em.speed);
+    speedInput.dataset.param = 'speed';
+    speedInput.dataset.id = em.id;
+    const speedVal = document.createElement('span');
+    speedVal.textContent = formatCudiSpeed(em.speed);
+    speedLabel.append(speedInput, speedVal);
+    block.append(speedLabel);
+
+    const onLife = () => {
+      const v = Number(lifeInput.value);
+      lifeVal.textContent = formatCudiLife(v);
+      cudiParticles.setEmitterLife(em.id, v);
+      setCudiSaveStatus('Unsaved');
+    };
+    const onSpeed = () => {
+      const v = Number(speedInput.value);
+      speedVal.textContent = formatCudiSpeed(v);
+      cudiParticles.setEmitterSpeed(em.id, v);
+      setCudiSaveStatus('Unsaved');
+    };
+    lifeInput.addEventListener('input', onLife);
+    speedInput.addEventListener('input', onSpeed);
+
+    cudiEmitterList.append(block);
+  }
+}
+
+async function saveCudiSettings(): Promise<void> {
+  if (!(cudiSaveBtn instanceof HTMLButtonElement) || !cudiSaveBtn.isConnected) return;
+  cudiSaveBtn.disabled = true;
+  setCudiSaveStatus('Saving…');
+  try {
+    const res = await fetch('/__dev/save-cudi-particles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cudiParticles.exportSettings()),
+    });
+    const json = await readDevSaveJson(res);
+    if (!json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    setCudiSaveStatus('Saved', 'ok');
+  } catch (e) {
+    setCudiSaveStatus(devSaveError(e), 'err');
+  } finally {
+    cudiSaveBtn.disabled = !cudiParticles.isActive();
+  }
+}
+
+if (traitsTabTraits instanceof HTMLButtonElement) {
+  traitsTabTraits.addEventListener('click', () => setTraitsTab('traits'));
+}
+if (traitsTabCudi instanceof HTMLButtonElement) {
+  traitsTabCudi.addEventListener('click', () => setTraitsTab('cudi'));
+}
+if (cudiSaveBtn instanceof HTMLButtonElement && cudiSaveBtn.isConnected) {
+  cudiSaveBtn.addEventListener('click', () => {
+    void saveCudiSettings();
+  });
 }
 
 function showReferencePng(id: number): void {
@@ -3974,7 +4119,7 @@ function doLoad(id?: number): void {
     haloLight.sync(assembler.root);
     glassesLight.sync(assembler.root);
     positronicLights.sync(assembler.root);
-    void cudiParticles.sync(assembler.root, scene);
+    void cudiParticles.sync(assembler.root, scene).then(() => syncCudiControls());
     playSelectedAnim();
     assembler.syncEyepatch();
     // New materials (eyes/emissive) need the current light scale applied.

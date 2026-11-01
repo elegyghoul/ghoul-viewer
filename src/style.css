@@ -477,8 +477,29 @@ body {
   overflow: hidden;
 }
 
-#traitsPanel .panel-title {
+#traitsPanel #traitsTabs {
   flex-shrink: 0;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #2a2a30;
+}
+
+#traitsPane,
+#cudiPane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#traitsPane #sceneStats {
+  flex-shrink: 0;
+}
+
+#traitsPane[hidden],
+#cudiPane[hidden] {
+  display: none;
 }
 
 #traitsList {
@@ -491,6 +512,108 @@ body {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+#cudiHint {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+#cudiEmitterList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cudi-emitter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a30;
+}
+
+.cudi-emitter:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cudi-emitter-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #c4c9d4;
+}
+
+#cudiEmitterList label {
+  display: grid;
+  grid-template-columns: 52px 1fr 36px;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #9aa3b2;
+}
+
+#cudiEmitterList input[type='range'] {
+  width: 100%;
+  min-width: 0;
+}
+
+#cudiEmitterList span {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: #c4c9d4;
+  text-align: right;
+}
+
+#cudiSaveRow {
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2a2a30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#cudiSaveBtn {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #5a5346;
+  background: #2e2c28;
+  color: #e8e6e3;
+  cursor: pointer;
+}
+
+#cudiSaveBtn:hover:not(:disabled) {
+  background: #3a3730;
+}
+
+#cudiSaveBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#cudiSaveStatus {
+  font-size: 11px;
+  color: #888;
+  min-height: 1.2em;
+}
+
+#cudiSaveStatus.is-ok {
+  color: #7aab7a;
+}
+
+#cudiSaveStatus.is-err {
+  color: #c97a7a;
 }
 
 #materialPanel {

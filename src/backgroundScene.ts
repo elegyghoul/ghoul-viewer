@@ -1278,7 +1278,6 @@ export class BackgroundSceneManager {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = `NetCylinder_${name}`;
     isolateSkyFromPointLights(mesh);
-    enableBloomLayer(mesh);
     mesh.renderOrder = -5;
     mesh.frustumCulled = false;
     mesh.visible = false;

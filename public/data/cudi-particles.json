@@ -1,0 +1,32 @@
+{
+  "emitters": {
+    "bodyBasketball": {
+      "life": 0.25,
+      "speed": 0
+    },
+    "headBasketball": {
+      "life": 0.5,
+      "speed": 0
+    },
+    "headX": {
+      "life": 0.65,
+      "speed": 0.055
+    },
+    "teethBanana": {
+      "life": 0.5,
+      "speed": 0.065
+    },
+    "eyeBanana": {
+      "life": 0.5,
+      "speed": 0
+    },
+    "ragSkull": {
+      "life": 1,
+      "speed": 0
+    },
+    "chainBanana": {
+      "life": 1,
+      "speed": 0
+    }
+  }
+}

@@ -535,6 +535,72 @@ function sanitizeClothGroups(data: unknown): { groups: { id: string; name: strin
   return { groups };
 }
 
+const CUDI_EMITTER_IDS = new Set([
+  'bodyBasketball',
+  'headBasketball',
+  'headX',
+  'teethBanana',
+  'eyeBanana',
+  'ragSkull',
+  'chainBanana',
+]);
+
+function sanitizeCudiParticles(raw: unknown): {
+  emitters: Record<string, { life: number; speed: number }>;
+} {
+  const emitters: Record<string, { life: number; speed: number }> = {};
+  const root = raw && typeof raw === 'object' ? (raw as { emitters?: unknown }).emitters : null;
+  if (root && typeof root === 'object') {
+    for (const [id, entry] of Object.entries(root as Record<string, unknown>)) {
+      if (!CUDI_EMITTER_IDS.has(id) || !entry || typeof entry !== 'object') continue;
+      const life = Number((entry as { life?: unknown }).life);
+      const speed = Number((entry as { speed?: unknown }).speed);
+      if (!Number.isFinite(life) || !Number.isFinite(speed)) continue;
+      emitters[id] = {
+        life: Math.min(5, Math.max(0.05, life)),
+        speed: Math.min(1, Math.max(0, speed)),
+      };
+    }
+  }
+  return { emitters };
+}
+
+/** Writes public/data/cudi-particles.json so a reload and a production build keep it. */
+function saveCudiParticlesPlugin(): Plugin {
+  const settingsPath = path.join(rootDir, 'public', 'data', 'cudi-particles.json');
+  return {
+    name: 'save-cudi-particles',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url?.split('?')[0] !== '/__dev/save-cudi-particles') {
+          next();
+          return;
+        }
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: 'POST only' }));
+          return;
+        }
+        try {
+          const raw = await readJsonBody(req);
+          const clean = sanitizeCudiParticles(JSON.parse(raw) as unknown);
+          fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+          fs.writeFileSync(settingsPath, `${JSON.stringify(clean, null, 2)}\n`, 'utf8');
+          console.log('[save-cudi-particles] wrote', settingsPath);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+        }
+      });
+    },
+  };
+}
+
 /** Writes public/data/cloth-particle-weights.json so a reload and a production build keep it. */
 function saveClothWeightsPlugin(): Plugin {
   const weightsPath = path.join(rootDir, 'public', 'data', 'cloth-particle-weights.json');
@@ -644,7 +710,13 @@ function saveMaterialsPlugin(): Plugin {
 
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : '/',
-  plugins: [redgradientPlugin(), saveMaterialsPlugin(), saveClothWeightsPlugin(), saveClothGroupsPlugin()],
+  plugins: [
+    redgradientPlugin(),
+    saveMaterialsPlugin(),
+    saveClothWeightsPlugin(),
+    saveClothGroupsPlugin(),
+    saveCudiParticlesPlugin(),
+  ],
   server: {
     // Keep material writes local-dev only; plugin is serve-only anyway.
     watch: {
