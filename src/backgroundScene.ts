@@ -25,6 +25,7 @@ const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
   Neon_Palms: 10_000,
   Neon_Sunset: 10_000,
   Rebase_Radio: 10_000,
+  Moonbased: 10_000,
 };
 
 /** Horizon drop below the eye. These domes are recentered on the camera each frame. */
@@ -34,6 +35,7 @@ const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Neon_Palms: -25,
   Neon_Sunset: -25,
   Rebase_Radio: -25,
+  Moonbased: -25,
 };
 
 /** Upper hemisphere only. The photo stops at the horizon; below that is the level. */
@@ -45,19 +47,34 @@ const DOME_SKY_KEYS = new Set([
   'Rebase_Radio',
 ]);
 
+/**
+ * Full surrounding sky (no ground horizon). Uses the whole equirect strip;
+ * the lower hemisphere mirrors the upper so looking around still shows stars.
+ */
+const FULL_SKY_KEYS = new Set(['Moonbased']);
+
 /** Ground disc radius. Reaches the sky and stays inside the camera far plane. */
 const GROUND_HORIZON_RADIUS = 11_000;
 
 /** Floors that get a disc out to the horizon. Neon Sunset extends its water mesh instead. */
 const HORIZON_GROUND_KEYS = new Set(['Retro_Palms', 'Retro_Sunset', 'Neon_Palms']);
 
-/** Traits that reuse another background's sky photo. */
+/** Traits that reuse another background's sky photo (basename, no extension). */
 const SKYBOX_FILE_BY_KEY: Record<string, string> = {
   Vaporwave_Columns: 'Vaporwave_Palms',
   Vaporwave_Dreams: 'Vaporwave_Palms',
   Neon_Palms: 'Retro_Palms',
   Rebase_Radio: 'rebase_radio',
 };
+
+/** Skybox file extension when not `.jpg`. */
+const SKYBOX_EXT_BY_KEY: Record<string, string> = {};
+
+function skyboxAssetUrl(name: string): string {
+  const file = SKYBOX_FILE_BY_KEY[name] ?? name;
+  const ext = SKYBOX_EXT_BY_KEY[name] ?? 'jpg';
+  return assetUrl(`/models/skybox/${file}.${ext}`);
+}
 
 /** Traits that reuse another background's floor GLB. Palm materials stay per trait. */
 const FLOOR_FILE_BY_KEY: Record<string, string> = {
@@ -267,7 +284,7 @@ const COLUMN_BG_KEYS = new Set(['Vaporwave_Columns']);
 const PALM_BG_KEYS = new Set(['Retro_Palms', 'Neon_Palms']);
 
 /** Backgrounds whose named GLB materials are exposed in the Trait material editor. */
-const PROP_BG_KEYS = new Set(['Rad']);
+const PROP_BG_KEYS = new Set(['Rad', 'Moonbased']);
 
 /** Slow bobbing hover for every mesh in these floors. */
 const FLOAT_BG_KEYS = new Set(['Rad']);
@@ -2265,7 +2282,7 @@ export class BackgroundSceneManager {
     if (!pending) {
       pending = new Promise<THREE.Object3D | null>((resolve) => {
         texLoader.load(
-          assetUrl(`/models/skybox/${SKYBOX_FILE_BY_KEY[name] ?? name}.jpg`),
+          skyboxAssetUrl(name),
           (tex) => {
             tex.colorSpace = THREE.SRGBColorSpace;
             tex.flipY = true;
@@ -2320,7 +2337,8 @@ export class BackgroundSceneManager {
               name === 'Retro_Sunset' ||
               name === 'Neon_Palms' ||
               name === 'Neon_Sunset' ||
-              name === 'Rebase_Radio'
+              name === 'Rebase_Radio' ||
+              name === 'Moonbased'
             ) {
               enableSkyBloom(mesh);
             }

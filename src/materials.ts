@@ -222,6 +222,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   /** Net-sphere band colours (holes stay `BACKGROUND.BasedChain`). */
   BasedChain: { top: 0x3db5ff, bottom: 0xc268ca, distance: 0.12 },
   Rad: { top: 0xe8a6c8, bottom: 0xd8a6c7, distance: 2 },
+  Moonbased: { top: 0x000000, bottom: 0x000000, distance: 1 },
 
 };
 
@@ -279,6 +280,7 @@ const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Dungeon: { enabled: true, color: 0x000000, near: 0.45, far: 21.7 },
   /** Black distance fog for the BasedChain net cage (Near/Far edited in Trait inspector). */
   BasedChain: { enabled: true, color: 0x000000, near: 5.2, far: 31.75 },
+  Moonbased: { enabled: true, color: 0x000000, near: 1.4, far: 33.65 },
 
 };
 
@@ -416,6 +418,7 @@ const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset:
   Pool_1: { enabled: false, color: 0xffffff, intensity: 3.05, azimuth: 312, elevation: 57 },
   Dungeon: { enabled: true, color: 0xfff2d0, intensity: 0, azimuth: 35, elevation: 48 },
   Rad: { enabled: true, color: 0xffffff, intensity: 1.65, azimuth: 0, elevation: 40 },
+  Moonbased: { enabled: true, color: 0xffffff, intensity: 2.55, azimuth: 9, elevation: 40 },
 
 };
 
@@ -533,6 +536,7 @@ export type BackgroundPropMat = {
  */
 const BACKGROUND_PROP_MAT: Record<string, BackgroundPropMat> = {  Rad__Rad_Blue: { color: 0x00fbff, roughness: 0.24, metalness: 0 },
   Rad__Rad_Yellow: { color: 0xfff700, roughness: 0.82, metalness: 0 },
+  Moonbased__Moon: { color: 0xbdf7ff, roughness: 1, metalness: 0 },
 
 };
 
