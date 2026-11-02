@@ -47,12 +47,6 @@ const DOME_SKY_KEYS = new Set([
   'Rebase_Radio',
 ]);
 
-/**
- * Full surrounding sky (no ground horizon). Uses the whole equirect strip;
- * the lower hemisphere mirrors the upper so looking around still shows stars.
- */
-const FULL_SKY_KEYS = new Set(['Moonbased']);
-
 /** Ground disc radius. Reaches the sky and stays inside the camera far plane. */
 const GROUND_HORIZON_RADIUS = 11_000;
 

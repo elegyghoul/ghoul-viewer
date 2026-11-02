@@ -217,6 +217,7 @@ export class PlayController {
       this.clearPadHeld();
       this.lastLocomotion = null;
       this.unbindPitchDrag();
+      if (this.orbit) this.orbit.enabled = this.savedOrbitEnabled;
       this.enabled = false;
       this.root = null;
       this.animator = null;
