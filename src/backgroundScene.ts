@@ -14,6 +14,7 @@ const SKYBOX_RADIUS = 80;
 /** Per-trait skybox radius overrides (default: `SKYBOX_RADIUS`). */
 const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
   Retro_Palms: 10_000,
+  Retro_Sunset: 10_000,
   Neon_Palms: 10_000,
   Neon_Sunset: 10_000,
 };
@@ -21,18 +22,19 @@ const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
 /** Horizon drop below the eye. These domes are recentered on the camera each frame. */
 const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Palms: -25,
+  Retro_Sunset: -25,
   Neon_Palms: -25,
   Neon_Sunset: -25,
 };
 
 /** Upper hemisphere only. The photo stops at the horizon; below that is the level. */
-const DOME_SKY_KEYS = new Set(['Retro_Palms', 'Neon_Palms', 'Neon_Sunset']);
+const DOME_SKY_KEYS = new Set(['Retro_Palms', 'Retro_Sunset', 'Neon_Palms', 'Neon_Sunset']);
 
 /** Ground disc radius. Reaches the sky and stays inside the camera far plane. */
 const GROUND_HORIZON_RADIUS = 11_000;
 
 /** Floors that get a disc out to the horizon. Neon Sunset extends its water mesh instead. */
-const HORIZON_GROUND_KEYS = new Set(['Retro_Palms', 'Neon_Palms']);
+const HORIZON_GROUND_KEYS = new Set(['Retro_Palms', 'Retro_Sunset', 'Neon_Palms']);
 
 /** Traits that reuse another background's sky photo. */
 const SKYBOX_FILE_BY_KEY: Record<string, string> = {
@@ -44,7 +46,11 @@ const SKYBOX_FILE_BY_KEY: Record<string, string> = {
 /** Traits that reuse another background's floor GLB. Palm materials stay per trait. */
 const FLOOR_FILE_BY_KEY: Record<string, string> = {
   Neon_Palms: 'Retro_Palms',
+  Retro_Sunset: 'Retro_Palms',
 };
+
+/** Aliased floors that drop palm meshes (same level, no trees). */
+const STRIP_PALM_KEYS = new Set(['Retro_Sunset']);
 
 function skyboxRadius(name: string): number {
   return SKYBOX_RADIUS_BY_KEY[name] ?? SKYBOX_RADIUS;
@@ -286,6 +292,13 @@ function cloneFloorWithOwnPalmMaterial(source: THREE.Object3D, traitKey: string)
     mesh.material = shared;
   }
   return root;
+}
+
+/** Remove palm meshes from an aliased floor (e.g. Retro Sunset = Retro Palms, no trees). */
+function stripPalmMeshes(root: THREE.Object3D): void {
+  for (const mesh of collectPalmMeshes(root)) {
+    mesh.parent?.remove(mesh);
+  }
 }
 
 function unifyPalmMaterial(root: THREE.Object3D, bgKey: string): void {
@@ -1757,6 +1770,7 @@ export class BackgroundSceneManager {
               return null;
             }
             const root = cloneFloorWithOwnPalmMaterial(source, name);
+            if (STRIP_PALM_KEYS.has(name)) stripPalmMeshes(root);
             root.name = `Background_${name}`;
             root.visible = false;
             this.collectWaterPlanes(root, name);
@@ -1883,7 +1897,14 @@ export class BackgroundSceneManager {
             mesh.frustumCulled = false;
             mesh.visible = false;
             // Clipped sky bloom (masked to dome) — not halo bloom.
-            if (name === 'Retro_Palms' || name === 'Neon_Palms' || name === 'Neon_Sunset') enableSkyBloom(mesh);
+            if (
+              name === 'Retro_Palms' ||
+              name === 'Retro_Sunset' ||
+              name === 'Neon_Palms' ||
+              name === 'Neon_Sunset'
+            ) {
+              enableSkyBloom(mesh);
+            }
             isolateSkyFromPointLights(mesh);
             this.root.add(mesh);
             this.skyCache.set(name, mesh);

@@ -181,7 +181,7 @@ const BACKGROUND: Record<string, number> = {
   Darkness: 0x000000,
   Dungeon: 0x000000,
   BasedChain: 0x000000,
-  Retro_Sunset: 0x000000,
+  Retro_Sunset: 0x15000f,
   Based_Classic: 0xecb38e,
   Retro_Palms: 0x15000f,
   Vaporwave_Palms: 0x000000,
@@ -211,6 +211,7 @@ export const DEFAULT_GRADIENT_DISTANCE = 1;
 const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Based_Loans: { top: 0x2a4b89, bottom: 0x637ca1 },
   Retro_Palms: { top: 0x15000f, bottom: 0x15000f },
+  Retro_Sunset: { top: 0x15000f, bottom: 0x15000f },
   Neon_Palms: { top: 0x15000f, bottom: 0x15000f, distance: 1 },
   Based_Classic: { top: 0x498dc1, bottom: 0xecb38e, distance: 0.44 },
   Pool_1: { top: 0x009ceb, bottom: 0x35517e, distance: 0.81 },
@@ -267,6 +268,7 @@ export type BackgroundFog = {
 
 const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Retro_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
+  Retro_Sunset: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Sunset: { enabled: true, color: 0xce397e, near: 3.95, far: 80 },
   Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
@@ -405,6 +407,7 @@ export const DEFAULT_DIR_LIGHT: BackgroundDirLight = {
 
 const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset: { enabled: true, color: 0x742a44, intensity: 12.8, azimuth: 160, elevation: 32 },
   Retro_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
+  Retro_Sunset: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Neon_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Vaporwave_Palms: { enabled: true, color: 0xfff2d0, intensity: 4.05, azimuth: 360, elevation: 55 },
   Pool_1: { enabled: false, color: 0xffffff, intensity: 3.05, azimuth: 312, elevation: 57 },
@@ -429,6 +432,7 @@ export type BackgroundRipple = {
 const BACKGROUND_RIPPLE: Record<string, BackgroundRipple> = {
   // Ocean disabled for now — re-enable via FX → Ocean when ready.
   Retro_Palms: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
+  Retro_Sunset: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
   Neon_Palms: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
   Neon_Sunset: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
   Pool_1: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
