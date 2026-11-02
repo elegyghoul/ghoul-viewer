@@ -169,7 +169,10 @@ export type MaterialSaveTarget =
         | 'chipLight'
         | 'netLight'
         | 'columns'
-        | 'palms';
+        | 'palms'
+        | 'prop';
+      /** Stable id for `slot: 'prop'` (e.g. Rad_Blue). */
+      prop?: string;
     };
 
 export type EditableMaterial = {

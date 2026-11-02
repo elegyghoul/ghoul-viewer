@@ -44,6 +44,8 @@ import {
   backgroundHasSkyTint,
   backgroundOceanMat,
   backgroundPointLight,
+  backgroundPropLabel,
+  backgroundPropStorageKey,
   backgroundRipple,
   backgroundSkyTint,
   backgroundVignette,
@@ -63,6 +65,7 @@ import {
   type BackgroundFog,
   type BackgroundGradient,
   type BackgroundOceanMat,
+  type BackgroundPropMat,
   type BackgroundRipple,
   type BackgroundVignette,
 } from './materials';
@@ -1158,6 +1161,9 @@ function syncGridAndBackground(): void {
       ) {
         appendPalmMaterialCard(key);
       }
+      if (selectedTraitKey === 'background' && currentTraits?.background === key) {
+        appendPropMaterialCards(key);
+      }
     }
     syncOceanControls();
   });
@@ -1432,7 +1438,10 @@ const dirtySaveKeys = new Set<string>();
 function saveTargetKey(t: MaterialSaveTarget): string {
   if (t.kind === 'skin') return `skin:${t.key}:${t.slot}`;
   if (t.kind === 'accent') return `accent:${t.key}`;
-  if (t.kind === 'background') return `background:${t.key}:${t.slot}`;
+  if (t.kind === 'background') {
+    if (t.slot === 'prop') return `background:${t.key}:prop:${t.prop ?? ''}`;
+    return `background:${t.key}:${t.slot}`;
+  }
   return `eye:${t.key}`;
 }
 
@@ -1466,6 +1475,8 @@ function setMaterialColor(mat: THREE.Material, css: string, label?: string): voi
     const stored = unlitColorBase.get(mat as THREE.MeshBasicMaterial);
     if (stored) stored.setHex(hex);
     mat.needsUpdate = true;
+    // BG fade restore uses this baseline — refresh it or the next sync snaps colour back.
+    bgScenes.rememberFadeBase(mat);
   }
   if (assembler && selectedTraitKey === 'ghoul' && label) {
     if (label.includes('· Light')) assembler.skinLightHex = hex;
@@ -1475,6 +1486,12 @@ function setMaterialColor(mat: THREE.Material, css: string, label?: string): voi
 }
 
 /** Keep Body/Head (and any other) slots with the same save target in sync. */
+function isRadYellowPropTarget(t?: MaterialSaveTarget): boolean {
+  return (
+    t?.kind === 'background' && t.key === 'Rad' && t.slot === 'prop' && t.prop === 'Rad_Yellow'
+  );
+}
+
 function applyColorToGroup(entry: EditableMaterial, css: string): void {
   if (entry.saveTarget) {
     dirtySaveKeys.add(saveTargetKey(entry.saveTarget));
@@ -1482,6 +1499,16 @@ function applyColorToGroup(entry: EditableMaterial, css: string): void {
       if (sameSaveTarget(e.saveTarget, entry.saveTarget)) {
         setMaterialColor(e.material, css, e.label);
       }
+    }
+    if (isRadYellowPropTarget(entry.saveTarget)) {
+      for (const e of editorEntries) {
+        if (!sameSaveTarget(e.saveTarget, entry.saveTarget) || !e.lit) continue;
+        const std = e.material as THREE.MeshStandardMaterial;
+        std.emissive.copy(std.color);
+        std.needsUpdate = true;
+        bgScenes.rememberFadeBase(std);
+      }
+      bgScenes.syncRadParticleAppearance();
     }
     return;
   }
@@ -1504,6 +1531,7 @@ function applyFinishToGroup(
     else std.metalness = value;
     std.needsUpdate = true;
   }
+  if (isRadYellowPropTarget(entry.saveTarget)) bgScenes.syncRadParticleAppearance();
 }
 
 function setSaveStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {
@@ -1552,6 +1580,7 @@ function buildSavePayload(): {
       palmsMetalness?: number;
     }
   >;
+  backgroundPropMat?: Record<string, BackgroundPropMat>;
 } {
   const skin: Record<
     string,
@@ -1590,6 +1619,7 @@ function buildSavePayload(): {
       palmsMetalness?: number;
     }
   > = {};
+  const backgroundPropMat: Record<string, BackgroundPropMat> = {};
   const seen = new Set<string>();
 
   for (const entry of editorEntries) {
@@ -1637,6 +1667,15 @@ function buildSavePayload(): {
     } else if (target.kind === 'eye') {
       eye[target.key] = { color };
     } else if (target.kind === 'background') {
+      if (target.slot === 'prop' && target.prop) {
+        const std = entry.material as THREE.MeshStandardMaterial;
+        backgroundPropMat[backgroundPropStorageKey(target.key, target.prop)] = {
+          color,
+          roughness: std.roughness,
+          metalness: std.metalness,
+        };
+        continue;
+      }
       const row = (background[target.key] ??= {});
       if (target.slot === 'top') row.top = color;
       else if (target.slot === 'bottom') {
@@ -1676,6 +1715,7 @@ function buildSavePayload(): {
     ...(Object.keys(accent).length ? { accent } : {}),
     ...(Object.keys(eye).length ? { eye } : {}),
     ...(Object.keys(background).length ? { background } : {}),
+    ...(Object.keys(backgroundPropMat).length ? { backgroundPropMat } : {}),
   };
 }
 
@@ -1708,12 +1748,21 @@ function summarizePayload(payload: ReturnType<typeof buildSavePayload>): string 
     if (v.columnsColor != null) bits.push(`${k} columns ${hexToCss(v.columnsColor)}`);
     if (v.palmsColor != null) bits.push(`${k} trees ${hexToCss(v.palmsColor)}`);
   }
+  for (const [k, v] of Object.entries(payload.backgroundPropMat ?? {})) {
+    bits.push(`${k.replace(/__/g, ' · ')} ${hexToCss(v.color)}`);
+  }
   return bits.join(', ') || 'materials.ts';
 }
 
 async function saveMaterialsToDisk(): Promise<void> {
   const payload = buildSavePayload();
-  if (!payload.skin && !payload.accent && !payload.eye && !payload.background) {
+  if (
+    !payload.skin &&
+    !payload.accent &&
+    !payload.eye &&
+    !payload.background &&
+    !payload.backgroundPropMat
+  ) {
     setSaveStatus('Nothing to save for this trait', 'err');
     return;
   }
@@ -1976,6 +2025,103 @@ function appendPalmMaterialCard(key: string): void {
     materialHint.textContent = `${materialHint.textContent} · trees`;
   }
   syncSaveButton();
+}
+
+/** One card per named material in a prop BG (Rad Blue / Rad Yellow, …). */
+function appendPropMaterialCards(key: string): void {
+  const props = bgScenes.propMaterials(key);
+  if (!props.length) return;
+  let added = 0;
+  for (const { id, material } of props) {
+    if (
+      editorEntries.some(
+        (e) =>
+          e.saveTarget?.kind === 'background' &&
+          e.saveTarget.slot === 'prop' &&
+          e.saveTarget.key === key &&
+          e.saveTarget.prop === id,
+      )
+    ) {
+      continue;
+    }
+    const label = backgroundPropLabel(id);
+    const entry: EditableMaterial = {
+      label: `${key} · ${label}`,
+      material,
+      lit: true,
+      saveTarget: { kind: 'background', key, slot: 'prop', prop: id },
+    };
+    editorEntries.push(entry);
+
+    const card = document.createElement('div');
+    card.className = 'mat-card';
+    const title = document.createElement('div');
+    title.className = 'mat-card-title';
+    title.textContent = label;
+    const meta = document.createElement('div');
+    meta.className = 'mat-card-meta';
+    meta.textContent = 'Lit · BG prop · savable';
+    card.append(title, meta);
+
+    const colorRow = document.createElement('label');
+    colorRow.className = 'mat-color-row';
+    colorRow.append('Colour');
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = colorFromMaterial(material);
+    const colorVal = document.createElement('span');
+    colorVal.className = 'mat-val';
+    colorVal.textContent = colorInput.value;
+    colorInput.addEventListener('input', () => {
+      applyColorToGroup(entry, colorInput.value);
+      colorVal.textContent = hexToCss(cssToHex(colorInput.value));
+    });
+    colorRow.append(colorInput, colorVal);
+
+    const roughRow = document.createElement('label');
+    roughRow.append('Roughness');
+    const roughInput = document.createElement('input');
+    roughInput.type = 'range';
+    roughInput.min = '0';
+    roughInput.max = '1';
+    roughInput.step = '0.01';
+    roughInput.value = String(material.roughness);
+    const roughVal = document.createElement('span');
+    roughVal.className = 'mat-val';
+    roughVal.textContent = material.roughness.toFixed(2);
+    roughInput.addEventListener('input', () => {
+      const v = Number(roughInput.value);
+      applyFinishToGroup(entry, 'roughness', v);
+      roughVal.textContent = v.toFixed(2);
+    });
+    roughRow.append(roughInput, roughVal);
+
+    const metalRow = document.createElement('label');
+    metalRow.append('Metallic');
+    const metalInput = document.createElement('input');
+    metalInput.type = 'range';
+    metalInput.min = '0';
+    metalInput.max = '1';
+    metalInput.step = '0.01';
+    metalInput.value = String(material.metalness);
+    const metalVal = document.createElement('span');
+    metalVal.className = 'mat-val';
+    metalVal.textContent = material.metalness.toFixed(2);
+    metalInput.addEventListener('input', () => {
+      const v = Number(metalInput.value);
+      applyFinishToGroup(entry, 'metalness', v);
+      metalVal.textContent = v.toFixed(2);
+    });
+    metalRow.append(metalInput, metalVal);
+
+    card.append(colorRow, roughRow, metalRow);
+    materialList.append(card);
+    added++;
+  }
+  if (added && !materialHint.textContent.includes('props')) {
+    materialHint.textContent = `${materialHint.textContent} · props`;
+  }
+  if (added) syncSaveButton();
 }
 
 function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
@@ -2449,6 +2595,7 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
     materialList.append(card);
     appendColumnMaterialCard(key);
     appendPalmMaterialCard(key);
+    appendPropMaterialCards(key);
     syncSaveButton();
     syncGridAndBackground();
     return;
@@ -2500,7 +2647,9 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
               ? 'Columns'
               : entry.saveTarget.slot === 'palms'
                 ? 'Trees'
-                : 'Clouds';
+                : entry.saveTarget.slot === 'prop'
+                  ? backgroundPropLabel(entry.saveTarget.prop ?? 'Prop')
+                  : 'Clouds';
       title.textContent = `${entry.saveTarget.key} · ${slot}`;
     } else {
       title.textContent = entry.label;

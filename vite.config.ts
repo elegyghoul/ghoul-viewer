@@ -73,6 +73,11 @@ export type SaveMaterialsPayload = {
       elevation: number;
     }
   >;
+  /** Flat keys `${bgKey}__${propId}` → lit finish for named BG prop materials. */
+  backgroundPropMat?: Record<
+    string,
+    { color: number; roughness: number; metalness: number }
+  >;
 };
 
 function hexLiteral(n: number): string {
@@ -365,6 +370,15 @@ export function applyMaterialPatches(src: string, payload: SaveMaterialsPayload)
 
   for (const [key, vals] of Object.entries(payload.backgroundDirLight ?? {})) {
     next = upsertInConstObject(next, 'BACKGROUND_DIR_LIGHT', key, dirLightLiteral(vals));
+  }
+
+  for (const [key, vals] of Object.entries(payload.backgroundPropMat ?? {})) {
+    next = upsertInConstObject(
+      next,
+      'BACKGROUND_PROP_MAT',
+      key,
+      `{ color: ${hexLiteral(vals.color)}, roughness: ${Number(vals.roughness.toFixed(3))}, metalness: ${Number(vals.metalness.toFixed(3))} }`,
+    );
   }
 
   return next;

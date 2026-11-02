@@ -190,7 +190,7 @@ const BACKGROUND: Record<string, number> = {
   Neon_Palms: 0x15000f,
   Vaporwave_Dreams: 0x000000,
   Chipwave: 0x000000,
-  Rad: 0x000000,
+  Rad: 0xd8a6c7,
   Moonbased: 0x000000,
   Based_Loans: 0x637ca1,
   Rebase_Radio: 0x000000,
@@ -221,6 +221,7 @@ const BACKGROUND_GRADIENT: Record<string, BackgroundGradient> = {
   Chipwave: { top: 0x000000, bottom: 0x000000, distance: 1 },
   /** Net-sphere band colours (holes stay `BACKGROUND.BasedChain`). */
   BasedChain: { top: 0x3db5ff, bottom: 0xc268ca, distance: 0.12 },
+  Rad: { top: 0xe8a6c8, bottom: 0xd8a6c7, distance: 2 },
 
 };
 
@@ -414,6 +415,7 @@ const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset:
   Vaporwave_Palms: { enabled: true, color: 0xfff2d0, intensity: 4.05, azimuth: 360, elevation: 55 },
   Pool_1: { enabled: false, color: 0xffffff, intensity: 3.05, azimuth: 312, elevation: 57 },
   Dungeon: { enabled: true, color: 0xfff2d0, intensity: 0, azimuth: 35, elevation: 48 },
+  Rad: { enabled: true, color: 0xffffff, intensity: 1.65, azimuth: 0, elevation: 40 },
 
 };
 
@@ -516,6 +518,44 @@ export function backgroundPalmMat(name: string): BackgroundPalmMat | null {
   const saved = BACKGROUND_PALM_MAT[name];
   if (!saved) return null;
   return { color: saved.color, roughness: saved.roughness, metalness: saved.metalness };
+}
+
+/** Lit finish for named prop materials inside a BG GLB (e.g. Rad Blue / Rad Yellow). */
+export type BackgroundPropMat = {
+  color: number;
+  roughness: number;
+  metalness: number;
+};
+
+/**
+ * Flat map keyed `${bgKey}__${propId}`. Prop ids come from GLB material names
+ * (`Rad Blue.001` → `Rad_Blue`). Empty until the first save for that prop.
+ */
+const BACKGROUND_PROP_MAT: Record<string, BackgroundPropMat> = {  Rad__Rad_Blue: { color: 0x00fbff, roughness: 0.24, metalness: 0 },
+  Rad__Rad_Yellow: { color: 0xfff700, roughness: 0.82, metalness: 0 },
+
+};
+
+/** Strip Blender `.001` suffixes and normalize spaces for a stable save id. */
+export function backgroundPropId(matName: string): string {
+  return matName
+    .replace(/\.\d+$/, '')
+    .trim()
+    .replace(/[\s-]+/g, '_');
+}
+
+export function backgroundPropStorageKey(bgKey: string, propId: string): string {
+  return `${bgKey}__${propId}`;
+}
+
+export function backgroundPropMat(bgKey: string, propId: string): BackgroundPropMat | null {
+  const saved = BACKGROUND_PROP_MAT[backgroundPropStorageKey(bgKey, propId)];
+  if (!saved) return null;
+  return { color: saved.color, roughness: saved.roughness, metalness: saved.metalness };
+}
+
+export function backgroundPropLabel(propId: string): string {
+  return propId.replace(/_/g, ' ');
 }
 
 export function backgroundOceanMat(name: string): BackgroundOceanMat | null {

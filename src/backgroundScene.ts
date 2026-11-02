@@ -2,7 +2,14 @@ import * as THREE from 'three';
 import { assetUrl } from './assetUrl';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { BackgroundOceanMat, BackgroundRipple } from './materials';
-import { backgroundColumnMat, backgroundPalmMat, enableBloomLayer } from './materials';
+import {
+  backgroundColumnMat,
+  backgroundPalmMat,
+  backgroundPropId,
+  backgroundPropMat,
+  clearBloomLayers,
+  enableBloomLayer,
+} from './materials';
 import { enableSkyBloom, SKY_BLOOM_EXTRACT, SKY_LIGHT_LAYER } from './materials';
 
 const gltfLoader = new GLTFLoader();
@@ -259,6 +266,161 @@ const COLUMN_BG_KEYS = new Set(['Vaporwave_Columns']);
 /** Palm backgrounds share one lit tree material per trait key. */
 const PALM_BG_KEYS = new Set(['Retro_Palms', 'Neon_Palms']);
 
+/** Backgrounds whose named GLB materials are exposed in the Trait material editor. */
+const PROP_BG_KEYS = new Set(['Rad']);
+
+/** Slow bobbing hover for every mesh in these floors. */
+const FLOAT_BG_KEYS = new Set(['Rad']);
+
+/** Soft yellow triangle field for Rad. */
+const RAD_PARTICLE_BG = 'Rad';
+/** Just outside Play walk walls (half-extent 4). */
+const RAD_PARTICLE_R_MIN = 5.5;
+/** Just past the farthest Rad props (~80–85). */
+const RAD_PARTICLE_R_MAX = 78;
+const RAD_PARTICLE_Y_MIN = -6;
+const RAD_PARTICLE_Y_MAX = 38;
+/** Pool size — dense enough to fill the annulus. */
+const RAD_PARTICLE_COUNT = 100;
+/**
+ * Equilateral triangle height. Smallest Rad spheres are ~scale 1.76 unit
+ * spheres (diameter ~3.5); ~3/4 of that after the 3× bump from the base size.
+ */
+const RAD_PARTICLE_HEIGHT = 2.64;
+const RAD_PARTICLE_LIFE_MIN = 4.5;
+const RAD_PARTICLE_LIFE_MAX = 8.5;
+const RAD_YELLOW_PROP_ID = 'Rad_Yellow';
+
+/** Same finish as the Rad Yellow spheres (saved prop mat, else authored default). */
+function radYellowFinish(): { color: number; roughness: number; metalness: number } {
+  return (
+    backgroundPropMat(RAD_PARTICLE_BG, RAD_YELLOW_PROP_ID) ?? {
+      color: 0xfff700,
+      roughness: 0.82,
+      metalness: 0,
+    }
+  );
+}
+
+type BgFloater = {
+  mesh: THREE.Object3D;
+  baseY: number;
+  /** World-unit half-travel. */
+  amp: number;
+  /** Angular speed (rad/s). */
+  speed: number;
+  phase: number;
+};
+
+type RadParticle = {
+  mesh: THREE.Mesh;
+  age: number;
+  life: number;
+  spin: THREE.Vector3;
+};
+
+function hash32(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** Per-mesh bob params from a stable name hash (amp ~0.4–1.2, period ~8–18s). */
+function collectBgFloaters(root: THREE.Object3D): BgFloater[] {
+  const floaters: BgFloater[] = [];
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    if (mesh.name === 'GroundHorizon' || mesh.name.startsWith('RadParticle')) return;
+    if (isWaterPlaneName(mesh.name)) return;
+    const h = hash32(mesh.name || mesh.uuid);
+    const u0 = (h & 0xffff) / 0xffff;
+    const u1 = ((h >>> 16) & 0xffff) / 0xffff;
+    floaters.push({
+      mesh,
+      baseY: mesh.position.y,
+      amp: 0.4 + u0 * 0.8,
+      speed: 0.35 + u1 * 0.4,
+      phase: u0 * Math.PI * 2,
+    });
+  });
+  return floaters;
+}
+
+/** Unit-height equilateral triangle in XY, tip +Y. */
+function makeRadTriangleGeometry(): THREE.BufferGeometry {
+  const h = 1;
+  const halfBase = h / Math.sqrt(3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      [
+        0,
+        h * 0.5,
+        0,
+        -halfBase,
+        -h * 0.5,
+        0,
+        halfBase,
+        -h * 0.5,
+        0,
+      ],
+      3,
+    ),
+  );
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/** Unit-height rectangle in XY (two triangles), similar visual mass to the triangle. */
+function makeRadRectGeometry(): THREE.BufferGeometry {
+  const h = 1;
+  const halfW = 0.45;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      [
+        -halfW,
+        h * 0.5,
+        0,
+        halfW,
+        h * 0.5,
+        0,
+        halfW,
+        -h * 0.5,
+        0,
+        -halfW,
+        h * 0.5,
+        0,
+        halfW,
+        -h * 0.5,
+        0,
+        -halfW,
+        -h * 0.5,
+        0,
+      ],
+      3,
+    ),
+  );
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function radParticleEnvelope(age: number, life: number): number {
+  if (life <= 1e-6) return 0;
+  const u = THREE.MathUtils.clamp(age / life, 0, 1);
+  const fadeIn = 0.22;
+  const fadeOut = 0.28;
+  if (u < fadeIn) return u / fadeIn;
+  if (u > 1 - fadeOut) return (1 - u) / fadeOut;
+  return 1;
+}
+
 /** GLTFLoader strips '.' from node names, so "palm.012" arrives as "palm012". */
 function isPalmNodeName(name: string): boolean {
   const n = name.trim().toLowerCase();
@@ -399,6 +561,48 @@ function unifyColumnMaterial(root: THREE.Object3D, bgKey: string): void {
     shared.metalness = saved.metalness;
   }
   for (const mesh of columns) mesh.material = shared;
+}
+
+type PropMaterialEntry = { id: string; material: THREE.MeshStandardMaterial };
+
+/** Unique named lit materials in a prop BG, keyed by normalized material name. */
+function collectPropMaterials(root: THREE.Object3D): PropMaterialEntry[] {
+  const byId = new Map<string, THREE.MeshStandardMaterial>();
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (!(mat instanceof THREE.MeshStandardMaterial)) continue;
+      const id = backgroundPropId(mat.name || mesh.name || 'Material');
+      if (!id || byId.has(id)) continue;
+      byId.set(id, mat);
+    }
+  });
+  return [...byId.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, material]) => ({ id, material }));
+}
+
+/** Soft self-light so Rad Yellow reads as glowing (bloom picks it up too). */
+const RAD_YELLOW_EMISSIVE_INTENSITY = 0.42;
+
+/** Apply saved finishes for named prop materials (Rad Blue / Rad Yellow, etc.). */
+function applyPropMaterials(root: THREE.Object3D, bgKey: string): void {
+  if (!PROP_BG_KEYS.has(bgKey)) return;
+  for (const { id, material } of collectPropMaterials(root)) {
+    const saved = backgroundPropMat(bgKey, id);
+    if (saved) {
+      material.color.setHex(saved.color);
+      material.roughness = saved.roughness;
+      material.metalness = saved.metalness;
+    }
+    if (bgKey === 'Rad' && id === RAD_YELLOW_PROP_ID) {
+      material.emissive.copy(material.color);
+      material.emissiveIntensity = RAD_YELLOW_EMISSIVE_INTENSITY;
+    }
+    material.needsUpdate = true;
+  }
 }
 
 function isWaterPlaneName(name: string): boolean {
@@ -1015,6 +1219,11 @@ export class BackgroundSceneManager {
   private readonly chipwaveLight = new Map<string, { color: number; intensity: number; range: number }>();
   private readonly chipwaveMats = new Map<string, THREE.Material[]>();
   private chipwaveSpinners: { mesh: THREE.Mesh; sign: number }[] = [];
+  private readonly floatersByBg = new Map<string, BgFloater[]>();
+  private radParticles: RadParticle[] = [];
+  private radParticleRoot: THREE.Group | null = null;
+  private radTriangleGeo: THREE.BufferGeometry | null = null;
+  private radRectGeo: THREE.BufferGeometry | null = null;
   private readonly gradientSkyCache = new Map<string, THREE.Mesh>();
   private readonly netSphereCache = new Map<string, THREE.Mesh>();
   private readonly cloudCache = new Map<string, { root: THREE.Group; puffs: CloudPuff[] }>();
@@ -1087,6 +1296,14 @@ export class BackgroundSceneManager {
       }
     }
     return out;
+  }
+
+  /** Named lit materials in a prop BG (e.g. Rad). Empty until that floor has loaded. */
+  propMaterials(key: string | null | undefined): PropMaterialEntry[] {
+    if (!key || !PROP_BG_KEYS.has(key)) return [];
+    const root = this.floorCache.get(key);
+    if (!root) return [];
+    return collectPropMaterials(root);
   }
 
   hasWaterPlane(key: string | null | undefined): boolean {
@@ -1223,6 +1440,162 @@ export class BackgroundSceneManager {
     }
     this.chipwaveMats.set(name, mats);
   }
+
+  /** One-time: capture rest poses for a slow hover on every mesh. */
+  private ensureBgFloaters(root: THREE.Object3D, name: string): void {
+    if (!FLOAT_BG_KEYS.has(name) || this.floatersByBg.has(name)) return;
+    this.floatersByBg.set(name, collectBgFloaters(root));
+  }
+
+  private updateBgFloaters(key: string): void {
+    const floaters = this.floatersByBg.get(key);
+    if (!floaters?.length) return;
+    const t = this.time;
+    for (const f of floaters) {
+      f.mesh.position.y = f.baseY + Math.sin(t * f.speed + f.phase) * f.amp;
+    }
+  }
+
+  private clearRadParticles(): void {
+    const group = this.radParticleRoot;
+    if (group) {
+      group.removeFromParent();
+      for (const p of this.radParticles) {
+        const mat = p.mesh.material;
+        if (mat instanceof THREE.Material) mat.dispose();
+      }
+    }
+    this.radParticleRoot = null;
+    this.radParticles = [];
+  }
+
+  /** Undo leftover light-layer / bloom isolation so Rad shows under the sun again. */
+  private restoreRadDefaultLayers(root: THREE.Object3D, name: string): void {
+    if (name !== RAD_PARTICLE_BG) return;
+    clearBloomLayers(root);
+  }
+
+  private ensureRadParticles(root: THREE.Object3D, name: string): void {
+    if (name !== RAD_PARTICLE_BG) return;
+    this.restoreRadDefaultLayers(root, name);
+    const wantRects = Math.floor(RAD_PARTICLE_COUNT / 2);
+    const haveRects = this.radRectGeo
+      ? this.radParticles.filter((p) => p.mesh.geometry === this.radRectGeo).length
+      : 0;
+    if (
+      this.radParticleRoot &&
+      this.radParticles.length === RAD_PARTICLE_COUNT &&
+      haveRects === wantRects &&
+      Math.abs((this.radParticles[0]?.mesh.scale.x ?? 0) - RAD_PARTICLE_HEIGHT) < 1e-6
+    ) {
+      this.syncRadParticleAppearance(root);
+      return;
+    }
+    this.clearRadParticles();
+
+    const group = new THREE.Group();
+    group.name = 'RadParticles';
+    const triGeo = this.radTriangleGeo ?? makeRadTriangleGeometry();
+    const rectGeo = this.radRectGeo ?? makeRadRectGeometry();
+    this.radTriangleGeo = triGeo;
+    this.radRectGeo = rectGeo;
+    const particles: RadParticle[] = [];
+
+    const finish = radYellowFinish();
+    for (let i = 0; i < RAD_PARTICLE_COUNT; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: finish.color,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        fog: true,
+      });
+      mat.userData.radParticle = true;
+      // Alternate triangle / rectangle so half the pool is each shape.
+      const geo = i % 2 === 0 ? triGeo : rectGeo;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = `RadParticle_${i}`;
+      mesh.frustumCulled = false;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.scale.setScalar(RAD_PARTICLE_HEIGHT);
+      group.add(mesh);
+      const p: RadParticle = {
+        mesh,
+        age: 0,
+        life: 1,
+        spin: new THREE.Vector3(),
+      };
+      this.respawnRadParticle(p, true);
+      particles.push(p);
+    }
+
+    root.add(group);
+    this.radParticleRoot = group;
+    this.radParticles = particles;
+    this.syncRadParticleAppearance(root);
+  }
+
+  /** Match triangle colour to the live Rad Yellow sphere material (sun-lit props; unlit particles). */
+  syncRadParticleAppearance(root?: THREE.Object3D): void {
+    if (!this.radParticles.length) return;
+    const floor = root ?? this.floorCache.get(RAD_PARTICLE_BG) ?? null;
+    let color = radYellowFinish().color;
+    if (floor) {
+      for (const { id, material } of collectPropMaterials(floor)) {
+        if (id !== RAD_YELLOW_PROP_ID) continue;
+        color = material.color.getHex() & 0xffffff;
+        break;
+      }
+    }
+    for (const p of this.radParticles) {
+      const mat = p.mesh.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(color);
+      mat.needsUpdate = true;
+    }
+  }
+
+  private respawnRadParticle(p: RadParticle, stagger: boolean): void {
+    const rMin = RAD_PARTICLE_R_MIN;
+    const rMax = RAD_PARTICLE_R_MAX;
+    // Uniform area in the annulus.
+    const u = Math.random();
+    const r = Math.sqrt(rMin * rMin + u * (rMax * rMax - rMin * rMin));
+    const theta = Math.random() * Math.PI * 2;
+    const y =
+      RAD_PARTICLE_Y_MIN + Math.random() * (RAD_PARTICLE_Y_MAX - RAD_PARTICLE_Y_MIN);
+    p.mesh.position.set(Math.cos(theta) * r, y, Math.sin(theta) * r);
+    p.mesh.rotation.set(
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+    );
+    p.spin.set(
+      (Math.random() - 0.5) * 0.35,
+      (Math.random() - 0.5) * 0.45,
+      (Math.random() - 0.5) * 0.35,
+    );
+    p.life = RAD_PARTICLE_LIFE_MIN + Math.random() * (RAD_PARTICLE_LIFE_MAX - RAD_PARTICLE_LIFE_MIN);
+    p.age = stagger ? Math.random() * p.life : 0;
+    const mat = p.mesh.material as THREE.MeshBasicMaterial;
+    mat.opacity = 0;
+  }
+
+  private updateRadParticles(dt: number): void {
+    if (this.activeKey !== RAD_PARTICLE_BG || !this.radParticles.length) return;
+    const sceneFade = this.fade;
+    for (const p of this.radParticles) {
+      p.age += dt;
+      if (p.age >= p.life) this.respawnRadParticle(p, false);
+      p.mesh.rotation.x += p.spin.x * dt;
+      p.mesh.rotation.y += p.spin.y * dt;
+      p.mesh.rotation.z += p.spin.z * dt;
+      const mat = p.mesh.material as THREE.MeshBasicMaterial;
+      mat.opacity = radParticleEnvelope(p.age, p.life) * sceneFade * 0.9;
+    }
+  }
   setCloudColor(hex: number): void {
     this.cloudColor = hex & 0xffffff;
     if (!this.activeKey || !this.wantVisible) return;
@@ -1284,6 +1657,8 @@ export class BackgroundSceneManager {
       if (mat.uniforms?.uFade) mat.uniforms.uFade.value = this.fade;
       return;
     }
+    // Rad triangles drive their own opacity envelope each frame.
+    if (mat.userData.radParticle) return;
     this.captureFadeBase(mat);
     const base = this.fadeBase.get(mat);
     if (!base) return;
@@ -1501,6 +1876,8 @@ export class BackgroundSceneManager {
         spin.mesh.rotateY(spin.sign * step);
       }
     }
+    this.updateBgFloaters(this.activeKey);
+    this.updateRadParticles(dt);
 
     const waters = this.waterByBg.get(this.activeKey);
     if (!waters?.length) return;
@@ -1791,6 +2168,9 @@ export class BackgroundSceneManager {
       this.applyOceanMatToKey(name);
       if (name === 'Dungeon') ignoreHemiAndSun(cached);
       if (name === 'Chipwave') this.setupChipwave(cached, name);
+      this.ensureBgFloaters(cached, name);
+      this.restoreRadDefaultLayers(cached, name);
+      this.ensureRadParticles(cached, name);
       return cached;
     }
     if (this.floorMissing.has(name)) return null;
@@ -1814,6 +2194,7 @@ export class BackgroundSceneManager {
             root.visible = false;
             this.collectWaterPlanes(root, name);
             unifyPalmMaterial(root, name);
+            applyPropMaterials(root, name);
             this.ensureGroundHorizon(root, name);
             this.root.add(root);
             this.floorCache.set(name, root);
@@ -1854,7 +2235,11 @@ export class BackgroundSceneManager {
           this.collectWaterPlanes(root, name);
           unifyColumnMaterial(root, name);
           unifyPalmMaterial(root, name);
+          applyPropMaterials(root, name);
           this.ensureGroundHorizon(root, name);
+          this.ensureBgFloaters(root, name);
+          this.restoreRadDefaultLayers(root, name);
+          this.ensureRadParticles(root, name);
           this.root.add(root);
           this.floorCache.set(name, root);
           return root;
