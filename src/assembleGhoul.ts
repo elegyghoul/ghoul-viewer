@@ -70,12 +70,18 @@ function findByName(root: THREE.Object3D, name: string): THREE.Object3D | null {
 }
 
 function findAllByName(root: THREE.Object3D, name: string): THREE.Object3D[] {
-  const variants = new Set(nameVariants(name).map(normalizeName));
+  const variants = nameVariants(name);
+  const variantsNorm = new Set(variants.map(normalizeName));
   const out: THREE.Object3D[] = [];
   root.traverse((o) => {
-    if (variants.has(normalizeName(o.name))) out.push(o);
+    if (variantsNorm.has(normalizeName(o.name))) out.push(o);
   });
-  return out;
+  // Unity sometimes ships case-only duplicates (LilB_Glasses vs lilB_Glasses)
+  // with different materials. Prefer the authored casing when present.
+  if (out.length <= 1) return out;
+  const exact = new Set(variants);
+  const preferred = out.filter((o) => exact.has(o.name));
+  return preferred.length ? preferred : out;
 }
 
 function resolvePart(root: THREE.Object3D, id: string): THREE.Object3D[] {

@@ -54,7 +54,8 @@ export const UNITY_PART_NAMES: Record<string, string | string[]> = {
   crayon: 'Crayon',
   drallHorns: ['Drall_Horns', 'Drall_Horns_2'],
   lilBHat: 'lilB_Hat',
-  lilBGlasses: 'lilB_Glasses',
+  // Exact casing matters: GLB also has sibling "lilB_Glasses" with Slaughtermelon maps.
+  lilBGlasses: 'LilB_Glasses',
   santaHat: 'SantaHat',
   candyCane: 'CandyCane',
   staceyAxe: 'tomahawk',
