@@ -17,6 +17,7 @@ const SKYBOX_RADIUS_BY_KEY: Record<string, number> = {
   Retro_Sunset: 10_000,
   Neon_Palms: 10_000,
   Neon_Sunset: 10_000,
+  Rebase_Radio: 10_000,
 };
 
 /** Horizon drop below the eye. These domes are recentered on the camera each frame. */
@@ -25,10 +26,17 @@ const SKYBOX_Y_BY_KEY: Record<string, number> = {
   Retro_Sunset: -25,
   Neon_Palms: -25,
   Neon_Sunset: -25,
+  Rebase_Radio: -25,
 };
 
 /** Upper hemisphere only. The photo stops at the horizon; below that is the level. */
-const DOME_SKY_KEYS = new Set(['Retro_Palms', 'Retro_Sunset', 'Neon_Palms', 'Neon_Sunset']);
+const DOME_SKY_KEYS = new Set([
+  'Retro_Palms',
+  'Retro_Sunset',
+  'Neon_Palms',
+  'Neon_Sunset',
+  'Rebase_Radio',
+]);
 
 /** Ground disc radius. Reaches the sky and stays inside the camera far plane. */
 const GROUND_HORIZON_RADIUS = 11_000;
@@ -41,16 +49,21 @@ const SKYBOX_FILE_BY_KEY: Record<string, string> = {
   Vaporwave_Columns: 'Vaporwave_Palms',
   Vaporwave_Dreams: 'Vaporwave_Palms',
   Neon_Palms: 'Retro_Palms',
+  Rebase_Radio: 'rebase_radio',
 };
 
 /** Traits that reuse another background's floor GLB. Palm materials stay per trait. */
 const FLOOR_FILE_BY_KEY: Record<string, string> = {
   Neon_Palms: 'Retro_Palms',
   Retro_Sunset: 'Retro_Palms',
+  Rebase_Radio: 'Neon_Sunset',
 };
 
 /** Aliased floors that drop palm meshes (same level, no trees). */
 const STRIP_PALM_KEYS = new Set(['Retro_Sunset']);
+
+/** Floors that stretch WaterPlane to the horizon and skip water sun shadows. */
+const SUNSET_WATER_KEYS = new Set(['Neon_Sunset', 'Rebase_Radio']);
 
 function skyboxRadius(name: string): number {
   return SKYBOX_RADIUS_BY_KEY[name] ?? SKYBOX_RADIUS;
@@ -299,6 +312,30 @@ function stripPalmMeshes(root: THREE.Object3D): void {
   for (const mesh of collectPalmMeshes(root)) {
     mesh.parent?.remove(mesh);
   }
+}
+
+/** Own water materials on an aliased floor so ocean edits cannot leak to the source trait. */
+function cloneWaterMaterials(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || !isWaterPlaneName(mesh.name)) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const cloned = mats.map((mat) => mat.clone());
+    mesh.material = cloned.length === 1 ? cloned[0]! : cloned;
+  });
+}
+
+/** Neon Sunset-style water: no sun shadow, mesh reaches the horizon. */
+function prepareSunsetWater(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    if (isWaterPlaneName(mesh.name)) mesh.receiveShadow = false;
+  });
+  const water = findNamedMesh(root, 'WaterPlane');
+  if (!water) return;
+  const scale = Math.max(Math.abs(water.scale.x), Math.abs(water.scale.z), 1e-4);
+  extendWaterToHorizon(water, GROUND_HORIZON_RADIUS / scale);
 }
 
 function unifyPalmMaterial(root: THREE.Object3D, bgKey: string): void {
@@ -1771,6 +1808,8 @@ export class BackgroundSceneManager {
             }
             const root = cloneFloorWithOwnPalmMaterial(source, name);
             if (STRIP_PALM_KEYS.has(name)) stripPalmMeshes(root);
+            // Own water mats; horizon stretch/shadow flags already applied on the source GLB.
+            cloneWaterMaterials(root);
             root.name = `Background_${name}`;
             root.visible = false;
             this.collectWaterPlanes(root, name);
@@ -1806,18 +1845,12 @@ export class BackgroundSceneManager {
               mat.needsUpdate = true;
             }
             mesh.castShadow = true;
-            // Neon Sunset ocean should not show the sun shadow on the water.
-            mesh.receiveShadow = !(name === 'Neon_Sunset' && isWaterPlaneName(mesh.name));
+            // Sunset ocean should not show the sun shadow on the water.
+            mesh.receiveShadow = !(SUNSET_WATER_KEYS.has(name) && isWaterPlaneName(mesh.name));
           });
           if (name === 'Dungeon') ignoreHemiAndSun(root);
           if (name === 'Chipwave') this.setupChipwave(root, name);
-          if (name === 'Neon_Sunset') {
-            const water = findNamedMesh(root, 'WaterPlane');
-            if (water) {
-              const scale = Math.max(Math.abs(water.scale.x), Math.abs(water.scale.z), 1e-4);
-              extendWaterToHorizon(water, GROUND_HORIZON_RADIUS / scale);
-            }
-          }
+          if (SUNSET_WATER_KEYS.has(name)) prepareSunsetWater(root);
           this.collectWaterPlanes(root, name);
           unifyColumnMaterial(root, name);
           unifyPalmMaterial(root, name);
@@ -1901,7 +1934,8 @@ export class BackgroundSceneManager {
               name === 'Retro_Palms' ||
               name === 'Retro_Sunset' ||
               name === 'Neon_Palms' ||
-              name === 'Neon_Sunset'
+              name === 'Neon_Sunset' ||
+              name === 'Rebase_Radio'
             ) {
               enableSkyBloom(mesh);
             }

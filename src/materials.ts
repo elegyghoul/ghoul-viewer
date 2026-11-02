@@ -271,6 +271,7 @@ const BACKGROUND_FOG: Record<string, BackgroundFog> = {
   Retro_Sunset: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Palms: { enabled: true, color: 0x240019, near: 4.9, far: 32.85 },
   Neon_Sunset: { enabled: true, color: 0xce397e, near: 3.95, far: 80 },
+  Rebase_Radio: { enabled: true, color: 0xcd9951, near: 7.3, far: 32.8 },
   Vaporwave_Palms: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Columns: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
   Vaporwave_Dreams: { enabled: true, color: 0xc85667, near: 9.9, far: 28.75 },
@@ -406,6 +407,7 @@ export const DEFAULT_DIR_LIGHT: BackgroundDirLight = {
 };
 
 const BACKGROUND_DIR_LIGHT: Record<string, BackgroundDirLight> = {  Neon_Sunset: { enabled: true, color: 0x742a44, intensity: 12.8, azimuth: 160, elevation: 32 },
+  Rebase_Radio: { enabled: true, color: 0xdd649f, intensity: 12.8, azimuth: 160, elevation: 32 },
   Retro_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Retro_Sunset: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
   Neon_Palms: { enabled: true, color: 0xffd0a3, intensity: 2.7, azimuth: 169, elevation: 42 },
@@ -435,6 +437,7 @@ const BACKGROUND_RIPPLE: Record<string, BackgroundRipple> = {
   Retro_Sunset: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
   Neon_Palms: { enabled: false, amplitude: 0.045, frequency: 1.6, speed: 1.15 },
   Neon_Sunset: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
+  Rebase_Radio: { enabled: true, amplitude: 0.05, frequency: 5.6, speed: 0.45 },
   Pool_1: { enabled: true, amplitude: 0.19, frequency: 16, speed: 0.4 },
 
 };
@@ -470,6 +473,7 @@ export const DEFAULT_OCEAN_MAT: BackgroundOceanMat = {
 };
 
 const BACKGROUND_OCEAN_MAT: Record<string, BackgroundOceanMat> = {  Neon_Sunset: { color: 0x34005e, metalness: 0.44, roughness: 0.44, opacity: 0.66, envMapIntensity: 0 },
+  Rebase_Radio: { color: 0xee63b4, metalness: 0.03, roughness: 0.58, opacity: 0.35, envMapIntensity: 0 },
   Pool_1: { color: 0x0d87d3, metalness: 0.08, roughness: 0.6, opacity: 0.27, envMapIntensity: 1.25 },
 
 };
