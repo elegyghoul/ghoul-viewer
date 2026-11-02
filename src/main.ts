@@ -578,7 +578,11 @@ function applyLights(mix: LightMix): void {
   syncGridAndBackground();
 }
 
-const grid = new THREE.GridHelper(4, 16, 0xbd8825, 0xbd8825);
+/** Floor GridHelper side length — Grid BG walk clamp matches this edge. */
+const FLOOR_GRID_SIZE = 4;
+const FLOOR_GRID_HALF = FLOOR_GRID_SIZE * 0.5;
+
+const grid = new THREE.GridHelper(FLOOR_GRID_SIZE, 16, 0xbd8825, 0xbd8825);
 const gridMat = grid.material as THREE.Material;
 gridMat.transparent = true;
 gridMat.opacity = 0.5;
@@ -717,7 +721,17 @@ function walkWallsActive(): boolean {
 }
 
 function syncWalkBounds(): void {
-  playMode.setWalkBounds(walkWallsActive() ? WALK_LIMIT_HALF : null);
+  if (!playMode.active) {
+    playMode.setWalkBounds(null);
+    return;
+  }
+  if (bgMode === 'trait') {
+    playMode.setWalkBounds(WALK_LIMIT_HALF);
+  } else if (bgMode === 'grid') {
+    playMode.setWalkBounds(FLOOR_GRID_HALF);
+  } else {
+    playMode.setWalkBounds(null);
+  }
 }
 
 function updateWalkWalls(): void {
@@ -4037,7 +4051,7 @@ let appMode: AppMode = 'view';
 
 function syncPlayBanner(): void {
   if (!playHintBanner.isConnected) return;
-  playHintBanner.textContent = appMode === 'play' ? 'ARROWS / WASD TO MOVE' : '';
+  playHintBanner.textContent = appMode === 'play' ? 'PAD / ARROWS / WASD TO MOVE' : '';
 }
 
 function setAppMode(next: AppMode): void {
@@ -5662,6 +5676,7 @@ async function boot(): Promise<void> {
     scene.add(assembler.root);
     ghoulball.attachInput(camera, canvas, controls);
     playMode.attach();
+    playMode.bindMovePad(byId('playMovePad'));
 
     assembler.root.traverse((o) => {
       if (o.name.startsWith('Magica ')) o.visible = false;

@@ -46,16 +46,14 @@ const FOLLOW_PITCH_MIN = (FOLLOW_PITCH_MIN_DEG * Math.PI) / 180;
 const FOLLOW_PITCH_MAX = (FOLLOW_PITCH_MAX_DEG * Math.PI) / 180;
 const FOLLOW_PITCH_SENS = 0.005;
 
-/** Pixels of finger travel before a stick axis engages. */
-const TOUCH_STICK_DEADZONE = 18;
-/** Visual stick radius in CSS pixels. */
-const TOUCH_STICK_RADIUS = 36;
+type PadDir = 'left' | 'right' | 'up';
 
 /**
  * Resident Evil–style tank controls on a flat floor (Y fixed).
  * Left/Right rotate in place; Up walks forward along facing.
  *
- * Touch: virtual stick on the canvas (finger only). Mouse keeps orbit / pitch.
+ * Optional Scene-pane D-pad (`#playMovePad`): hold a button = that key.
+ * Canvas mouse keeps orbit / pitch.
  */
 export class PlayController {
   private enabled = false;
@@ -83,12 +81,9 @@ export class PlayController {
   private pitchDragging = false;
   private pitchBound = false;
   private lastPtrY = 0;
-  private stickBound = false;
-  private stickPtrId: number | null = null;
-  private stickOriginX = 0;
-  private stickOriginY = 0;
-  private stickEl: HTMLDivElement | null = null;
-  private stickKnobEl: HTMLDivElement | null = null;
+  private padEl: HTMLElement | null = null;
+  private padBound = false;
+  private readonly padHeld = new Map<number, PadDir>();
   private readonly _desiredCam = new THREE.Vector3();
   private readonly _lookAt = new THREE.Vector3();
   private readonly _behind = new THREE.Vector3();
@@ -98,9 +93,8 @@ export class PlayController {
   private readonly onPtrDown = (e: PointerEvent): void => this.handlePtrDown(e);
   private readonly onPtrMove = (e: PointerEvent): void => this.handlePtrMove(e);
   private readonly onPtrUp = (e: PointerEvent): void => this.handlePtrUp(e);
-  private readonly onStickDown = (e: PointerEvent): void => this.handleStickDown(e);
-  private readonly onStickMove = (e: PointerEvent): void => this.handleStickMove(e);
-  private readonly onStickUp = (e: PointerEvent): void => this.handleStickUp(e);
+  private readonly onPadDown = (e: PointerEvent): void => this.handlePadDown(e);
+  private readonly onPadUp = (e: PointerEvent): void => this.handlePadUp(e);
 
   private get left(): boolean {
     return this.keyLeft || this.touchLeft;
@@ -178,6 +172,20 @@ export class PlayController {
     this.applyCameraMode();
   }
 
+  /** Wire the Scene-pane movement pad (hold = key). Safe to call with null. */
+  bindMovePad(el: HTMLElement | null): void {
+    this.unbindMovePad();
+    this.padEl = el;
+    if (!el) return;
+    for (const btn of el.querySelectorAll<HTMLElement>('[data-dir]')) {
+      btn.addEventListener('pointerdown', this.onPadDown);
+    }
+    window.addEventListener('pointerup', this.onPadUp);
+    window.addEventListener('pointercancel', this.onPadUp);
+    this.padBound = true;
+    this.syncPadVisibility();
+  }
+
   attach(): void {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -187,7 +195,7 @@ export class PlayController {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     this.unbindPitchDrag();
-    this.unbindTouchStick();
+    this.unbindMovePad();
     this.clearKeys();
   }
 
@@ -206,15 +214,15 @@ export class PlayController {
 
     if (!on) {
       this.clearKeys();
+      this.clearPadHeld();
       this.lastLocomotion = null;
       this.unbindPitchDrag();
-      this.unbindTouchStick();
-      if (this.orbit) this.orbit.enabled = this.savedOrbitEnabled;
       this.enabled = false;
       this.root = null;
       this.animator = null;
       this.camera = null;
       this.orbit = null;
+      this.syncPadVisibility();
       return;
     }
 
@@ -228,7 +236,7 @@ export class PlayController {
     this.savedOrbitEnabled = orbit.enabled;
     this.enabled = true;
     this.lastLocomotion = null;
-    this.bindTouchStick();
+    this.syncPadVisibility();
     this.applyCameraMode();
     this.applyLocomotion(false);
   }
@@ -316,8 +324,6 @@ export class PlayController {
 
   private handlePtrDown(e: PointerEvent): void {
     if (!this.enabled || this.camMode !== 'follow') return;
-    // Touch drives the locomotion stick; mouse/pen keep follow-cam pitch.
-    if (e.pointerType === 'touch') return;
     if (e.button !== 0) return;
     this.pitchDragging = true;
     this.lastPtrY = e.clientY;
@@ -329,119 +335,92 @@ export class PlayController {
     e.preventDefault();
   }
 
-  private bindTouchStick(): void {
-    if (this.stickBound || !this.orbit) return;
-    const el = this.orbit.domElement;
-    if (!el) return;
-    // Capture phase so we steal touch before OrbitControls in Fixed mode.
-    el.addEventListener('pointerdown', this.onStickDown as EventListener, true);
-    window.addEventListener('pointermove', this.onStickMove);
-    window.addEventListener('pointerup', this.onStickUp);
-    window.addEventListener('pointercancel', this.onStickUp);
-    this.stickBound = true;
-    this.ensureStickUi();
+  private syncPadVisibility(): void {
+    if (!this.padEl) return;
+    this.padEl.hidden = !this.enabled;
+    if (!this.enabled) this.clearPadHeld();
   }
 
-  private unbindTouchStick(): void {
-    this.endStick();
-    if (!this.stickBound) return;
-    const el = this.orbit?.domElement;
-    if (el) el.removeEventListener('pointerdown', this.onStickDown as EventListener, true);
-    window.removeEventListener('pointermove', this.onStickMove);
-    window.removeEventListener('pointerup', this.onStickUp);
-    window.removeEventListener('pointercancel', this.onStickUp);
-    this.stickBound = false;
-    this.hideStickUi();
+  private unbindMovePad(): void {
+    this.clearPadHeld();
+    if (this.padBound && this.padEl) {
+      for (const btn of this.padEl.querySelectorAll<HTMLElement>('[data-dir]')) {
+        btn.removeEventListener('pointerdown', this.onPadDown);
+      }
+    }
+    window.removeEventListener('pointerup', this.onPadUp);
+    window.removeEventListener('pointercancel', this.onPadUp);
+    this.padBound = false;
+    this.padEl = null;
   }
 
-  private handleStickDown(e: PointerEvent): void {
+  private handlePadDown(e: PointerEvent): void {
     if (!this.enabled) return;
-    if (e.pointerType !== 'touch') return;
-    if (this.stickPtrId != null) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const btn = e.currentTarget as HTMLElement;
+    const dir = btn.dataset.dir as PadDir | undefined;
+    if (!dir) return;
 
-    this.stickPtrId = e.pointerId;
-    this.stickOriginX = e.clientX;
-    this.stickOriginY = e.clientY;
-    this.touchLeft = false;
-    this.touchRight = false;
-    this.touchUp = false;
-    this.showStickUi(e.clientX, e.clientY);
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      this.orbit?.domElement?.setPointerCapture(e.pointerId);
+      btn.setPointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
-    e.preventDefault();
-    e.stopPropagation();
+
+    this.padHeld.set(e.pointerId, dir);
+    btn.setAttribute('aria-pressed', 'true');
+    this.syncPadFlags();
   }
 
-  private handleStickMove(e: PointerEvent): void {
-    if (this.stickPtrId == null || e.pointerId !== this.stickPtrId) return;
-    const dx = e.clientX - this.stickOriginX;
-    const dy = e.clientY - this.stickOriginY;
-    const dead = TOUCH_STICK_DEADZONE;
-    this.touchLeft = dx < -dead;
-    this.touchRight = dx > dead;
-    // Screen-up = walk forward (same as ArrowUp / W).
-    this.touchUp = dy < -dead;
-    this.updateStickKnob(dx, dy);
-    e.preventDefault();
-  }
-
-  private handleStickUp(e: PointerEvent): void {
-    if (this.stickPtrId == null || e.pointerId !== this.stickPtrId) return;
-    this.endStick();
-  }
-
-  private endStick(): void {
-    if (this.stickPtrId != null) {
+  private handlePadUp(e: PointerEvent): void {
+    if (!this.padHeld.has(e.pointerId)) return;
+    const dir = this.padHeld.get(e.pointerId);
+    this.padHeld.delete(e.pointerId);
+    const btn = this.padEl?.querySelector<HTMLElement>(`[data-dir="${dir}"]`);
+    if (btn) {
+      // Keep pressed if another pointer still holds this direction.
+      let still = false;
+      for (const d of this.padHeld.values()) {
+        if (d === dir) {
+          still = true;
+          break;
+        }
+      }
+      if (!still) btn.setAttribute('aria-pressed', 'false');
       try {
-        this.orbit?.domElement?.releasePointerCapture(this.stickPtrId);
+        if (btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
     }
-    this.stickPtrId = null;
+    this.syncPadFlags();
+  }
+
+  private clearPadHeld(): void {
+    this.padHeld.clear();
     this.touchLeft = false;
     this.touchRight = false;
     this.touchUp = false;
-    this.hideStickUi();
+    if (!this.padEl) return;
+    for (const btn of this.padEl.querySelectorAll<HTMLElement>('[data-dir]')) {
+      btn.setAttribute('aria-pressed', 'false');
+    }
   }
 
-  private ensureStickUi(): void {
-    if (this.stickEl) return;
-    const base = document.createElement('div');
-    base.className = 'play-touch-stick';
-    base.setAttribute('aria-hidden', 'true');
-    const knob = document.createElement('div');
-    knob.className = 'play-touch-stick-knob';
-    base.appendChild(knob);
-    document.documentElement.appendChild(base);
-    this.stickEl = base;
-    this.stickKnobEl = knob;
-  }
-
-  private showStickUi(x: number, y: number): void {
-    this.ensureStickUi();
-    const el = this.stickEl;
-    if (!el) return;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.classList.add('is-active');
-    this.updateStickKnob(0, 0);
-  }
-
-  private updateStickKnob(dx: number, dy: number): void {
-    const knob = this.stickKnobEl;
-    if (!knob) return;
-    const len = Math.hypot(dx, dy);
-    const max = TOUCH_STICK_RADIUS;
-    const scale = len > max ? max / len : 1;
-    knob.style.transform = `translate(${dx * scale}px, ${dy * scale}px)`;
-  }
-
-  private hideStickUi(): void {
-    this.stickEl?.classList.remove('is-active');
+  private syncPadFlags(): void {
+    let left = false;
+    let right = false;
+    let up = false;
+    for (const dir of this.padHeld.values()) {
+      if (dir === 'left') left = true;
+      else if (dir === 'right') right = true;
+      else if (dir === 'up') up = true;
+    }
+    this.touchLeft = left;
+    this.touchRight = right;
+    this.touchUp = up;
   }
 
   private handlePtrMove(e: PointerEvent): void {
