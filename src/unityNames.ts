@@ -64,11 +64,11 @@ export const UNITY_PART_NAMES: Record<string, string | string[]> = {
   oldOne: 'OldOne',
   dreamer: 'Dreamer',
   cudi: 'Cudi',
-  // IDK unique lives under one group in the Unity GLB (no separate Candle/Glasses nodes)
-  idkCandle: 'IDK_Group',
-  idkGlasses: 'IDK_Group',
-  idkGunk: 'IDK_Group',
-  idkParticleGroup: 'IDK_Group',
+  // Accessories are FBX-instanced under IDK at runtime (same pattern as CudiChain).
+  idkCandle: 'IDK Candle',
+  idkGlasses: 'IDK Glasses',
+  idkGunk: 'IDK Gunk',
+  idkParticleGroup: 'IDK',
 };
 
 /** eyesGroup children */

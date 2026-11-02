@@ -24,6 +24,7 @@ import { bindToxicSlime, updateToxicSlime } from './toxicSlime';
 import { bindToxicMist, updateToxicMist } from './toxicMist';
 import { DroolManager, DROOL_PRESETS } from './drool';
 import { CudiParticleManager } from './cudiParticles';
+import { IdkParticleManager } from './idkParticles';
 import { GhoulballController, DEFAULT_GHOULBALL_MATERIAL, GHOULBALL_WRAP_DURATION, type GhoulballMaterialParams } from './ghoulball';
 import { PlayController, DEFAULT_PLAY_PARAMS, type PlayCameraMode, type FollowCamParams } from './playMode';
 import {
@@ -1190,6 +1191,8 @@ const glassesLight = new GlassesLightManager();
 const positronicLights = new PositronicLights();
 const cudiParticles = new CudiParticleManager();
 void cudiParticles.loadSavedSettings();
+const idkParticles = new IdkParticleManager();
+void idkParticles.loadSavedSettings();
 const drool = new DroolManager();
 const ghoulball = new GhoulballController();
 const playMode = new PlayController();
@@ -1416,12 +1419,18 @@ const ballSwirlVal = q<HTMLSpanElement>('#ballSwirlVal');
 const traitsListEl = q<HTMLDListElement>('#traitsList');
 const traitsTabTraits = q<HTMLButtonElement>('#traitsTabTraits');
 const traitsTabCudi = q<HTMLButtonElement>('#traitsTabCudi');
+const traitsTabIdk = q<HTMLButtonElement>('#traitsTabIdk');
 const traitsPane = q<HTMLElement>('#traitsPane');
 const cudiPane = q<HTMLElement>('#cudiPane');
 const cudiHint = q<HTMLElement>('#cudiHint');
 const cudiEmitterList = q<HTMLElement>('#cudiEmitterList');
 const cudiSaveBtn = q<HTMLButtonElement>('#cudiSaveBtn');
 const cudiSaveStatus = q<HTMLElement>('#cudiSaveStatus');
+const idkPane = q<HTMLElement>('#idkPane');
+const idkHint = q<HTMLElement>('#idkHint');
+const idkEmitterList = q<HTMLElement>('#idkEmitterList');
+const idkSaveBtn = q<HTMLButtonElement>('#idkSaveBtn');
+const idkSaveStatus = q<HTMLElement>('#idkSaveStatus');
 const sceneVertsEl = q<HTMLElement>('#sceneVerts');
 const sceneTrisEl = q<HTMLElement>('#sceneTris');
 const materialHint = q<HTMLElement>('#materialHint');
@@ -2932,19 +2941,27 @@ function showTraits(traits: GhoulTraits): void {
   const prefer = traits.ghoul && traits.ghoul !== 'None' ? 'ghoul' : firstKey;
   if (prefer) selectTrait(prefer);
   syncCudiControls();
+  syncIdkControls();
 }
 
-function setTraitsTab(which: 'traits' | 'cudi'): void {
+function setTraitsTab(which: 'traits' | 'cudi' | 'idk'): void {
   const onTraits = which === 'traits';
+  const onCudi = which === 'cudi';
+  const onIdk = which === 'idk';
   if (traitsTabTraits instanceof HTMLButtonElement) {
     traitsTabTraits.setAttribute('aria-selected', onTraits ? 'true' : 'false');
   }
   if (traitsTabCudi instanceof HTMLButtonElement) {
-    traitsTabCudi.setAttribute('aria-selected', onTraits ? 'false' : 'true');
+    traitsTabCudi.setAttribute('aria-selected', onCudi ? 'true' : 'false');
+  }
+  if (traitsTabIdk instanceof HTMLButtonElement) {
+    traitsTabIdk.setAttribute('aria-selected', onIdk ? 'true' : 'false');
   }
   if (traitsPane instanceof HTMLElement) traitsPane.hidden = !onTraits;
-  if (cudiPane instanceof HTMLElement) cudiPane.hidden = onTraits;
-  if (!onTraits) syncCudiControls();
+  if (cudiPane instanceof HTMLElement) cudiPane.hidden = !onCudi;
+  if (idkPane instanceof HTMLElement) idkPane.hidden = !onIdk;
+  if (onCudi) syncCudiControls();
+  if (onIdk) syncIdkControls();
 }
 
 function formatCudiLife(v: number): string {
@@ -3057,15 +3074,125 @@ async function saveCudiSettings(): Promise<void> {
   }
 }
 
+function setIdkSaveStatus(text: string, kind: '' | 'ok' | 'err' = ''): void {
+  if (!(idkSaveStatus instanceof HTMLElement) || !idkSaveStatus.isConnected) return;
+  idkSaveStatus.textContent = text;
+  idkSaveStatus.classList.toggle('is-ok', kind === 'ok');
+  idkSaveStatus.classList.toggle('is-err', kind === 'err');
+}
+
+function syncIdkControls(): void {
+  if (!(idkEmitterList instanceof HTMLElement)) return;
+  const active = idkParticles.isActive();
+  if (idkHint instanceof HTMLElement) {
+    idkHint.textContent = active
+      ? 'Lifespan and emission speed (along surface normal). Speed 0 sticks to the mesh.'
+      : 'Load an IDK unique to edit emitters';
+  }
+  if (idkSaveBtn instanceof HTMLButtonElement && idkSaveBtn.isConnected) {
+    idkSaveBtn.disabled = !active;
+  }
+  idkEmitterList.replaceChildren();
+  if (!active) return;
+
+  for (const em of idkParticles.listEmitters()) {
+    const block = document.createElement('div');
+    block.className = 'idk-emitter';
+    block.dataset.id = em.id;
+
+    const title = document.createElement('div');
+    title.className = 'idk-emitter-title';
+    title.textContent = em.label;
+    block.append(title);
+
+    const lifeLabel = document.createElement('label');
+    lifeLabel.title = `Default ${em.defaultLife.toFixed(2)}s`;
+    lifeLabel.append('Life');
+    const lifeInput = document.createElement('input');
+    lifeInput.type = 'range';
+    lifeInput.min = '0.05';
+    lifeInput.max = '5';
+    lifeInput.step = '0.05';
+    lifeInput.value = String(em.life);
+    lifeInput.dataset.param = 'life';
+    lifeInput.dataset.id = em.id;
+    const lifeVal = document.createElement('span');
+    lifeVal.textContent = formatCudiLife(em.life);
+    lifeLabel.append(lifeInput, lifeVal);
+    block.append(lifeLabel);
+
+    const speedLabel = document.createElement('label');
+    speedLabel.title = `Default ${formatCudiSpeed(em.defaultSpeed)} — world units / sec along the mesh normal`;
+    speedLabel.append('Speed');
+    const speedInput = document.createElement('input');
+    speedInput.type = 'range';
+    speedInput.min = '0';
+    speedInput.max = '1';
+    speedInput.step = '0.005';
+    speedInput.value = String(em.speed);
+    speedInput.dataset.param = 'speed';
+    speedInput.dataset.id = em.id;
+    const speedVal = document.createElement('span');
+    speedVal.textContent = formatCudiSpeed(em.speed);
+    speedLabel.append(speedInput, speedVal);
+    block.append(speedLabel);
+
+    const onLife = () => {
+      const v = Number(lifeInput.value);
+      lifeVal.textContent = formatCudiLife(v);
+      idkParticles.setEmitterLife(em.id, v);
+      setIdkSaveStatus('Unsaved');
+    };
+    const onSpeed = () => {
+      const v = Number(speedInput.value);
+      speedVal.textContent = formatCudiSpeed(v);
+      idkParticles.setEmitterSpeed(em.id, v);
+      setIdkSaveStatus('Unsaved');
+    };
+    lifeInput.addEventListener('input', onLife);
+    speedInput.addEventListener('input', onSpeed);
+
+    idkEmitterList.append(block);
+  }
+}
+
+async function saveIdkSettings(): Promise<void> {
+  if (!(idkSaveBtn instanceof HTMLButtonElement) || !idkSaveBtn.isConnected) return;
+  idkSaveBtn.disabled = true;
+  setIdkSaveStatus('Saving…');
+  try {
+    const res = await fetch('/__dev/save-idk-particles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(idkParticles.exportSettings()),
+    });
+    const json = await readDevSaveJson(res);
+    if (!json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    setIdkSaveStatus('Saved', 'ok');
+  } catch (e) {
+    setIdkSaveStatus(devSaveError(e), 'err');
+  } finally {
+    idkSaveBtn.disabled = !idkParticles.isActive();
+  }
+}
+
 if (traitsTabTraits instanceof HTMLButtonElement) {
   traitsTabTraits.addEventListener('click', () => setTraitsTab('traits'));
 }
 if (traitsTabCudi instanceof HTMLButtonElement) {
   traitsTabCudi.addEventListener('click', () => setTraitsTab('cudi'));
 }
+if (traitsTabIdk instanceof HTMLButtonElement) {
+  traitsTabIdk.addEventListener('click', () => setTraitsTab('idk'));
+}
 if (cudiSaveBtn instanceof HTMLButtonElement && cudiSaveBtn.isConnected) {
   cudiSaveBtn.addEventListener('click', () => {
     void saveCudiSettings();
+  });
+}
+if (idkSaveBtn instanceof HTMLButtonElement && idkSaveBtn.isConnected) {
+  idkSaveBtn.addEventListener('click', () => {
+    void saveIdkSettings();
   });
 }
 
@@ -4288,6 +4415,7 @@ function doLoad(id?: number): void {
     void cudiParticles.sync(assembler.root, scene).then(() => syncCudiControls());
     playSelectedAnim();
     assembler.syncEyepatch();
+    void idkParticles.sync(assembler.root, scene).then(() => syncIdkControls());
     // New materials (eyes/emissive) need the current light scale applied.
     // Seed Lights sun from the Background trait when it changes.
     syncLightSunFromTraitBg();
@@ -4307,7 +4435,17 @@ function doLoad(id?: number): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame') || pts.name.startsWith('CandleFlame')) extras.push(pts);
+        if (
+          pts.name.startsWith('CudiParticles') ||
+          pts.name.startsWith('IdkParticles') ||
+          pts.name.startsWith('Cig') ||
+          pts.name.startsWith('TorchFlame') ||
+          pts.name.startsWith('EyeFlame') ||
+          pts.name.startsWith('InfernalFlame') ||
+          pts.name.startsWith('CandleFlame')
+        ) {
+          extras.push(pts);
+        }
       });
       const refUrl =
         refImage.src || assetUrl(`/Ghouls/${String(n).padStart(4, '0')}.png`);
@@ -4657,9 +4795,21 @@ function setBgMode(next: BgMode): void {
       scene.traverse((o) => {
         const pts = o as THREE.Points;
         if (!pts.isPoints) return;
-        if (pts.name.startsWith('CudiParticles') || pts.name.startsWith('Cig') || pts.name.startsWith('TorchFlame') || pts.name.startsWith('EyeFlame') || pts.name.startsWith('InfernalFlame') || pts.name.startsWith('CandleFlame')) extras.push(pts);
+        if (
+          pts.name.startsWith('CudiParticles') ||
+          pts.name.startsWith('IdkParticles') ||
+          pts.name.startsWith('Cig') ||
+          pts.name.startsWith('TorchFlame') ||
+          pts.name.startsWith('EyeFlame') ||
+          pts.name.startsWith('InfernalFlame') ||
+          pts.name.startsWith('CandleFlame')
+        ) {
+          extras.push(pts);
+        }
       });
-      const refUrl = refImage.src || assetUrl(`/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`);
+      const refUrl =
+        refImage.src ||
+        assetUrl(`/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`);
       ghoulball.start(asm.root, scene, refUrl, extras);
       reapplyStoredBall();
     }, 50);
@@ -5408,6 +5558,7 @@ function animate(): void {
     cudiParticles.update(dt);
   }
   positronicLights.update();
+    idkParticles.update(dt);
   playMode.update(dt, ghoulball.frozen);
   updateWalkWalls();
   updateLightTween(dt);

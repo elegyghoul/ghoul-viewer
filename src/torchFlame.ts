@@ -215,6 +215,7 @@ function collectCandles(root: THREE.Object3D): Anchor[] {
   const anchors: Anchor[] = [];
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
+    // Skip IDK Candle — clover particles are the flame; clouds cover the wax.
     if (!mesh.isMesh || normNode(o.name) !== 'candle' || !chainVisible(o)) return;
     let tip = o.getObjectByName('CandleFlameTip');
     if (!tip) {
