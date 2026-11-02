@@ -46,9 +46,16 @@ const FOLLOW_PITCH_MIN = (FOLLOW_PITCH_MIN_DEG * Math.PI) / 180;
 const FOLLOW_PITCH_MAX = (FOLLOW_PITCH_MAX_DEG * Math.PI) / 180;
 const FOLLOW_PITCH_SENS = 0.005;
 
+/** Pixels of finger travel before a stick axis engages. */
+const TOUCH_STICK_DEADZONE = 18;
+/** Visual stick radius in CSS pixels. */
+const TOUCH_STICK_RADIUS = 36;
+
 /**
  * Resident Evil–style tank controls on a flat floor (Y fixed).
  * Left/Right rotate in place; Up walks forward along facing.
+ *
+ * Touch: virtual stick on the canvas (finger only). Mouse keeps orbit / pitch.
  */
 export class PlayController {
   private enabled = false;
@@ -61,9 +68,12 @@ export class PlayController {
   private floorY = 0;
   /** Half-extent of XZ walk box; null = unlimited. */
   private walkHalf: number | null = null;
-  private left = false;
-  private right = false;
-  private up = false;
+  private keyLeft = false;
+  private keyRight = false;
+  private keyUp = false;
+  private touchLeft = false;
+  private touchRight = false;
+  private touchUp = false;
   private lastLocomotion: 'Idle' | 'Walking' | null = null;
   private savedOrbitEnabled = true;
   /** Elevation behind the ghoul (0 = level, higher = more overhead). */
@@ -73,6 +83,12 @@ export class PlayController {
   private pitchDragging = false;
   private pitchBound = false;
   private lastPtrY = 0;
+  private stickBound = false;
+  private stickPtrId: number | null = null;
+  private stickOriginX = 0;
+  private stickOriginY = 0;
+  private stickEl: HTMLDivElement | null = null;
+  private stickKnobEl: HTMLDivElement | null = null;
   private readonly _desiredCam = new THREE.Vector3();
   private readonly _lookAt = new THREE.Vector3();
   private readonly _behind = new THREE.Vector3();
@@ -82,6 +98,21 @@ export class PlayController {
   private readonly onPtrDown = (e: PointerEvent): void => this.handlePtrDown(e);
   private readonly onPtrMove = (e: PointerEvent): void => this.handlePtrMove(e);
   private readonly onPtrUp = (e: PointerEvent): void => this.handlePtrUp(e);
+  private readonly onStickDown = (e: PointerEvent): void => this.handleStickDown(e);
+  private readonly onStickMove = (e: PointerEvent): void => this.handleStickMove(e);
+  private readonly onStickUp = (e: PointerEvent): void => this.handleStickUp(e);
+
+  private get left(): boolean {
+    return this.keyLeft || this.touchLeft;
+  }
+
+  private get right(): boolean {
+    return this.keyRight || this.touchRight;
+  }
+
+  private get up(): boolean {
+    return this.keyUp || this.touchUp;
+  }
 
   get active(): boolean {
     return this.enabled;
@@ -156,6 +187,7 @@ export class PlayController {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     this.unbindPitchDrag();
+    this.unbindTouchStick();
     this.clearKeys();
   }
 
@@ -176,6 +208,7 @@ export class PlayController {
       this.clearKeys();
       this.lastLocomotion = null;
       this.unbindPitchDrag();
+      this.unbindTouchStick();
       if (this.orbit) this.orbit.enabled = this.savedOrbitEnabled;
       this.enabled = false;
       this.root = null;
@@ -195,6 +228,7 @@ export class PlayController {
     this.savedOrbitEnabled = orbit.enabled;
     this.enabled = true;
     this.lastLocomotion = null;
+    this.bindTouchStick();
     this.applyCameraMode();
     this.applyLocomotion(false);
   }
@@ -282,6 +316,8 @@ export class PlayController {
 
   private handlePtrDown(e: PointerEvent): void {
     if (!this.enabled || this.camMode !== 'follow') return;
+    // Touch drives the locomotion stick; mouse/pen keep follow-cam pitch.
+    if (e.pointerType === 'touch') return;
     if (e.button !== 0) return;
     this.pitchDragging = true;
     this.lastPtrY = e.clientY;
@@ -291,6 +327,121 @@ export class PlayController {
       /* ignore */
     }
     e.preventDefault();
+  }
+
+  private bindTouchStick(): void {
+    if (this.stickBound || !this.orbit) return;
+    const el = this.orbit.domElement;
+    if (!el) return;
+    // Capture phase so we steal touch before OrbitControls in Fixed mode.
+    el.addEventListener('pointerdown', this.onStickDown as EventListener, true);
+    window.addEventListener('pointermove', this.onStickMove);
+    window.addEventListener('pointerup', this.onStickUp);
+    window.addEventListener('pointercancel', this.onStickUp);
+    this.stickBound = true;
+    this.ensureStickUi();
+  }
+
+  private unbindTouchStick(): void {
+    this.endStick();
+    if (!this.stickBound) return;
+    const el = this.orbit?.domElement;
+    if (el) el.removeEventListener('pointerdown', this.onStickDown as EventListener, true);
+    window.removeEventListener('pointermove', this.onStickMove);
+    window.removeEventListener('pointerup', this.onStickUp);
+    window.removeEventListener('pointercancel', this.onStickUp);
+    this.stickBound = false;
+    this.hideStickUi();
+  }
+
+  private handleStickDown(e: PointerEvent): void {
+    if (!this.enabled) return;
+    if (e.pointerType !== 'touch') return;
+    if (this.stickPtrId != null) return;
+
+    this.stickPtrId = e.pointerId;
+    this.stickOriginX = e.clientX;
+    this.stickOriginY = e.clientY;
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchUp = false;
+    this.showStickUi(e.clientX, e.clientY);
+    try {
+      this.orbit?.domElement?.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  private handleStickMove(e: PointerEvent): void {
+    if (this.stickPtrId == null || e.pointerId !== this.stickPtrId) return;
+    const dx = e.clientX - this.stickOriginX;
+    const dy = e.clientY - this.stickOriginY;
+    const dead = TOUCH_STICK_DEADZONE;
+    this.touchLeft = dx < -dead;
+    this.touchRight = dx > dead;
+    // Screen-up = walk forward (same as ArrowUp / W).
+    this.touchUp = dy < -dead;
+    this.updateStickKnob(dx, dy);
+    e.preventDefault();
+  }
+
+  private handleStickUp(e: PointerEvent): void {
+    if (this.stickPtrId == null || e.pointerId !== this.stickPtrId) return;
+    this.endStick();
+  }
+
+  private endStick(): void {
+    if (this.stickPtrId != null) {
+      try {
+        this.orbit?.domElement?.releasePointerCapture(this.stickPtrId);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.stickPtrId = null;
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchUp = false;
+    this.hideStickUi();
+  }
+
+  private ensureStickUi(): void {
+    if (this.stickEl) return;
+    const base = document.createElement('div');
+    base.className = 'play-touch-stick';
+    base.setAttribute('aria-hidden', 'true');
+    const knob = document.createElement('div');
+    knob.className = 'play-touch-stick-knob';
+    base.appendChild(knob);
+    document.documentElement.appendChild(base);
+    this.stickEl = base;
+    this.stickKnobEl = knob;
+  }
+
+  private showStickUi(x: number, y: number): void {
+    this.ensureStickUi();
+    const el = this.stickEl;
+    if (!el) return;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.classList.add('is-active');
+    this.updateStickKnob(0, 0);
+  }
+
+  private updateStickKnob(dx: number, dy: number): void {
+    const knob = this.stickKnobEl;
+    if (!knob) return;
+    const len = Math.hypot(dx, dy);
+    const max = TOUCH_STICK_RADIUS;
+    const scale = len > max ? max / len : 1;
+    knob.style.transform = `translate(${dx * scale}px, ${dy * scale}px)`;
+  }
+
+  private hideStickUi(): void {
+    this.stickEl?.classList.remove('is-active');
   }
 
   private handlePtrMove(e: PointerEvent): void {
@@ -351,17 +502,17 @@ export class PlayController {
     switch (e.code) {
       case 'ArrowLeft':
       case 'KeyA':
-        this.left = down;
+        this.keyLeft = down;
         e.preventDefault();
         break;
       case 'ArrowRight':
       case 'KeyD':
-        this.right = down;
+        this.keyRight = down;
         e.preventDefault();
         break;
       case 'ArrowUp':
       case 'KeyW':
-        this.up = down;
+        this.keyUp = down;
         e.preventDefault();
         break;
       default:
@@ -370,9 +521,12 @@ export class PlayController {
   }
 
   private clearKeys(): void {
-    this.left = false;
-    this.right = false;
-    this.up = false;
+    this.keyLeft = false;
+    this.keyRight = false;
+    this.keyUp = false;
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchUp = false;
   }
 }
 

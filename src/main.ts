@@ -772,6 +772,8 @@ const CRAYOLA_BG = 'Based_Loans';
 const BASED_GHOUL_BLUE_BG = 'Based_Ghoul_Blue';
 /** 1/1 Ray Ghoul (#2418) has no Background trait. Own savable clear colour. */
 const RAY_GHOUL_BG = 'Ray_Ghoul';
+/** 1/1 The Dreamer (#5113) has no Background trait. Trait BG is Moonbased. */
+const DREAMER_BG = 'Moonbased';
 
 function liveBackgroundKey(): string | null {
   if (currentTraits?.unique === 'Crayola') return CRAYOLA_BG;
@@ -779,6 +781,7 @@ function liveBackgroundKey(): string | null {
     return BASED_GHOUL_BLUE_BG;
   }
   if (currentTraits?.unique === 'Ray_Ghoul') return RAY_GHOUL_BG;
+  if (currentTraits?.unique === 'The_Dreamer') return DREAMER_BG;
   const name = currentTraits?.background;
   return name && name !== 'None' ? name : null;
 }
@@ -2140,11 +2143,9 @@ function showMaterialEditor(category: keyof GhoulTraits, value: string): void {
   setSaveStatus('');
 
   if (category === 'background') {
-    // Ray Ghoul has no Background trait — edit its dedicated clear key instead of None.
-    const key =
-      currentTraits?.unique === 'Ray_Ghoul' && (!value || value === 'None')
-        ? RAY_GHOUL_BG
-        : value || 'None';
+    // 1/1s with Background=None still edit their forced Trait BG (Ray Ghoul, Dreamer, …).
+    const forcedBg = !value || value === 'None' ? liveBackgroundKey() : null;
+    const key = forcedBg ?? (value || 'None');
     const grad = bgGradLive.get(key) ?? backgroundGradient(key);
     const matTop = new THREE.MeshBasicMaterial({ color: grad.top });
     const matBottom = new THREE.MeshBasicMaterial({ color: grad.bottom });
