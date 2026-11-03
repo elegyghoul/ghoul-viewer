@@ -273,6 +273,12 @@ export class GhoulballController {
     return this.radius;
   }
 
+  /** Live ball mesh position while formed; null if no ball. */
+  getBallWorldPosition(out = new THREE.Vector3()): THREE.Vector3 | null {
+    if (!this.ball) return null;
+    return out.copy(this.ball.position);
+  }
+
   /** Rolling Play Mode is simulating or tweening home. */
   get playActive(): boolean {
     return this.playPhysics || this.playReturning;

@@ -21,7 +21,7 @@ export class GhoulAnimator {
     }
   }
 
-  play(name: AnimName | string, fade = 1): void {
+  play(name: AnimName | string, fade = 1, opts?: { timeScale?: number }): void {
     if (!this.mixer) return;
     const clip = this.clips.get(name) ?? findFuzzy(this.clips, name);
     if (!clip) {
@@ -32,13 +32,14 @@ export class GhoulAnimator {
     next.reset();
     next.setLoop(THREE.LoopRepeat, Infinity);
     next.clampWhenFinished = false;
+    next.setEffectiveTimeScale(opts?.timeScale ?? 1);
     if (this.current && this.current !== next) {
       if (fade <= 0) {
         this.current.stop();
         next.setEffectiveWeight(1).play();
       } else {
         this.current.fadeOut(fade);
-        next.reset().fadeIn(fade).play();
+        next.reset().setEffectiveTimeScale(opts?.timeScale ?? 1).fadeIn(fade).play();
       }
     } else {
       next.enabled = true;
@@ -46,6 +47,11 @@ export class GhoulAnimator {
       next.play();
     }
     this.current = next;
+  }
+
+  /** Playback rate for the current action (negative = reverse). */
+  setTimeScale(scale: number): void {
+    this.current?.setEffectiveTimeScale(scale);
   }
 
   /**

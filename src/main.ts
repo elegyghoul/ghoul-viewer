@@ -609,12 +609,76 @@ const GRID_SCALE_TWEEN_DURATION = 0.9;
 let gridScaleCurrent = 1;
 let gridScaleTween: { from: number; to: number; elapsed: number; duration: number } | null = null;
 
-const grid = new THREE.GridHelper(FLOOR_GRID_SIZE, 16, 0xbd8825, 0xbd8825);
-const gridMat = grid.material as THREE.Material;
-gridMat.transparent = true;
-gridMat.opacity = 0.5;
+const FLOOR_GRID_DIVS = 16;
+const GRID_YELLOW = new THREE.Color(0xbd8825);
+const GRID_TOUCH_BLUE = new THREE.Color(0x3a9eff);
+/** Cell heat for Ghoulball Play — lights blue under the ball, decays when it leaves. */
+const GRID_HEAT_DIVS = 16;
+/** Linear heat drain per second — ~2s from full blue back to yellow. */
+const GRID_HEAT_DECAY = 0.5;
+const GRID_HEAT_DATA = new Float32Array(GRID_HEAT_DIVS * GRID_HEAT_DIVS);
+const gridHeatTex = new THREE.DataTexture(
+  GRID_HEAT_DATA,
+  GRID_HEAT_DIVS,
+  GRID_HEAT_DIVS,
+  THREE.RedFormat,
+  THREE.FloatType,
+);
+gridHeatTex.magFilter = THREE.NearestFilter;
+gridHeatTex.minFilter = THREE.NearestFilter;
+gridHeatTex.wrapS = THREE.ClampToEdgeWrapping;
+gridHeatTex.wrapT = THREE.ClampToEdgeWrapping;
+gridHeatTex.needsUpdate = true;
+
+const gridHeatUniforms = {
+  uYellow: { value: GRID_YELLOW.clone() },
+  uBlue: { value: GRID_TOUCH_BLUE.clone() },
+  uHeat: { value: gridHeatTex },
+  uGridWorldSize: { value: FLOOR_GRID_SIZE },
+  uOpacity: { value: 0.5 },
+};
+
+const grid = new THREE.GridHelper(FLOOR_GRID_SIZE, FLOOR_GRID_DIVS, 0xbd8825, 0xbd8825);
+{
+  const prev = grid.material;
+  const heatMat = new THREE.ShaderMaterial({
+    uniforms: gridHeatUniforms,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+    vertexShader: /* glsl */ `
+      varying vec2 vWorldXZ;
+      void main() {
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vWorldXZ = world.xz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uYellow;
+      uniform vec3 uBlue;
+      uniform sampler2D uHeat;
+      uniform float uGridWorldSize;
+      uniform float uOpacity;
+      varying vec2 vWorldXZ;
+      void main() {
+        vec2 uv = vWorldXZ / uGridWorldSize + 0.5;
+        float heat = 0.0;
+        if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
+          heat = texture2D(uHeat, uv).r;
+        }
+        vec3 col = mix(uYellow, uBlue, clamp(heat, 0.0, 1.0));
+        gl_FragColor = vec4(col, uOpacity);
+      }
+    `,
+  });
+  grid.material = heatMat as unknown as THREE.LineBasicMaterial;
+  if (Array.isArray(prev)) for (const m of prev) m.dispose();
+  else (prev as THREE.Material).dispose();
+}
 enableBloomLayer(grid);
 scene.add(grid);
+const _gridBallPos = new THREE.Vector3();
 
 /** Room cube grid (floor + ceiling + walls) shown while orbiting the camera in Ghoulball. */
 const CUBE_GRID_SIZE = 4;
@@ -1166,6 +1230,7 @@ function applyGridScale(scale: number): void {
   gridScaleCurrent = scale;
   grid.scale.setScalar(scale);
   ground.scale.setScalar(scale);
+  gridHeatUniforms.uGridWorldSize.value = FLOOR_GRID_SIZE * scale;
 }
 
 function updateGridScaleTween(dt: number): void {
@@ -1177,6 +1242,55 @@ function updateGridScaleTween(dt: number): void {
   if (t >= 1) gridScaleTween = null;
 }
 
+function clearGridHeat(): void {
+  GRID_HEAT_DATA.fill(0);
+  gridHeatTex.needsUpdate = true;
+}
+
+/** Paint / decay cell heat under the rolling Ghoulball (blue touch highlight). */
+function updateGridBallHeat(dt: number): void {
+  let dirty = false;
+  for (let i = 0; i < GRID_HEAT_DATA.length; i++) {
+    const v = GRID_HEAT_DATA[i];
+    if (v <= 0) continue;
+    GRID_HEAT_DATA[i] = Math.max(0, v - GRID_HEAT_DECAY * dt);
+    dirty = true;
+  }
+
+  const painting = ghoulball.playRolling && bgMode === 'ghoulball' && appMode === 'play';
+  if (painting) {
+    const pos = ghoulball.getBallWorldPosition(_gridBallPos);
+    if (pos) {
+      const worldSize = FLOOR_GRID_SIZE * gridScaleCurrent;
+      const half = worldSize * 0.5;
+      const cell = worldSize / GRID_HEAT_DIVS;
+      const radius = ghoulball.ballRadius + cell * 0.35;
+      const x0 = Math.max(0, Math.floor((pos.x - radius + half) / cell));
+      const x1 = Math.min(GRID_HEAT_DIVS - 1, Math.floor((pos.x + radius + half) / cell));
+      const z0 = Math.max(0, Math.floor((pos.z - radius + half) / cell));
+      const z1 = Math.min(GRID_HEAT_DIVS - 1, Math.floor((pos.z + radius + half) / cell));
+      for (let iz = z0; iz <= z1; iz++) {
+        for (let ix = x0; ix <= x1; ix++) {
+          const cx = -half + (ix + 0.5) * cell;
+          const cz = -half + (iz + 0.5) * cell;
+          const d = Math.hypot(pos.x - cx, pos.z - cz);
+          if (d > radius) continue;
+          const influence = 1 - d / radius;
+          const idx = iz * GRID_HEAT_DIVS + ix;
+          if (influence > GRID_HEAT_DATA[idx]) {
+            GRID_HEAT_DATA[idx] = influence;
+            dirty = true;
+          }
+        }
+      }
+    }
+  } else if (!dirty) {
+    return;
+  }
+
+  if (dirty) gridHeatTex.needsUpdate = true;
+}
+
 function syncGridAndBackground(): void {
   const trait = bgMode === 'trait';
   const ghoulball = bgMode === 'ghoulball';
@@ -1186,16 +1300,8 @@ function syncGridAndBackground(): void {
   setGridScaleWant(ballPlayFloor ? GHOULBALL_PLAY_GRID_SCALE : 1);
   grid.visible = ((!trait && !ghoulball) || ballPlayFloor) && lastUnlitScale > 1e-5;
   ground.visible = (!trait && !ghoulball) || ballPlayFloor;
-  const gm = grid.material;
-  if (Array.isArray(gm)) {
-    for (const mat of gm) {
-      mat.opacity = gridOpacityBase * lastUnlitScale;
-      mat.transparent = true;
-    }
-  } else {
-    gm.opacity = gridOpacityBase * lastUnlitScale;
-    gm.transparent = true;
-  }
+  gridHeatUniforms.uOpacity.value = gridOpacityBase * lastUnlitScale;
+  if (!ballPlayFloor) clearGridHeat();
   if (trait) {
     const g =
       currentId === GHOUL_PEGS_ID
@@ -5837,6 +5943,7 @@ function animate(): void {
   updateLightTween(dt);
   updateGhoulballCamTween(dt);
   updateGridScaleTween(dt);
+  updateGridBallHeat(dt);
   updateBeamSway(dt);
   updateToxicSlime(dt);
   updateToxicMist(dt);

@@ -50,7 +50,7 @@ type PadDir = 'left' | 'right' | 'up' | 'down';
 
 /**
  * Resident Evil–style tank controls on a flat floor (Y fixed).
- * Left/Right rotate in place; Up walks forward along facing.
+ * Left/Right rotate in place; Up walks forward; Down walks back (½ speed, reverse walk).
  *
  * Optional Scene-pane D-pad (`#playMovePad`): hold a button = that key.
  * Canvas mouse keeps orbit / pitch.
@@ -69,10 +69,12 @@ export class PlayController {
   private keyLeft = false;
   private keyRight = false;
   private keyUp = false;
+  private keyDown = false;
   private touchLeft = false;
   private touchRight = false;
   private touchUp = false;
-  private lastLocomotion: 'Idle' | 'Walking' | null = null;
+  private touchDown = false;
+  private lastLocomotion: 'Idle' | 'Forward' | 'Back' | null = null;
   private savedOrbitEnabled = true;
   /** Elevation behind the ghoul (0 = level, higher = more overhead). */
   private followPitch = (DEFAULT_FOLLOW_CAM.pitch * Math.PI) / 180;
@@ -106,6 +108,10 @@ export class PlayController {
 
   private get up(): boolean {
     return this.keyUp || this.touchUp;
+  }
+
+  private get down(): boolean {
+    return this.keyDown || this.touchDown;
   }
 
   get active(): boolean {
@@ -239,7 +245,7 @@ export class PlayController {
     this.lastLocomotion = null;
     this.syncPadVisibility();
     this.applyCameraMode();
-    this.applyLocomotion(false);
+    this.applyLocomotion('Idle');
   }
 
   /** Call after frameCharacter / load so feet stay on the floor plane. */
@@ -251,20 +257,19 @@ export class PlayController {
   /** Force Idle/Walking to rebind after a ghoul reload. */
   refreshLocomotion(): void {
     this.lastLocomotion = null;
-    this.applyLocomotion(this.left || this.right || this.up);
+    this.applyLocomotion(this.locomotionMode());
   }
 
   update(dt: number, blocked = false): void {
     if (!this.enabled || !this.root || !this.animator) return;
     if (blocked) {
-      this.applyLocomotion(false);
+      this.applyLocomotion('Idle');
       return;
     }
 
     const step = Math.min(dt, 0.05);
-    const turning = this.left !== this.right;
-    const walking = this.up;
-    const moving = turning || walking;
+    const forward = this.up && !this.down;
+    const backward = this.down && !this.up;
 
     if (this.left && !this.right) {
       this.root.rotation.y += this.params.turnSpeed * step;
@@ -272,15 +277,26 @@ export class PlayController {
       this.root.rotation.y -= this.params.turnSpeed * step;
     }
 
-    if (walking) {
+    if (forward) {
       // Mixamo facing is +Z in this pipeline — walk along local forward.
       this.root.translateZ(this.params.walkSpeed * step);
+    } else if (backward) {
+      this.root.translateZ(-this.params.walkSpeed * 0.5 * step);
     }
 
     this.root.position.y = this.floorY;
     this.clampToWalkBounds();
-    this.applyLocomotion(moving);
+    this.applyLocomotion(this.locomotionMode());
     if (this.camMode === 'follow') this.updateFollowCamera(step);
+  }
+
+  private locomotionMode(): 'Idle' | 'Forward' | 'Back' {
+    const forward = this.up && !this.down;
+    const backward = this.down && !this.up;
+    const turning = this.left !== this.right;
+    if (backward) return 'Back';
+    if (forward || turning) return 'Forward';
+    return 'Idle';
   }
 
   private clampToWalkBounds(): void {
@@ -404,6 +420,7 @@ export class PlayController {
     this.touchLeft = false;
     this.touchRight = false;
     this.touchUp = false;
+    this.touchDown = false;
     if (!this.padEl) return;
     for (const btn of this.padEl.querySelectorAll<HTMLElement>('[data-dir]')) {
       btn.setAttribute('aria-pressed', 'false');
@@ -414,15 +431,17 @@ export class PlayController {
     let left = false;
     let right = false;
     let up = false;
+    let down = false;
     for (const dir of this.padHeld.values()) {
       if (dir === 'left') left = true;
       else if (dir === 'right') right = true;
       else if (dir === 'up') up = true;
-      // 'down' is unused for tank controls (Ghoulball Play uses its own pad binding).
+      else if (dir === 'down') down = true;
     }
     this.touchLeft = left;
     this.touchRight = right;
     this.touchUp = up;
+    this.touchDown = down;
   }
 
   private handlePtrMove(e: PointerEvent): void {
@@ -447,12 +466,25 @@ export class PlayController {
     }
   }
 
-  private applyLocomotion(moving: boolean): void {
+  private applyLocomotion(mode: 'Idle' | 'Forward' | 'Back'): void {
     if (!this.animator) return;
-    const next: 'Idle' | 'Walking' = moving ? 'Walking' : 'Idle';
-    if (next === this.lastLocomotion) return;
-    this.lastLocomotion = next;
-    this.animator.play(next, 0.2);
+    if (mode === this.lastLocomotion) return;
+    const wasWalk = this.lastLocomotion === 'Forward' || this.lastLocomotion === 'Back';
+    const isWalk = mode === 'Forward' || mode === 'Back';
+    this.lastLocomotion = mode;
+
+    if (mode === 'Idle') {
+      this.animator.play('Idle', 0.2);
+      return;
+    }
+
+    // Reverse walk uses the Walking clip at −½ rate so feet match half move speed.
+    const timeScale = mode === 'Back' ? -0.5 : 1;
+    if (wasWalk && isWalk) {
+      this.animator.setTimeScale(timeScale);
+      return;
+    }
+    this.animator.play('Walking', 0.2, { timeScale });
   }
 
   private updateFollowCamera(dt: number): void {
@@ -496,6 +528,11 @@ export class PlayController {
         this.keyUp = down;
         e.preventDefault();
         break;
+      case 'ArrowDown':
+      case 'KeyS':
+        this.keyDown = down;
+        e.preventDefault();
+        break;
       default:
         break;
     }
@@ -505,9 +542,11 @@ export class PlayController {
     this.keyLeft = false;
     this.keyRight = false;
     this.keyUp = false;
+    this.keyDown = false;
     this.touchLeft = false;
     this.touchRight = false;
     this.touchUp = false;
+    this.touchDown = false;
   }
 }
 
