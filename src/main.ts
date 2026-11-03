@@ -418,6 +418,8 @@ type LightTween = {
   to: LightLevels;
   elapsed: number;
   duration: number;
+  /** When this restore finishes (or is cancelled), drop `lightsBeforeGhoulball`. */
+  releaseSnapshot?: boolean;
 };
 let lightTween: LightTween | null = null;
 
@@ -441,16 +443,32 @@ function lightTweenEase(t: number): number {
   return u * u * (3 - 2 * u);
 }
 
-function startLightTween(to: LightLevels, duration = GHOULBALL_WRAP_DURATION): void {
+/**
+ * Lights to remember when entering Ghoulball. Prefer an in-flight tween's
+ * destination over mid-lerp `lightMix` so rapid toggles don't snapshot Master 5.
+ */
+function snapshotLightsBeforeGhoulball(): LightLevels {
+  if (lightsBeforeGhoulball) return lightsBeforeGhoulball;
+  if (lightTween) return { ...lightTween.to };
+  return { ...lightMix };
+}
+
+function startLightTween(
+  to: LightLevels,
+  duration = GHOULBALL_WRAP_DURATION,
+  opts?: { releaseSnapshot?: boolean },
+): void {
   lightTween = {
     from: { ...lightMix },
     to: { ...to },
     elapsed: 0,
     duration,
+    releaseSnapshot: opts?.releaseSnapshot === true,
   };
 }
 
 function cancelLightTween(): void {
+  if (lightTween?.releaseSnapshot) lightsBeforeGhoulball = null;
   lightTween = null;
 }
 
@@ -480,7 +498,10 @@ function updateLightTween(dt: number): void {
   if (lightSunVal.isConnected) lightSunVal.textContent = next.sun.toFixed(2);
   if (lightSunAzimuthVal.isConnected) lightSunAzimuthVal.textContent = String(Math.round(next.sunAzimuth));
   if (lightSunElevationVal.isConnected) lightSunElevationVal.textContent = String(Math.round(next.sunElevation));
-  if (t >= 1) lightTween = null;
+  if (t >= 1) {
+    if (lightTween.releaseSnapshot) lightsBeforeGhoulball = null;
+    lightTween = null;
+  }
 }
 
 const MANAGED_LIGHTS = new Set<THREE.Light>([ambient, hemi, key, fill, dirLight]);
@@ -581,6 +602,12 @@ function applyLights(mix: LightMix): void {
 /** Floor GridHelper side length — Grid BG walk clamp matches this edge. */
 const FLOOR_GRID_SIZE = 4;
 const FLOOR_GRID_HALF = FLOOR_GRID_SIZE * 0.5;
+/** Ghoulball Play Mode only — larger playfield than normal Grid BG. */
+const GHOULBALL_PLAY_GRID_SCALE = 1.5;
+const GHOULBALL_PLAY_GRID_HALF = FLOOR_GRID_HALF * GHOULBALL_PLAY_GRID_SCALE;
+const GRID_SCALE_TWEEN_DURATION = 0.9;
+let gridScaleCurrent = 1;
+let gridScaleTween: { from: number; to: number; elapsed: number; duration: number } | null = null;
 
 const grid = new THREE.GridHelper(FLOOR_GRID_SIZE, 16, 0xbd8825, 0xbd8825);
 const gridMat = grid.material as THREE.Material;
@@ -642,7 +669,8 @@ function setCubeGridOpacity(t: number): void {
 }
 
 function updateCubeGrid(dt: number): void {
-  const want = bgMode === 'ghoulball' ? cubeGridWant : 0;
+  // Cube room is View Mode only — Play Mode uses the flat Grid floor instead.
+  const want = bgMode === 'ghoulball' && appMode !== 'play' ? cubeGridWant : 0;
   if (want === 0 && cubeGridFade <= 1e-3) {
     if (cubeGrid.visible) {
       cubeGridFade = 0;
@@ -774,8 +802,36 @@ ground.castShadow = false;
 scene.add(ground);
 
 let bgMode: BgMode = 'trait';
+let appMode: AppMode = 'view';
 let lastSceneBg: 'grid' | 'trait' = 'trait';
 let lastUnlitScale = 1;
+/** Camera pose to restore when leaving Ghoulball Play Mode. */
+let ghoulballPlayCam: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null;
+let ghoulballPlayOrbitEnabled = true;
+/** Default Ghoulball Play perch (matches Camera pane: Zoom 10, Rot X -36). */
+const GHOULBALL_PLAY_CAM_ZOOM = 10;
+const GHOULBALL_PLAY_CAM_POS = new THREE.Vector3(0, 6.99, 10.2);
+const GHOULBALL_PLAY_CAM_TARGET = (() => {
+  const q = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(THREE.MathUtils.degToRad(-36), 0, 0, 'YXZ'),
+  );
+  return new THREE.Vector3(0, 0, -1)
+    .applyQuaternion(q)
+    .multiplyScalar(GHOULBALL_PLAY_CAM_ZOOM)
+    .add(GHOULBALL_PLAY_CAM_POS);
+})();
+const GHOULBALL_PLAY_CAM_DURATION = 0.9;
+type GhoulballCamTween = {
+  fromPos: THREE.Vector3;
+  fromTarget: THREE.Vector3;
+  toPos: THREE.Vector3;
+  toTarget: THREE.Vector3;
+  elapsed: number;
+  duration: number;
+  /** Re-enable orbit after Play → View restore tween. */
+  enableOrbitOnComplete?: boolean;
+};
+let ghoulballCamTween: GhoulballCamTween | null = null;
 const GRID_CLEAR = 0x000000;
 /** 1/1 Ghoul Pegs (#0207) has no Background trait. Trait BG is this flat clear. */
 const GHOUL_PEGS_ID = 207;
@@ -1091,12 +1147,45 @@ function applySceneFog(): void {
   if (backgroundUsesNetSphere(key)) bgScenes.setNetFog(near, far, fog.color);
 }
 
+function setGridScaleWant(to: number): void {
+  const target = to;
+  if (gridScaleTween) {
+    if (Math.abs(gridScaleTween.to - target) < 1e-4) return;
+  } else if (Math.abs(gridScaleCurrent - target) < 1e-4) {
+    return;
+  }
+  gridScaleTween = {
+    from: gridScaleCurrent,
+    to: target,
+    elapsed: 0,
+    duration: GRID_SCALE_TWEEN_DURATION,
+  };
+}
+
+function applyGridScale(scale: number): void {
+  gridScaleCurrent = scale;
+  grid.scale.setScalar(scale);
+  ground.scale.setScalar(scale);
+}
+
+function updateGridScaleTween(dt: number): void {
+  if (!gridScaleTween) return;
+  gridScaleTween.elapsed += dt;
+  const t = Math.min(1, gridScaleTween.elapsed / gridScaleTween.duration);
+  const ease = lightTweenEase(t);
+  applyGridScale(gridScaleTween.from + (gridScaleTween.to - gridScaleTween.from) * ease);
+  if (t >= 1) gridScaleTween = null;
+}
+
 function syncGridAndBackground(): void {
   const trait = bgMode === 'trait';
   const ghoulball = bgMode === 'ghoulball';
+  /** Ghoulball Play Mode borrows the Grid BG floor; View Mode stays empty / cube-orbit. */
+  const ballPlayFloor = ghoulball && appMode === 'play';
   const key = liveBackgroundKey();
-  grid.visible = !trait && !ghoulball && lastUnlitScale > 1e-5;
-  ground.visible = !trait && !ghoulball;
+  setGridScaleWant(ballPlayFloor ? GHOULBALL_PLAY_GRID_SCALE : 1);
+  grid.visible = ((!trait && !ghoulball) || ballPlayFloor) && lastUnlitScale > 1e-5;
+  ground.visible = (!trait && !ghoulball) || ballPlayFloor;
   const gm = grid.material;
   if (Array.isArray(gm)) {
     for (const mat of gm) {
@@ -4047,18 +4136,135 @@ function playSelectedAnim(): void {
   animator.play(selectedAnim());
 }
 
-let appMode: AppMode = 'view';
-
 function syncPlayBanner(): void {
   if (!playHintBanner.isConnected) return;
   playHintBanner.textContent = appMode === 'play' ? 'PAD / ARROWS / WASD TO MOVE' : '';
 }
 
-function setAppMode(next: AppMode): void {
-  const fromGhoulball = next === 'play' && bgMode === 'ghoulball';
-  if (fromGhoulball) {
-    setBgMode('trait');
+/** Rot/Spin sliders are View Mode only — Play Mode rolls the ball instead. */
+function syncGhoulballViewOnlyControls(): void {
+  const pane = byId('ghoulballRotControls');
+  if (!pane) return;
+  const hide = appMode === 'play' && bgMode === 'ghoulball';
+  for (const el of pane.querySelectorAll<HTMLElement>('.ghoulball-view-only')) {
+    el.hidden = hide;
   }
+}
+
+function playMovePadEl(): HTMLElement | null {
+  return byId('playMovePad');
+}
+
+/** Start a smooth move to the aerial tilted perch over the Grid playfield. */
+function applyGhoulballPlayCamera(): void {
+  if (!controls) return;
+  if (!ghoulballPlayCam) {
+    ghoulballPlayCam = {
+      pos: camera.position.clone(),
+      target: controls.target.clone(),
+    };
+    ghoulballPlayOrbitEnabled = controls.enabled;
+  }
+  controls.enabled = false;
+  ghoulballCamTween = {
+    fromPos: camera.position.clone(),
+    fromTarget: controls.target.clone(),
+    toPos: GHOULBALL_PLAY_CAM_POS.clone(),
+    toTarget: GHOULBALL_PLAY_CAM_TARGET.clone(),
+    elapsed: 0,
+    duration: GHOULBALL_PLAY_CAM_DURATION,
+  };
+}
+
+function cancelGhoulballCamTween(): void {
+  ghoulballCamTween = null;
+}
+
+function updateGhoulballCamTween(dt: number): void {
+  if (!ghoulballCamTween || !controls) return;
+  ghoulballCamTween.elapsed += dt;
+  const t = Math.min(1, ghoulballCamTween.elapsed / ghoulballCamTween.duration);
+  const ease = lightTweenEase(t);
+  camera.position.lerpVectors(ghoulballCamTween.fromPos, ghoulballCamTween.toPos, ease);
+  controls.target.lerpVectors(ghoulballCamTween.fromTarget, ghoulballCamTween.toTarget, ease);
+  controls.update();
+  applyCamRoll();
+  syncCamUiFromCamera();
+  if (t >= 1) {
+    if (ghoulballCamTween.enableOrbitOnComplete) {
+      controls.enabled = ghoulballPlayOrbitEnabled;
+    }
+    ghoulballCamTween = null;
+  }
+}
+
+/** Smooth return from the aerial Play perch to the saved View orbit. */
+function restoreGhoulballPlayCamera(): void {
+  if (!controls) return;
+  const saved = ghoulballPlayCam;
+  ghoulballPlayCam = null;
+  const toPos = saved
+    ? saved.pos.clone()
+    : (() => {
+        const c = ghoulball.center;
+        return new THREE.Vector3(c.x, c.y + 0.35, c.z + 2.6);
+      })();
+  const toTarget = saved ? saved.target.clone() : ghoulball.center.clone();
+  controls.enabled = false;
+  ghoulballCamTween = {
+    fromPos: camera.position.clone(),
+    fromTarget: controls.target.clone(),
+    toPos,
+    toTarget,
+    elapsed: 0,
+    duration: GHOULBALL_PLAY_CAM_DURATION,
+    enableOrbitOnComplete: true,
+  };
+}
+
+/**
+ * Ghoulball Play Mode: rolling physics on the Grid floor + aerial cam.
+ * Camera + Grid appear as soon as Play is selected; physics starts once the ball is formed.
+ */
+function syncGhoulballPlay(): void {
+  const want = appMode === 'play' && bgMode === 'ghoulball';
+  const pad = playMovePadEl();
+
+  if (want) {
+    cubeGridWant = 0;
+    playMode.setEnabled(false, null, null, camera, controls!);
+    playMode.bindMovePad(null);
+    if (!ghoulballPlayCam) applyGhoulballPlayCamera();
+    if (ghoulball.isBall && !ghoulball.playRolling) {
+      ghoulball.bindMovePad(pad);
+      ghoulball.setPlayMode(true, {
+        floorY: FLOOR_Y,
+        boundsHalf: GHOULBALL_PLAY_GRID_HALF,
+      });
+    }
+    syncGridAndBackground();
+    syncCameraChromeForBg();
+    syncGhoulballViewOnlyControls();
+    return;
+  }
+
+  if (ghoulball.playActive || ghoulballPlayCam) {
+    if (ghoulball.playActive) ghoulball.setPlayMode(false);
+    ghoulball.bindMovePad(null);
+    playMode.bindMovePad(pad);
+    if (ghoulballPlayCam) restoreGhoulballPlayCamera();
+  } else {
+    ghoulball.bindMovePad(null);
+  }
+  syncGridAndBackground();
+  syncCameraChromeForBg();
+  syncGhoulballViewOnlyControls();
+}
+
+function setAppMode(next: AppMode): void {
+  const ballPlay = next === 'play' && bgMode === 'ghoulball';
+  const leavingBallPlay = appMode === 'play' && bgMode === 'ghoulball' && next === 'view';
+
   appMode = next;
   appModeViewBtn.setAttribute('aria-selected', next === 'view' ? 'true' : 'false');
   appModePlayBtn.setAttribute('aria-selected', next === 'play' ? 'true' : 'false');
@@ -4067,21 +4273,34 @@ function setAppMode(next: AppMode): void {
   syncPlayBanner();
 
   if (next === 'play') {
-    if (assembler) {
-      // Leaving Ghoulball: put ghoul + camera back at the framed start pose.
-      if (fromGhoulball) frameCharacter(assembler);
+    if (ballPlay) {
+      // Stay in Ghoulball — rolling Play Mode (Grid floor), not trait walking.
+      setCamMode('fixed');
+      syncGhoulballPlay();
+    } else if (assembler) {
+      syncGhoulballPlay();
+      playMode.bindMovePad(playMovePadEl());
       playMode.setEnabled(true, assembler.root, animator, camera, controls!);
       playMode.syncFloorFromRoot();
+      setCamMode('follow');
     }
-    setCamMode('follow');
   } else {
-    playMode.setEnabled(false, null, null, camera, controls!);
-    if (assembler) {
-      frameCharacter(assembler);
-      // Hard snap — crossfading from Walking leaves unkeyed head/neck bones stranded.
-      animator.snapTo(selectedAnim());
+    if (leavingBallPlay) {
+      syncGhoulballPlay();
+      playMode.setEnabled(false, null, null, camera, controls!);
+      playMode.bindMovePad(playMovePadEl());
+      setCamMode('fixed');
+    } else {
+      syncGhoulballPlay();
+      playMode.setEnabled(false, null, null, camera, controls!);
+      playMode.bindMovePad(playMovePadEl());
+      if (assembler) {
+        frameCharacter(assembler);
+        // Hard snap — crossfading from Walking leaves unkeyed head/neck bones stranded.
+        animator.snapTo(selectedAnim());
+      }
+      setCamMode('fixed');
     }
-    setCamMode('fixed');
   }
   syncWalkBounds();
   updateWalkWalls();
@@ -4090,7 +4309,7 @@ function setAppMode(next: AppMode): void {
 appModeViewBtn.addEventListener('click', () => setAppMode('view'));
 appModePlayBtn.addEventListener('click', () => setAppMode('play'));
 
-function setCamMode(next: PlayCameraMode): void {
+function setCamMode(next: PlayCameraMode, opts?: { preserveCamera?: boolean }): void {
   if (bgMode === 'ghoulball') next = 'fixed';
   const fromFollow = playMode.cameraMode === 'follow';
   playMode.setCameraMode(next);
@@ -4101,7 +4320,8 @@ function setCamMode(next: PlayCameraMode): void {
   if (fixedPane) fixedPane.hidden = next === 'follow';
   if (followPane) followPane.hidden = next !== 'follow';
   if (next === 'follow') syncFollowCamUi();
-  if (next === 'fixed' && fromFollow) resetView();
+  // preserveCamera: keep the live perch (e.g. Play → Ghoulball aerial tween).
+  if (next === 'fixed' && fromFollow && !opts?.preserveCamera) resetView();
   syncCameraChromeForBg();
 }
 
@@ -4762,8 +4982,14 @@ function setBgMode(next: BgMode): void {
   const ballRotPane = byId('ghoulballRotControls');
   if (ballRotPane) ballRotPane.hidden = next !== 'ghoulball';
   if (next === 'ghoulball') syncBallRotUi();
-  if (next === 'ghoulball' && playMode.cameraMode === 'follow') setCamMode('fixed');
-  else syncCameraChromeForBg();
+  // Play → Ghoulball: keep the live follow perch so the aerial cam can tween from it.
+  const stayInPlay = appMode === 'play';
+  if (next === 'ghoulball' && playMode.cameraMode === 'follow') {
+    setCamMode('fixed', { preserveCamera: stayInPlay });
+  } else {
+    syncCameraChromeForBg();
+  }
+  syncGhoulballViewOnlyControls();
   syncGridAndBackground();
   if (next !== 'ghoulball') cubeGridWant = 0;
   syncWalkBounds();
@@ -4776,35 +5002,33 @@ function setBgMode(next: BgMode): void {
 
   if (next === 'ghoulball' && assembler) {
     if (prev !== 'ghoulball') {
-      lightsBeforeGhoulball = { ...lightMix };
+      // Sticky snapshot: don't overwrite mid-restore with a half-tweened Master 5.
+      const saved = snapshotLightsBeforeGhoulball();
+      lightsBeforeGhoulball = saved;
       startLightTween({
         ...GHOULBALL_LIGHTS,
-        sun: lightMix.sun,
-        sunAzimuth: lightMix.sunAzimuth,
-        sunElevation: lightMix.sunElevation,
+        sun: saved.sun,
+        sunAzimuth: saved.sunAzimuth,
+        sunElevation: saved.sunElevation,
       });
     }
-    // Wrap in place — keep the current orbit (same as Ball → Ghoul).
-    // Snap Idle so the bake matches; leave Play if needed, then wrap.
+    // Wrap in place. If already in Play on Trait/Grid, stay in Play and hand off to
+    // Ghoulball rolling — tween the camera from the current perch to the aerial spot.
     const asm = assembler;
-    animator.snapTo(playMode.active ? 'Idle' : selectedAnim());
+    if (stayInPlay && playMode.active) {
+      playMode.setEnabled(false, null, null, camera, controls!);
+      playMode.bindMovePad(null);
+      animator.snapTo('Idle');
+      syncGhoulballPlay();
+      syncWalkBounds();
+      updateWalkWalls();
+    } else {
+      animator.snapTo(selectedAnim());
+    }
     ghoulballStartTimer = window.setTimeout(() => {
       ghoulballStartTimer = 0;
       if (bgMode !== 'ghoulball' || assembler !== asm) return;
-      if (appMode === 'play') {
-        appMode = 'view';
-        appModeViewBtn.setAttribute('aria-selected', 'true');
-        appModePlayBtn.setAttribute('aria-selected', 'false');
-        animSelect.disabled = false;
-        syncAnimButtons();
-        playMode.setEnabled(false, null, null, camera, controls!);
-        animator.snapTo('Idle');
-        syncPlayBanner();
-        syncWalkBounds();
-        updateWalkWalls();
-      } else {
-        animator.snapTo('Idle');
-      }
+      animator.snapTo('Idle');
 
       const extras: THREE.Object3D[] = [];
       scene.traverse((o) => {
@@ -4827,22 +5051,56 @@ function setBgMode(next: BgMode): void {
         assetUrl(`/Ghouls/${String(clampGhoulId(Number(ghoulIdInput.value))).padStart(4, '0')}.png`);
       ghoulball.start(asm.root, scene, refUrl, extras);
       reapplyStoredBall();
+      if (stayInPlay) syncGhoulballPlay();
     }, 50);
   } else if (prev === 'ghoulball' && assembler) {
+    // Leaving Ghoulball while Play is still selected must hand off to walk Play Mode.
+    // Ball Play disables PlayController — without re-enabling it, Trait/Grid Play is stuck.
+    const stayInPlay = appMode === 'play';
+    if (ghoulball.playActive || ghoulballPlayCam) {
+      if (ghoulball.playActive) ghoulball.setPlayMode(false, { instant: true });
+      ghoulball.bindMovePad(null);
+      if (stayInPlay) {
+        // Discard the aerial ball cam; walk follow framing takes over after unwrap.
+        cancelGhoulballCamTween();
+        ghoulballPlayCam = null;
+        if (controls) controls.enabled = true;
+      } else if (ghoulballPlayCam) {
+        restoreGhoulballPlayCamera();
+      }
+    }
+
+    // Keep lightsBeforeGhoulball until the restore tween finishes so a quick
+    // re-enter still remembers the true pre-Ghoulball levels.
     const restore = lightsBeforeGhoulball;
-    lightsBeforeGhoulball = null;
-    if (restore) startLightTween(restore);
+    if (restore) startLightTween(restore, GHOULBALL_WRAP_DURATION, { releaseSnapshot: true });
     else syncLightControls();
 
-    // Ball → ghoul: reverse the wrap morph, then resume the selected anim.
+    const asm = assembler;
+    const afterLeaveBall = (): void => {
+      if (bgMode === 'ghoulball' || assembler !== asm) return;
+      if (stayInPlay) {
+        frameCharacter(asm);
+        playMode.bindMovePad(playMovePadEl());
+        playMode.setEnabled(true, asm.root, animator, camera, controls!);
+        playMode.syncFloorFromRoot();
+        playMode.refreshLocomotion();
+        setCamMode('follow');
+        syncWalkBounds();
+        updateWalkWalls();
+        syncGhoulballViewOnlyControls();
+        return;
+      }
+      playSelectedAnim();
+    };
+
+    // Ball → ghoul: reverse the wrap morph, then resume walk Play or the selected anim.
     if (ghoulball.active) {
       animator.snapTo('Idle');
-      ghoulball.reverse(() => {
-        playSelectedAnim();
-      });
+      ghoulball.reverse(afterLeaveBall);
     } else {
-      ghoulball.stop(assembler.root, true);
-      playSelectedAnim();
+      ghoulball.stop(asm.root, true);
+      afterLeaveBall();
     }
   } else if (
     assembler &&
@@ -5577,6 +5835,8 @@ function animate(): void {
   playMode.update(dt, ghoulball.frozen);
   updateWalkWalls();
   updateLightTween(dt);
+  updateGhoulballCamTween(dt);
+  updateGridScaleTween(dt);
   updateBeamSway(dt);
   updateToxicSlime(dt);
   updateToxicMist(dt);
@@ -5584,6 +5844,10 @@ function animate(): void {
   updateXeDisplayScroll(dt);
   syncLightsToGhoul();
   ghoulball.update(dt);
+  // Ball may finish wrapping while Play is already selected.
+  if (appMode === 'play' && bgMode === 'ghoulball' && ghoulball.isBall && !ghoulball.playRolling) {
+    syncGhoulballPlay();
+  }
   updateCubeGrid(dt);
   updateLightHelpers();
   if (playMode.orbitDrive) {
@@ -5655,7 +5919,7 @@ async function boot(): Promise<void> {
     attachEngine();
     if (!renderer || !controls) return;
     controls.addEventListener('start', () => {
-      if (bgMode !== 'ghoulball' || ghoulball.isDragging) return;
+      if (bgMode !== 'ghoulball' || appMode === 'play' || ghoulball.isDragging) return;
       if (isOrbitRotating(controls!)) cubeGridWant = 1;
     });
     controls.addEventListener('end', () => {

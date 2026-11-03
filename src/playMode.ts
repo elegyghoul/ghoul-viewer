@@ -46,7 +46,7 @@ const FOLLOW_PITCH_MIN = (FOLLOW_PITCH_MIN_DEG * Math.PI) / 180;
 const FOLLOW_PITCH_MAX = (FOLLOW_PITCH_MAX_DEG * Math.PI) / 180;
 const FOLLOW_PITCH_SENS = 0.005;
 
-type PadDir = 'left' | 'right' | 'up';
+type PadDir = 'left' | 'right' | 'up' | 'down';
 
 /**
  * Resident Evil–style tank controls on a flat floor (Y fixed).
@@ -418,6 +418,7 @@ export class PlayController {
       if (dir === 'left') left = true;
       else if (dir === 'right') right = true;
       else if (dir === 'up') up = true;
+      // 'down' is unused for tank controls (Ghoulball Play uses its own pad binding).
     }
     this.touchLeft = left;
     this.touchRight = right;

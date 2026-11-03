@@ -339,6 +339,10 @@
   font-size: var(--gv-title-size);
   color: var(--gv-accent);
 }
+.fx-pane label[hidden],
+.ghoulball-view-only[hidden] {
+  display: none;
+}
 #brightnessControls label {
   grid-template-columns: 50px 1fr 28px;
 }
@@ -467,9 +471,12 @@
   color: var(--gv-ink);
 }
 .play-move-pad {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    '. up .'
+    'left down right';
   gap: 1px;
   margin-top: auto;
   margin-bottom: auto;
@@ -479,7 +486,6 @@
   display: none;
 }
 .play-move-pad button {
-  flex: 1;
   height: 28px;
   margin: 0;
   padding: 0;
@@ -494,7 +500,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 .play-move-pad button[data-dir='up'] {
-  margin-bottom: 10px;
+  grid-area: up;
+}
+.play-move-pad button[data-dir='down'] {
+  grid-area: down;
+}
+.play-move-pad button[data-dir='left'] {
+  grid-area: left;
+}
+.play-move-pad button[data-dir='right'] {
+  grid-area: right;
 }
 .play-move-pad button[aria-pressed='true'] {
   background: var(--gv-accent);

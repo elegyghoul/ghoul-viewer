@@ -9,11 +9,30 @@ const SPHERE_HEIGHT = 32;
 const AUTO_SPIN_Y = -0.45; // rad/s idle planet spin (negative = reverse)
 const AXIAL_TILT = THREE.MathUtils.degToRad(18);
 const DRAG_SENS = 0.0075;
+/** Roll-a-Ball style: force on XZ, gravity, linear damping, floor bounce. */
+const PLAY_FORCE = 7;
+const PLAY_GRAVITY = 18;
+const PLAY_DAMPING = 2.2;
+const PLAY_MAX_SPEED = 3.2;
+const PLAY_RETURN_DURATION = 0.85;
 const _v = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
 const _ndc = new THREE.Vector2();
 const _raycaster = new THREE.Raycaster();
+const _move = new THREE.Vector3();
+const _rollAxis = new THREE.Vector3();
+
+type PlayPadDir = 'left' | 'right' | 'up' | 'down';
+
+export type GhoulballPlayParams = {
+  /** Floor plane Y (ball rests at floorY + radius). */
+  floorY: number;
+  /** Axis-aligned XZ half-extent; ball center is clamped inside. */
+  boundsHalf: number;
+  /** When leaving: skip the home tween (e.g. unwrap / BG switch owns the transition). */
+  instant?: boolean;
+};
 
 /** True only if this object and every ancestor would render. */
 function isEffectivelyVisible(obj: THREE.Object3D): boolean {
@@ -122,6 +141,31 @@ export class GhoulballController {
   private boundMove = (e: PointerEvent): void => this.onPointerMove(e);
   private boundUp = (e: PointerEvent): void => this.onPointerUp(e);
 
+  /** Rolling-ball Play Mode (Grid floor). Mutually exclusive with pointer-drag spin. */
+  private playPhysics = false;
+  private playReturning = false;
+  private playReturnElapsed = 0;
+  private playFloorY = 0;
+  private playBoundsHalf = 2;
+  private readonly playVel = new THREE.Vector3();
+  private readonly playReturnFrom = new THREE.Vector3();
+  private keyLeft = false;
+  private keyRight = false;
+  private keyUp = false;
+  private keyDown = false;
+  private touchLeft = false;
+  private touchRight = false;
+  private touchUp = false;
+  private touchDown = false;
+  private padEl: HTMLElement | null = null;
+  private padBound = false;
+  private readonly padHeld = new Map<number, PlayPadDir>();
+  private readonly onKeyDown = (e: KeyboardEvent): void => this.handlePlayKey(e, true);
+  private readonly onKeyUp = (e: KeyboardEvent): void => this.handlePlayKey(e, false);
+  private readonly onPadDown = (e: PointerEvent): void => this.handlePadDown(e);
+  private readonly onPadUp = (e: PointerEvent): void => this.handlePadUp(e);
+  private playKeysAttached = false;
+
   /** Ball Euler rotation in degrees (order XYZ). */
   getRotation(): { x: number; y: number; z: number } {
     if (this.ball) {
@@ -206,6 +250,11 @@ export class GhoulballController {
     return this.phase !== 'idle';
   }
 
+  /** True once the wrap morph has finished and the solid ball is live. */
+  get isBall(): boolean {
+    return this.phase === 'ball';
+  }
+
   get frozen(): boolean {
     return this.phase === 'wrapping' || this.phase === 'unwrapping' || this.phase === 'ball';
   }
@@ -215,9 +264,93 @@ export class GhoulballController {
     return this.dragging;
   }
 
-  /** World-space center the ball sits on. */
+  /** World-space center the ball sits on (view-mode rest pose). */
   get center(): THREE.Vector3 {
     return this.centerWorld;
+  }
+
+  get ballRadius(): number {
+    return this.radius;
+  }
+
+  /** Rolling Play Mode is simulating or tweening home. */
+  get playActive(): boolean {
+    return this.playPhysics || this.playReturning;
+  }
+
+  /** True while forces / gravity are applying (not during the return tween). */
+  get playRolling(): boolean {
+    return this.playPhysics;
+  }
+
+  /**
+   * Enter/leave Roll-a-Ball Play Mode. Enter only works in the formed-ball phase;
+   * leave tweens the ball back to the view-mode center (unless `instant`).
+   */
+  setPlayMode(on: boolean, params?: Partial<GhoulballPlayParams>): void {
+    if (on) {
+      if (this.phase !== 'ball' || !this.ball) return;
+      if (params?.floorY != null) this.playFloorY = params.floorY;
+      if (params?.boundsHalf != null && params.boundsHalf > 0) {
+        this.playBoundsHalf = params.boundsHalf;
+      }
+      if (this.playPhysics) return;
+      this.endDrag();
+      this.playReturning = false;
+      this.playReturnElapsed = 0;
+      this.playVel.set(0, 0, 0);
+      this.playPhysics = true;
+      this.clearPlayKeys();
+      this.attachPlayKeys();
+      this.syncPadVisibility();
+      return;
+    }
+
+    if (!this.playPhysics && !this.playReturning) {
+      this.detachPlayKeys();
+      this.clearPlayKeys();
+      this.syncPadVisibility();
+      return;
+    }
+
+    this.playPhysics = false;
+    this.playVel.set(0, 0, 0);
+    this.detachPlayKeys();
+    this.clearPlayKeys();
+    this.syncPadVisibility();
+
+    if (params?.instant) {
+      this.playReturning = false;
+      this.playReturnElapsed = 0;
+      if (this.ball) this.ball.position.copy(this.centerWorld);
+      return;
+    }
+
+    if (this.phase === 'ball' && this.ball) {
+      this.playReturnFrom.copy(this.ball.position);
+      const dist = this.playReturnFrom.distanceTo(this.centerWorld);
+      if (dist > 1e-4) {
+        this.playReturning = true;
+        this.playReturnElapsed = 0;
+        return;
+      }
+      this.ball.position.copy(this.centerWorld);
+    }
+    this.playReturning = false;
+  }
+
+  /** Wire the Scene-pane movement pad (hold = key). Safe to call with null. */
+  bindMovePad(el: HTMLElement | null): void {
+    this.unbindMovePad();
+    this.padEl = el;
+    if (!el) return;
+    for (const btn of el.querySelectorAll<HTMLElement>('[data-dir]')) {
+      btn.addEventListener('pointerdown', this.onPadDown);
+    }
+    window.addEventListener('pointerup', this.onPadUp);
+    window.addEventListener('pointercancel', this.onPadUp);
+    this.padBound = true;
+    this.syncPadVisibility();
   }
 
   /** Wire camera + canvas once (orbit disabled while dragging the ball). */
@@ -234,6 +367,13 @@ export class GhoulballController {
 
   detachInput(): void {
     this.endDrag();
+    this.playPhysics = false;
+    this.playReturning = false;
+    this.playReturnElapsed = 0;
+    this.playVel.set(0, 0, 0);
+    this.detachPlayKeys();
+    this.clearPlayKeys();
+    this.unbindMovePad();
     if (this.dom) {
       this.dom.removeEventListener('pointerdown', this.boundDown, true);
     }
@@ -299,6 +439,7 @@ export class GhoulballController {
 
   private applyIdleSpin(step: number): void {
     if (!this.ball || this.dragging || this.spinPaused) return;
+    if (this.playPhysics || this.playReturning) return;
     if (this.spinX) this.ball.rotateX(this.spinX * step);
     if (this.spinY) this.ball.rotateY(this.spinY * step);
     if (this.spinZ) this.ball.rotateZ(this.spinZ * step);
@@ -386,13 +527,26 @@ export class GhoulballController {
     }
 
     if (this.phase === 'ball' && this.ball) {
-      this.ball.position.copy(this.centerWorld);
-      this.applyIdleSpin(step);
+      if (this.playReturning) {
+        this.updatePlayReturn(step);
+      } else if (this.playPhysics) {
+        this.updatePlayPhysics(step);
+      } else {
+        this.ball.position.copy(this.centerWorld);
+        this.applyIdleSpin(step);
+      }
     }
   }
 
   stop(root?: THREE.Object3D | null, _restore = true): void {
     this.endDrag();
+    this.playPhysics = false;
+    this.playReturning = false;
+    this.playReturnElapsed = 0;
+    this.playVel.set(0, 0, 0);
+    this.detachPlayKeys();
+    this.clearPlayKeys();
+    this.syncPadVisibility();
     this.unwrapComplete = null;
     const r = root ?? this.root;
     this.clearBake();
@@ -680,7 +834,239 @@ export class GhoulballController {
     this.cz = this.centerWorld.z;
   }
 
+  private updatePlayPhysics(step: number): void {
+    const ball = this.ball;
+    if (!ball) return;
+
+    const left = this.keyLeft || this.touchLeft;
+    const right = this.keyRight || this.touchRight;
+    const up = this.keyUp || this.touchUp;
+    const down = this.keyDown || this.touchDown;
+
+    // World XZ forces — same axes as Unity Roll-a-Ball (Horizontal / Vertical).
+    _move.set(0, 0, 0);
+    if (left && !right) _move.x -= 1;
+    if (right && !left) _move.x += 1;
+    if (up && !down) _move.z -= 1;
+    if (down && !up) _move.z += 1;
+    if (_move.lengthSq() > 1e-6) {
+      _move.normalize();
+      this.playVel.x += _move.x * PLAY_FORCE * step;
+      this.playVel.z += _move.z * PLAY_FORCE * step;
+    }
+
+    this.playVel.y -= PLAY_GRAVITY * step;
+
+    // Linear damping on XZ (keeps momentum without skating forever).
+    const damp = Math.exp(-PLAY_DAMPING * step);
+    this.playVel.x *= damp;
+    this.playVel.z *= damp;
+
+    const speedXZ = Math.hypot(this.playVel.x, this.playVel.z);
+    if (speedXZ > PLAY_MAX_SPEED) {
+      const s = PLAY_MAX_SPEED / speedXZ;
+      this.playVel.x *= s;
+      this.playVel.z *= s;
+    }
+
+    ball.position.x += this.playVel.x * step;
+    ball.position.y += this.playVel.y * step;
+    ball.position.z += this.playVel.z * step;
+
+    const restY = this.playFloorY + this.radius;
+    if (ball.position.y <= restY) {
+      ball.position.y = restY;
+      if (this.playVel.y < 0) this.playVel.y = 0;
+    }
+
+    const limit = Math.max(0.05, this.playBoundsHalf - this.radius * 0.35);
+    if (ball.position.x < -limit) {
+      ball.position.x = -limit;
+      this.playVel.x = Math.abs(this.playVel.x) * 0.35;
+    } else if (ball.position.x > limit) {
+      ball.position.x = limit;
+      this.playVel.x = -Math.abs(this.playVel.x) * 0.35;
+    }
+    if (ball.position.z < -limit) {
+      ball.position.z = -limit;
+      this.playVel.z = Math.abs(this.playVel.z) * 0.35;
+    } else if (ball.position.z > limit) {
+      ball.position.z = limit;
+      this.playVel.z = -Math.abs(this.playVel.z) * 0.35;
+    }
+
+    // Roll about the axis perpendicular to travel (no slip).
+    const dx = this.playVel.x * step;
+    const dz = this.playVel.z * step;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 1e-6) {
+      _rollAxis.set(dz, 0, -dx).normalize();
+      ball.rotateOnWorldAxis(_rollAxis, dist / this.radius);
+    }
+  }
+
+  private updatePlayReturn(step: number): void {
+    const ball = this.ball;
+    if (!ball) {
+      this.playReturning = false;
+      return;
+    }
+    this.playReturnElapsed += step;
+    const t = Math.min(1, this.playReturnElapsed / PLAY_RETURN_DURATION);
+    const ease = t * t * (3 - 2 * t);
+    ball.position.lerpVectors(this.playReturnFrom, this.centerWorld, ease);
+    if (t >= 1) {
+      ball.position.copy(this.centerWorld);
+      this.playReturning = false;
+      this.playReturnElapsed = 0;
+    }
+  }
+
+  private attachPlayKeys(): void {
+    if (this.playKeysAttached) return;
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    this.playKeysAttached = true;
+  }
+
+  private detachPlayKeys(): void {
+    if (!this.playKeysAttached) return;
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    this.playKeysAttached = false;
+  }
+
+  private handlePlayKey(e: KeyboardEvent, down: boolean): void {
+    if (!this.playPhysics) return;
+    if (isTypingTarget(e.target)) return;
+    switch (e.code) {
+      case 'ArrowLeft':
+      case 'KeyA':
+        this.keyLeft = down;
+        e.preventDefault();
+        break;
+      case 'ArrowRight':
+      case 'KeyD':
+        this.keyRight = down;
+        e.preventDefault();
+        break;
+      case 'ArrowUp':
+      case 'KeyW':
+        this.keyUp = down;
+        e.preventDefault();
+        break;
+      case 'ArrowDown':
+      case 'KeyS':
+        this.keyDown = down;
+        e.preventDefault();
+        break;
+      default:
+        break;
+    }
+  }
+
+  private clearPlayKeys(): void {
+    this.keyLeft = false;
+    this.keyRight = false;
+    this.keyUp = false;
+    this.keyDown = false;
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchUp = false;
+    this.touchDown = false;
+  }
+
+  private syncPadVisibility(): void {
+    if (!this.padEl) return;
+    this.padEl.hidden = !this.playPhysics;
+    if (!this.playPhysics) this.clearPadHeld();
+  }
+
+  private unbindMovePad(): void {
+    this.clearPadHeld();
+    if (this.padBound && this.padEl) {
+      for (const btn of this.padEl.querySelectorAll<HTMLElement>('[data-dir]')) {
+        btn.removeEventListener('pointerdown', this.onPadDown);
+      }
+    }
+    window.removeEventListener('pointerup', this.onPadUp);
+    window.removeEventListener('pointercancel', this.onPadUp);
+    this.padBound = false;
+    this.padEl = null;
+  }
+
+  private handlePadDown(e: PointerEvent): void {
+    if (!this.playPhysics) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const btn = e.currentTarget as HTMLElement;
+    const dir = btn.dataset.dir as PlayPadDir | undefined;
+    if (!dir) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      btn.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    this.padHeld.set(e.pointerId, dir);
+    btn.setAttribute('aria-pressed', 'true');
+    this.syncPadFlags();
+  }
+
+  private handlePadUp(e: PointerEvent): void {
+    if (!this.padHeld.has(e.pointerId)) return;
+    const dir = this.padHeld.get(e.pointerId);
+    this.padHeld.delete(e.pointerId);
+    const btn = this.padEl?.querySelector<HTMLElement>(`[data-dir="${dir}"]`);
+    if (btn) {
+      let still = false;
+      for (const d of this.padHeld.values()) {
+        if (d === dir) {
+          still = true;
+          break;
+        }
+      }
+      if (!still) btn.setAttribute('aria-pressed', 'false');
+      try {
+        if (btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.syncPadFlags();
+  }
+
+  private clearPadHeld(): void {
+    this.padHeld.clear();
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchUp = false;
+    this.touchDown = false;
+    if (!this.padEl) return;
+    for (const btn of this.padEl.querySelectorAll<HTMLElement>('[data-dir]')) {
+      btn.setAttribute('aria-pressed', 'false');
+    }
+  }
+
+  private syncPadFlags(): void {
+    let left = false;
+    let right = false;
+    let up = false;
+    let down = false;
+    for (const dir of this.padHeld.values()) {
+      if (dir === 'left') left = true;
+      else if (dir === 'right') right = true;
+      else if (dir === 'up') up = true;
+      else if (dir === 'down') down = true;
+    }
+    this.touchLeft = left;
+    this.touchRight = right;
+    this.touchUp = up;
+    this.touchDown = down;
+  }
+
   private onPointerDown(e: PointerEvent): void {
+    if (this.playPhysics || this.playReturning) return;
     if (this.phase !== 'ball' || !this.ball || !this.camera || !this.dom) return;
     if (e.button !== 0) return;
     const rect = this.dom.getBoundingClientRect();
@@ -903,4 +1289,12 @@ export class GhoulballController {
       this.ballTex = null;
     }
   }
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return el.isContentEditable;
 }
