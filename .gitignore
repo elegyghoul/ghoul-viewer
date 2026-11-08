@@ -35,7 +35,6 @@ public/models/parts/
 public/models/heads/
 public/models/export/
 public/models/based-ghoul.glb
-public/models/band.fbx
 public/data/attachment-map-raw.json
 public/data/three-scene-names.json
 public/data/unity-export-nodes.json
