@@ -11,7 +11,7 @@ const SKIN: Record<string, number> = {
   Stained: rgb(0.5372549, 0.41176474, 0.0), // ochre
   Ashen: 0x2e2e2e,
   Rosy: 0xffadad,
-  Poolside: 0x34bed4, // cyan
+  Poolside: 0x20d9fe,
   Bone: rgb(0.85, 0.82, 0.75),
   Crayola: rgb(0.34117648, 0.53333336, 0.3529412),
   Drall: rgb(0.49411768, 0.80392164, 0.8313726),
@@ -47,7 +47,7 @@ const SKIN_FINISH: Record<string, { roughness: number; metalness: number }> = {
   Stricken: { roughness: 0.53, metalness: 0.12 },
   Cursed: { roughness: 0.85, metalness: 0.02 },
   Bleached: { roughness: 0.85, metalness: 0.02 },
-  Poolside: { roughness: 0.25, metalness: 0.21 },
+  Poolside: { roughness: 0.59, metalness: 0.44 },
   Rosy: { roughness: 0.85, metalness: 0 },
   Ray: { roughness: 0.91, metalness: 0.52 },
 
@@ -124,8 +124,8 @@ const ACCENT: Record<
   GlareEyes_1: { color: 0xa00600, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.85, metalness: 0.02 },
   GlareEyes_2: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   GlareEyes_3: { color: 0xff0800, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.85, metalness: 0.02 },
-  sudoGems_0: { color: 0xffadeb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.16 },
-  sudoGems_1: { color: 0xffadeb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.16 },
+  sudoGems_0: { color: 0xffadeb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.42 },
+  sudoGems_1: { color: 0xffadeb, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.42 },
   sudoGems_2: { color: 0x3cc2ac, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0 },
   rayGhoul_0: { color: 0xffc799, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
   rayGhoul_1: { color: 0xf1c79b, emissive: 0x000000, emissiveIntensity: 1, roughness: 1, metalness: 0 },
@@ -133,7 +133,7 @@ const ACCENT: Record<
   rayGhoul_3: { color: 0x000000, emissive: 0x000000, emissiveIntensity: 1 },
   rayGhoul_4: { color: 0x050505, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.85, metalness: 0.02 },
   eyeTears_0: { color: 0x414dd2, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.6, metalness: 0.6 },
-  bullHorns_0: { color: 0xd6c084, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.2, metalness: 0.7 },
+  bullHorns_0: { color: 0xeed07c, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.37, metalness: 0.7 },
   key_0: { color: 0xeab950, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.66, metalness: 1 },
   vaporwaveTea_0: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.63, metalness: 0.74 },
   vaporwaveTea_1: { color: 0xba942b, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.62, metalness: 0.78 },
