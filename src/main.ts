@@ -1530,10 +1530,10 @@ const appModeViewBtn = q<HTMLButtonElement>('#appModeViewBtn');
 const appModePlayBtn = q<HTMLButtonElement>('#appModePlayBtn');
 const shot1xBtn = byId<HTMLButtonElement>('shot1xBtn');
 const shot4xBtn = byId<HTMLButtonElement>('shot4xBtn');
-const styleHashInput = byId<HTMLTextAreaElement>('styleHash');
-const styleHashGenerateBtn = byId<HTMLButtonElement>('styleHashGenerateBtn');
-const styleHashCopyBtn = byId<HTMLButtonElement>('styleHashCopyBtn');
-const styleHashApplyBtn = byId<HTMLButtonElement>('styleHashApplyBtn');
+const styleCodeInput = byId<HTMLTextAreaElement>('styleCode');
+const styleCodeGenerateBtn = byId<HTMLButtonElement>('styleCodeGenerateBtn');
+const styleCodeCopyBtn = byId<HTMLButtonElement>('styleCodeCopyBtn');
+const styleCodeApplyBtn = byId<HTMLButtonElement>('styleCodeApplyBtn');
 const playHintBanner = q<HTMLElement>('#playHintBanner');
 const camModeFixedBtn = q<HTMLButtonElement>('#camModeFixedBtn');
 const camModeFollowBtn = q<HTMLButtonElement>('#camModeFollowBtn');
@@ -4574,7 +4574,7 @@ function readStyleState(): StyleState {
   };
 }
 
-function encodeStyleHash(state: StyleState): string {
+function encodeStyleCode(state: StyleState): string {
   const body = new Uint8Array(2 + state.nums.length * 2);
   body[0] = 1;
   body[1] =
@@ -4589,7 +4589,7 @@ function encodeStyleHash(state: StyleState): string {
   return STYLE_PREFIX + bytesToB64Url(full);
 }
 
-function decodeStyleHash(raw: string): StyleState | null {
+function decodeStyleCode(raw: string): StyleState | null {
   const text = raw.replace(/\s+/g, '');
   if (!text.startsWith(STYLE_PREFIX)) return null;
   const bytes = b64UrlToBytes(text.slice(STYLE_PREFIX.length));
@@ -4647,40 +4647,40 @@ function applyStyleState(state: StyleState): void {
   setFog({ enabled: state.fogOn, near: n(21), far: n(22) });
 }
 
-function generateStyleHash(): void {
-  if (!styleHashInput) return;
-  styleHashInput.value = encodeStyleHash(readStyleState());
+function generateStyleCode(): void {
+  if (!styleCodeInput) return;
+  styleCodeInput.value = encodeStyleCode(readStyleState());
 }
 
-async function copyStyleHash(): Promise<void> {
-  if (!styleHashInput) return;
-  const hash = styleHashInput.value;
+async function copyStyleCode(): Promise<void> {
+  if (!styleCodeInput) return;
+  const code = styleCodeInput.value;
   try {
-    await navigator.clipboard.writeText(hash);
+    await navigator.clipboard.writeText(code);
   } catch {
-    styleHashInput.focus();
-    styleHashInput.select();
+    styleCodeInput.focus();
+    styleCodeInput.select();
     document.execCommand('copy');
   }
 }
 
-function applyStyleHash(): void {
-  if (!styleHashInput) return;
-  const state = decodeStyleHash(styleHashInput.value);
+function applyStyleCode(): void {
+  if (!styleCodeInput) return;
+  const state = decodeStyleCode(styleCodeInput.value);
   if (!state) {
-    styleHashInput.value = '';
+    styleCodeInput.value = '';
     return;
   }
   applyStyleState(state);
 }
 
-if (styleHashGenerateBtn) styleHashGenerateBtn.addEventListener('click', generateStyleHash);
-if (styleHashCopyBtn) {
-  styleHashCopyBtn.addEventListener('click', () => {
-    void copyStyleHash();
+if (styleCodeGenerateBtn) styleCodeGenerateBtn.addEventListener('click', generateStyleCode);
+if (styleCodeCopyBtn) {
+  styleCodeCopyBtn.addEventListener('click', () => {
+    void copyStyleCode();
   });
 }
-if (styleHashApplyBtn) styleHashApplyBtn.addEventListener('click', applyStyleHash);
+if (styleCodeApplyBtn) styleCodeApplyBtn.addEventListener('click', applyStyleCode);
 
 function setCamMode(next: PlayCameraMode, opts?: { preserveCamera?: boolean }): void {
   if (bgMode === 'ghoulball') next = 'fixed';
