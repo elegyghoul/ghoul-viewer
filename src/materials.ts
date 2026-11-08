@@ -156,6 +156,7 @@ const ACCENT: Record<
   White_Beams_BeamBallRight: { color: 0xa1a1a1 },
   White_Beams_Beam_Right: { color: 0xa1a1a1 },
   White_Beams_BeamNose: { color: 0xa1a1a1 },
+  redacted_0: { color: 0x000000, emissive: 0x000000, emissiveIntensity: 1, roughness: 0, metalness: 0 },
 
 };
 
