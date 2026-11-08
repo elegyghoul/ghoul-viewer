@@ -1528,6 +1528,12 @@ const bgModeTraitBtn = q<HTMLButtonElement>('#bgModeTraitBtn');
 const bgModeGhoulballBtn = q<HTMLButtonElement>('#bgModeGhoulballBtn');
 const appModeViewBtn = q<HTMLButtonElement>('#appModeViewBtn');
 const appModePlayBtn = q<HTMLButtonElement>('#appModePlayBtn');
+const shot1xBtn = byId<HTMLButtonElement>('shot1xBtn');
+const shot4xBtn = byId<HTMLButtonElement>('shot4xBtn');
+const styleHashInput = byId<HTMLTextAreaElement>('styleHash');
+const styleHashGenerateBtn = byId<HTMLButtonElement>('styleHashGenerateBtn');
+const styleHashCopyBtn = byId<HTMLButtonElement>('styleHashCopyBtn');
+const styleHashApplyBtn = byId<HTMLButtonElement>('styleHashApplyBtn');
 const playHintBanner = q<HTMLElement>('#playHintBanner');
 const camModeFixedBtn = q<HTMLButtonElement>('#camModeFixedBtn');
 const camModeFollowBtn = q<HTMLButtonElement>('#camModeFollowBtn');
@@ -4414,6 +4420,267 @@ function setAppMode(next: AppMode): void {
 
 appModeViewBtn.addEventListener('click', () => setAppMode('view'));
 appModePlayBtn.addEventListener('click', () => setAppMode('play'));
+
+/** PNG of the display. Scale 1 keeps the render resolution; 4 is nearest-neighbour. */
+function saveDisplayShot(scale: number): void {
+  if (!renderer) return;
+  if (dither) dither.render(renderer, scene, camera);
+  else renderer.render(scene, camera);
+  const src = renderer.domElement;
+  if (src.width < 1 || src.height < 1) return;
+  const shot = document.createElement('canvas');
+  shot.width = src.width * scale;
+  shot.height = src.height * scale;
+  const ctx = shot.getContext('2d');
+  if (!ctx) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, shot.width, shot.height);
+  const a = document.createElement('a');
+  const suffix = scale === 1 ? '' : `-${scale}x`;
+  a.href = shot.toDataURL('image/png');
+  a.download = `ghoul-${String(currentId).padStart(4, '0')}${suffix}.png`;
+  a.click();
+}
+
+if (shot1xBtn) shot1xBtn.addEventListener('click', () => saveDisplayShot(1));
+if (shot4xBtn) shot4xBtn.addEventListener('click', () => saveDisplayShot(4));
+
+/**
+ * Camera, Lighting, and Effects slider values, packed so Copy / Apply round-trip.
+ * Each number is quantized to its panel step and stored as an offset from min.
+ */
+const STYLE_PREFIX = 'gv1.';
+const STYLE_FIELDS: { step: number; min: number; max: number }[] = [
+  { step: 0.05, min: 1, max: 10 },
+  { step: 0.05, min: -12, max: 12 },
+  { step: 0.05, min: -12, max: 12 },
+  { step: 0.05, min: -12, max: 12 },
+  { step: 1, min: -180, max: 180 },
+  { step: 1, min: -180, max: 180 },
+  { step: 1, min: -180, max: 180 },
+  { step: 1, min: -7, max: 69 },
+  { step: 1, min: -180, max: 180 },
+  { step: 0.05, min: 1, max: 10 },
+  { step: 0.01, min: 0, max: 5 },
+  { step: 0.01, min: 0, max: 1 },
+  { step: 0.01, min: 0, max: 8 },
+  { step: 0.01, min: 0, max: 12 },
+  { step: 0.01, min: 0, max: 10 },
+  { step: 0.05, min: 0, max: 20 },
+  { step: 1, min: 0, max: 360 },
+  { step: 1, min: 5, max: 85 },
+  { step: 0.05, min: 0, max: 5 },
+  { step: 0.01, min: 0, max: 1 },
+  { step: 0.01, min: 0, max: 1 },
+  { step: 0.05, min: 0, max: 40 },
+  { step: 0.05, min: 0.1, max: 80 },
+];
+
+type StyleState = {
+  camFollow: boolean;
+  bloomScreen: boolean;
+  fogOn: boolean;
+  nums: number[];
+};
+
+function sliderValue(el: unknown, fallback: number): number {
+  if (!(el instanceof HTMLInputElement) || !el.isConnected) return fallback;
+  const n = Number(el.value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function stylePlaces(step: number): number {
+  return step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+}
+
+function quantizeStyle(value: number, spec: { step: number; min: number; max: number }): number {
+  const clamped = Math.min(spec.max, Math.max(spec.min, value));
+  const q = Math.round((clamped - spec.min) / spec.step);
+  const maxQ = Math.round((spec.max - spec.min) / spec.step);
+  return Math.min(maxQ, Math.max(0, q));
+}
+
+function dequantizeStyle(q: number, spec: { step: number; min: number; max: number }): number | null {
+  const maxQ = Math.round((spec.max - spec.min) / spec.step);
+  if (!Number.isInteger(q) || q < 0 || q > maxQ) return null;
+  return Number((spec.min + q * spec.step).toFixed(stylePlaces(spec.step)));
+}
+
+function crc16Ccitt(bytes: Uint8Array): number {
+  let crc = 0xffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i]! << 8;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc & 0x8000) !== 0 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+  }
+  return crc;
+}
+
+function bytesToB64Url(bytes: Uint8Array): string {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64UrlToBytes(text: string): Uint8Array | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(text)) return null;
+  const pad = text.length % 4 === 0 ? '' : '='.repeat(4 - (text.length % 4));
+  try {
+    const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/') + pad);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+function readStyleState(): StyleState {
+  const view = getView();
+  const follow = getFollow();
+  const bloom = getBloom();
+  const fog = getFog();
+  const raw = [
+    sliderValue(camZoomInput, view.zoom),
+    sliderValue(camPosXInput, view.position.x),
+    sliderValue(camPosYInput, view.position.y),
+    sliderValue(camPosZInput, view.position.z),
+    sliderValue(camRotXInput, view.rotation.x),
+    sliderValue(camRotYInput, view.rotation.y),
+    sliderValue(camRotZInput, view.rotation.z),
+    sliderValue(camFollowPitchInput, follow.pitch),
+    sliderValue(camFollowYawInput, follow.yaw),
+    sliderValue(camFollowDistInput, follow.distance),
+    sliderValue(lightMasterInput, lightMix.master),
+    sliderValue(lightAmbientInput, lightMix.ambient),
+    sliderValue(lightHemiInput, lightMix.hemi),
+    sliderValue(lightKeyInput, lightMix.key),
+    sliderValue(lightFillInput, lightMix.fill),
+    sliderValue(lightSunInput, lightMix.sun),
+    sliderValue(lightSunAzimuthInput, lightMix.sunAzimuth),
+    sliderValue(lightSunElevationInput, lightMix.sunElevation),
+    sliderValue(bloomStrengthInput, bloom.strength),
+    sliderValue(bloomRadiusInput, bloom.radius),
+    sliderValue(bloomThresholdInput, bloom.threshold),
+    sliderValue(fogNearInput, fog.near),
+    sliderValue(fogFarInput, fog.far),
+  ];
+  return {
+    camFollow: playMode.cameraMode === 'follow',
+    bloomScreen: bloom.mode === 'screen',
+    fogOn: fog.enabled,
+    nums: raw.map((value, i) => quantizeStyle(value, STYLE_FIELDS[i]!)),
+  };
+}
+
+function encodeStyleHash(state: StyleState): string {
+  const body = new Uint8Array(2 + state.nums.length * 2);
+  body[0] = 1;
+  body[1] =
+    (state.camFollow ? 1 : 0) | (state.bloomScreen ? 2 : 0) | (state.fogOn ? 4 : 0);
+  const view = new DataView(body.buffer);
+  state.nums.forEach((q, i) => view.setUint16(2 + i * 2, q, true));
+  const crc = crc16Ccitt(body);
+  const full = new Uint8Array(body.length + 2);
+  full.set(body);
+  full[body.length] = crc & 0xff;
+  full[body.length + 1] = crc >> 8;
+  return STYLE_PREFIX + bytesToB64Url(full);
+}
+
+function decodeStyleHash(raw: string): StyleState | null {
+  const text = raw.replace(/\s+/g, '');
+  if (!text.startsWith(STYLE_PREFIX)) return null;
+  const bytes = b64UrlToBytes(text.slice(STYLE_PREFIX.length));
+  const expect = 2 + STYLE_FIELDS.length * 2 + 2;
+  if (!bytes || bytes.length !== expect || bytes[0] !== 1) return null;
+  if ((bytes[1]! & ~0x07) !== 0) return null;
+  const body = bytes.subarray(0, bytes.length - 2);
+  const crc = bytes[bytes.length - 2]! | (bytes[bytes.length - 1]! << 8);
+  if (crc16Ccitt(body) !== crc) return null;
+  const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
+  const nums: number[] = [];
+  for (let i = 0; i < STYLE_FIELDS.length; i++) {
+    const q = view.getUint16(2 + i * 2, true);
+    if (dequantizeStyle(q, STYLE_FIELDS[i]!) == null) return null;
+    nums.push(q);
+  }
+  return {
+    camFollow: (bytes[1]! & 1) !== 0,
+    bloomScreen: (bytes[1]! & 2) !== 0,
+    fogOn: (bytes[1]! & 4) !== 0,
+    nums,
+  };
+}
+
+function styleNumber(state: StyleState, index: number): number {
+  return dequantizeStyle(state.nums[index]!, STYLE_FIELDS[index]!)!;
+}
+
+function applyStyleState(state: StyleState): void {
+  const n = (i: number) => styleNumber(state, i);
+  setFollow({ pitch: n(7), yaw: n(8), distance: n(9) });
+  setCamMode('fixed', { preserveCamera: true });
+  setView({
+    zoom: n(0),
+    position: { x: n(1), y: n(2), z: n(3) },
+    rotation: { x: n(4), y: n(5), z: n(6) },
+  });
+  if (state.camFollow) setCamMode('follow');
+  setLights({
+    master: n(10),
+    ambient: n(11),
+    hemi: n(12),
+    key: n(13),
+    fill: n(14),
+    sun: n(15),
+    sunAzimuth: n(16),
+    sunElevation: n(17),
+  });
+  setBloom({
+    mode: state.bloomScreen ? 'screen' : 'objects',
+    strength: n(18),
+    radius: n(19),
+    threshold: n(20),
+  });
+  setFog({ enabled: state.fogOn, near: n(21), far: n(22) });
+}
+
+function generateStyleHash(): void {
+  if (!styleHashInput) return;
+  styleHashInput.value = encodeStyleHash(readStyleState());
+}
+
+async function copyStyleHash(): Promise<void> {
+  if (!styleHashInput) return;
+  const hash = styleHashInput.value;
+  try {
+    await navigator.clipboard.writeText(hash);
+  } catch {
+    styleHashInput.focus();
+    styleHashInput.select();
+    document.execCommand('copy');
+  }
+}
+
+function applyStyleHash(): void {
+  if (!styleHashInput) return;
+  const state = decodeStyleHash(styleHashInput.value);
+  if (!state) {
+    styleHashInput.value = '';
+    return;
+  }
+  applyStyleState(state);
+}
+
+if (styleHashGenerateBtn) styleHashGenerateBtn.addEventListener('click', generateStyleHash);
+if (styleHashCopyBtn) {
+  styleHashCopyBtn.addEventListener('click', () => {
+    void copyStyleHash();
+  });
+}
+if (styleHashApplyBtn) styleHashApplyBtn.addEventListener('click', applyStyleHash);
 
 function setCamMode(next: PlayCameraMode, opts?: { preserveCamera?: boolean }): void {
   if (bgMode === 'ghoulball') next = 'fixed';

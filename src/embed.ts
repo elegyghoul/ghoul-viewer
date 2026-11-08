@@ -136,6 +136,7 @@ const TOOL_TITLES: Record<string, string> = {
   anim: 'Animation',
   lighting: 'Lighting',
   bloom: 'Effects',
+  save: 'Save',
 };
 
 const TOOL_PANES: Record<string, string> = {
@@ -144,6 +145,7 @@ const TOOL_PANES: Record<string, string> = {
   anim: 'animControls',
   lighting: 'brightnessControls',
   bloom: 'bloomControls',
+  save: 'saveControls',
 };
 
 function shellEl<T extends HTMLElement>(id: string): T | null {
@@ -224,7 +226,7 @@ if (slot) {
   shellRoot().querySelector('.ghoul-stage')?.addEventListener('pointerup', () => {
     const el = focusedInShell();
     if (!(el instanceof HTMLElement)) return;
-    if (el instanceof HTMLInputElement) return;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
     if (el.closest('.ghoul-controls, .ghoul-mode-tabs, .ghoul-tool-tabs, .ghoul-id-picker')) {
       el.blur();
     }

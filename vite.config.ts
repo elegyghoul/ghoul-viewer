@@ -797,8 +797,9 @@ export default defineConfig(({ command }) => ({
   server: {
     // Keep material writes local-dev only; plugin is serve-only anyway.
     watch: {
-      // Windows EBUSY when the IDE has a PNG open (palette strips).
-      ignored: ['**/*.png'],
+      // Windows EBUSY when the IDE has a PNG open (palette strips, ghoul renders).
+      // UI icons stay watched so a new public/ui PNG is served without a restart.
+      ignored: ['**/*.png', '!**/public/ui/**'],
     },
   },
   build: {

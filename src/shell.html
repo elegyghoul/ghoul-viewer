@@ -315,6 +315,36 @@
                     <span id="fogFarVal">3.80</span>
                   </label>
                 </div>
+                <div id="saveControls" class="fx-pane" role="tabpanel" aria-label="Save" hidden>
+                  <div class="fx-group-title">Screenshot</div>
+                  <div class="save-btn-row">
+                    <button id="shot1xBtn" class="pane-reset-btn" type="button" title="Save a screenshot at render resolution">
+                      1x Capture
+                    </button>
+                    <button id="shot4xBtn" class="pane-reset-btn" type="button" title="Save a 4× nearest-neighbour screenshot">
+                      4x Capture
+                    </button>
+                  </div>
+                  <div class="fx-group-title">Style Hash</div>
+                  <button id="styleHashGenerateBtn" class="pane-reset-btn" type="button" title="Write the current style hash">
+                    Generate
+                  </button>
+                  <textarea
+                    id="styleHash"
+                    class="style-hash"
+                    spellcheck="false"
+                    autocomplete="off"
+                    aria-label="Style hash"
+                  ></textarea>
+                  <div class="save-btn-row">
+                    <button id="styleHashCopyBtn" class="pane-reset-btn" type="button" title="Copy the style hash">
+                      Copy
+                    </button>
+                    <button id="styleHashApplyBtn" class="pane-reset-btn" type="button" title="Apply the style hash in the box">
+                      Apply
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -336,7 +366,8 @@
               Play
             </button>
           </div>
-          <div class="ghoul-tool-tabs" role="tablist" aria-label="Viewer tools">
+          <div class="ghoul-tool-tabs">
+            <div class="ghoul-tool-tablist" role="tablist" aria-label="Viewer tools">
             <button
               type="button"
               class="ghoul-tool-tab"
@@ -396,6 +427,19 @@
               title="Effects"
             >
               <img src="/ui/icon_bloom.png" alt="" width="15" height="15" />
+            </button>
+            </div>
+            <button
+              type="button"
+              class="ghoul-tool-tab ghoul-save-btn"
+              id="toolTabSave"
+              role="tab"
+              aria-selected="false"
+              aria-controls="saveControls"
+              data-panel="save"
+              title="Save"
+            >
+              <img src="/ui/icon_save.png" alt="" width="15" height="15" />
             </button>
           </div>
         </div>

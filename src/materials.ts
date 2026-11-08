@@ -76,7 +76,7 @@ const ACCENT: Record<
   RagBlue: { color: 0x3a5aaa },
   RoseRed: { color: 0xcc2244 },
   RosePink: { color: 0xf5a8bf, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.39, metalness: 0.1 },
-  RoseWhite: { color: 0x949494, roughness: 0.85, metalness: 0.51 },
+  RoseWhite: { color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.85, metalness: 0.51 },
   RoseDead: { color: 0x7d756d, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.62, metalness: 0.4 },
   RoseGreen: { color: 0x267e26, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.85, metalness: 0.02 },
   RoseDeadGreen: { color: 0x486837, emissive: 0x000000, emissiveIntensity: 1, roughness: 0.53, metalness: 0.32 },

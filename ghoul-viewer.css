@@ -13,7 +13,7 @@
 */
 
 :host {
-  color: #cc8329;
+  color: #f29b30;
   font-family: 'BMAS Pixel Console', monospace;
   font-size: 10px;
   line-height: normal;
@@ -25,9 +25,9 @@
 
 .ghoul-stage-scale {
   --gv-scale: 1;
-  --gv-accent: #cc8329;
-  --gv-ink: #000;
-  --gv-surface: #000;
+  --gv-accent: #f29b30;
+  --gv-ink: #080808;
+  --gv-surface: #080808;
   --gv-font: 'BMAS Pixel Console', monospace;
   --gv-view: 155px;
   --gv-border: 1px;
@@ -282,10 +282,17 @@
 .ghoul-tool-tabs {
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
+  height: var(--gv-icon);
+}
+.ghoul-tool-tablist {
+  display: flex;
+  flex-direction: row;
   gap: var(--gv-gap);
   height: var(--gv-icon);
 }
-.ghoul-tool-tab {
+.ghoul-tool-tab,
+.ghoul-save-btn {
   width: var(--gv-icon);
   height: var(--gv-icon);
   padding: 0;
@@ -294,8 +301,13 @@
   background: transparent;
   cursor: pointer;
   line-height: 0;
+  flex-shrink: 0;
 }
-.ghoul-tool-tab img {
+.ghoul-save-btn {
+  margin-left: auto;
+}
+.ghoul-tool-tab img,
+.ghoul-save-btn img {
   display: block;
   width: var(--gv-icon);
   height: var(--gv-icon);
@@ -531,6 +543,41 @@
   background: var(--gv-accent);
   color: var(--gv-ink);
   border-color: var(--gv-accent);
+}
+#saveControls > .pane-reset-btn {
+  width: 100%;
+  flex-shrink: 0;
+}
+.style-hash {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--gv-accent);
+  background: var(--gv-surface);
+  color: var(--gv-accent);
+  font-family: var(--gv-font);
+  font-size: var(--gv-title-size);
+  line-height: 12px;
+  resize: none;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.save-btn-row {
+  display: flex;
+  flex-direction: row;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.save-btn-row .pane-reset-btn {
+  flex: 1;
+  width: auto;
+  margin-top: 0;
+  padding: 0 2px;
 }
 .bloom-mode-tabs,
 .camera-mode-tabs {
