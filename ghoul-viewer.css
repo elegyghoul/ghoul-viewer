@@ -105,6 +105,8 @@
   gap: var(--gv-gap);
   width: 100%;
   height: var(--gv-icon);
+  /* Fill the row so a host page background of #000 cannot show through the gaps. */
+  background: var(--gv-surface);
 }
 .ghoul-tab-row > .ghoul-mode-tabs,
 .ghoul-tab-row > .ghoul-tool-tabs {
