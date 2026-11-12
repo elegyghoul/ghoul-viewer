@@ -163,7 +163,6 @@ function bindScaleFit(host: HTMLElement): void {
   if (!stage) return;
   const apply = (): void => {
     stage.style.setProperty('--gv-scale', '1');
-    stage.classList.remove('is-scaled');
     const nativeW = stage.offsetWidth;
     const nativeH = stage.offsetHeight;
     if (nativeW < 1 || nativeH < 1) return;
@@ -173,7 +172,6 @@ function bindScaleFit(host: HTMLElement): void {
       return;
     }
     stage.style.setProperty('--gv-scale', String(scale));
-    stage.classList.add('is-scaled');
   };
   apply();
   new ResizeObserver(apply).observe(host);
